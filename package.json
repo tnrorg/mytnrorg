@@ -1,0 +1,37 @@
+{
+  "name": "tnr-election-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tehreek-e-Nojawanan Roundu (TNR) \u2014 Organization Internal Election Portal",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "check": "node scripts/check-undefined.js",
+    "prebuild": "node scripts/check-undefined.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "bcryptjs": "^2.4.3",
+    "country-state-city": "^3.2.1",
+    "framer-motion": "^12.43.0",
+    "jsonwebtoken": "^9.0.2",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2",
+    "lucide-react": "^1.28.0",
+    "next": "14.2.33",
+    "nodemailer": "^6.9.14",
+    "papaparse": "^5.4.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7",
+    "twilio": "^5.3.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.10"
+  }
+}

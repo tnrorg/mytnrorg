@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>TNR Membership Card — Print Ready (54 × 86 mm + 3 mm bleed)</title>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --green:#0B5836; --deep:#063D2B; --gold:#C9A227; --gold-lt:#E8C766;
+    --ink:#1F2937; --muted:#6B7280; --line:#E5E7EB;
+    --trim-w:54mm; --trim-h:86mm; --bleed:3mm;
+    --card-w:60mm;  /* 54 + 3 + 3 */
+    --card-h:92mm;  /* 86 + 3 + 3 */
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Mulish,system-ui,sans-serif;background:#EEF1F0;padding:14mm;color:var(--ink)}
+  .sheet{display:flex;gap:12mm;flex-wrap:wrap;justify-content:center}
+  .wrap{text-align:center}
+  .cap{font-size:9pt;color:#6B7280;margin-bottom:3mm;font-weight:700;letter-spacing:.08em}
+
+  /* Card = trim + bleed. Everything vital sits inside the safe area. */
+  .card{
+    position:relative;width:var(--card-w);height:var(--card-h);
+    background:#FFFFFF;border-radius:4mm;overflow:hidden;
+    box-shadow:0 6mm 14mm rgba(0,0,0,.14);
+  }
+  /* Light geometric security pattern */
+  .card::before{
+    content:"";position:absolute;inset:0;opacity:.5;
+    background-image:
+      repeating-linear-gradient(45deg,#F3F5F4 0 1px,transparent 1px 5px),
+      repeating-linear-gradient(-45deg,#F6F8F7 0 1px,transparent 1px 9px);
+  }
+  /* Faint logo watermark */
+  .wm{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);
+      width:44mm;opacity:.045;pointer-events:none}
+  .safe{position:absolute;inset:var(--bleed);padding:3.2mm;display:flex;flex-direction:column}
+
+  /* ── corner badge ── */
+  .badge{position:absolute;top:0;right:0;width:20mm;height:11mm;
+    background:linear-gradient(135deg,var(--green),var(--deep));
+    border-bottom-left-radius:9mm;display:grid;place-items:center;
+    color:#fff;font-weight:900;font-size:11pt;letter-spacing:.06em;
+    border-left:.5mm solid var(--gold);border-bottom:.5mm solid var(--gold)}
+
+  .logo{width:15mm;height:15mm;object-fit:contain}
+  .org{font-size:6pt;letter-spacing:.14em;font-weight:800;color:var(--muted);text-align:center}
+  .name-lg{font-size:15pt;font-weight:900;color:var(--deep);text-align:center;line-height:1;letter-spacing:.02em}
+  .values{display:flex;align-items:center;justify-content:center;gap:1.2mm;
+    font-size:4.6pt;letter-spacing:.12em;color:var(--muted);font-weight:700;margin-top:1mm}
+  .values .star{color:var(--gold)}
+  .rule{height:.35mm;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:1.6mm 0}
+
+  .photo{width:23mm;height:28mm;object-fit:cover;border-radius:2mm;
+    border:.4mm solid var(--gold);background:#F3F4F6;display:block;margin:0 auto}
+
+  .member{font-size:11.5pt;font-weight:900;color:var(--deep);text-align:center;line-height:1.05;margin-top:2mm}
+  .status{display:flex;align-items:center;justify-content:center;gap:1mm;margin-top:.6mm;
+    font-size:6.4pt;font-weight:800;color:var(--gold);letter-spacing:.08em}
+  .tick{width:2.6mm;height:2.6mm;border-radius:50%;background:var(--gold);color:#fff;
+    font-size:4pt;display:grid;place-items:center;font-weight:900}
+
+  table.rows{width:100%;border-collapse:collapse;margin-top:2mm}
+  table.rows td{font-size:5.6pt;padding:.75mm 0;vertical-align:middle}
+  table.rows td.k{color:var(--muted);font-weight:700;letter-spacing:.03em;white-space:nowrap;width:47%}
+  table.rows td.v{color:var(--ink);font-weight:800;text-align:right}
+  table.rows tr+tr td{border-top:.18mm solid var(--line)}
+
+  .sign{margin-top:auto;text-align:center;padding-top:1.5mm}
+  .sig-line{width:26mm;height:.3mm;background:#9CA3AF;margin:0 auto 1mm}
+  .sig-t{font-size:4.6pt;color:var(--muted);letter-spacing:.06em;font-weight:700;line-height:1.5}
+
+  /* Bottom wave */
+  .wave{position:absolute;left:0;right:0;bottom:0;height:14mm;pointer-events:none}
+  .proud{position:absolute;right:3.6mm;bottom:2.6mm;text-align:right;color:#fff;z-index:2}
+  .proud .s{font-size:4.2pt;letter-spacing:.1em;opacity:.85;font-weight:700}
+  .proud .b{font-size:6.4pt;font-weight:900;letter-spacing:.14em;white-space:nowrap}
+  .proud .stars{font-size:4.5pt;color:var(--gold-lt);letter-spacing:.2em}
+
+  /* ── BACK ── */
+  .qr-box{width:32mm;height:32mm;margin:0 auto;padding:1.6mm;background:#fff;
+    border:.5mm solid var(--green);border-radius:2mm}
+  .qr-box img{width:100%;height:100%;display:block}
+  .scan{margin:2mm auto 0;display:block;width:30mm;text-align:center;
+    background:linear-gradient(135deg,var(--green),var(--deep));color:#fff;
+    font-size:5.6pt;font-weight:800;letter-spacing:.08em;padding:1.4mm 0;border-radius:6mm}
+  .verified{display:flex;align-items:center;justify-content:center;gap:1.2mm;margin-top:1.6mm;
+    font-size:5.6pt;font-weight:900;color:var(--green);letter-spacing:.06em}
+  .h{font-size:5.6pt;font-weight:900;color:var(--deep);letter-spacing:.1em;margin:2mm 0 .8mm;
+    display:flex;align-items:center;gap:1.2mm}
+  .h .dot{width:2.6mm;height:2.6mm;border-radius:50%;background:var(--green)}
+  .p{font-size:5pt;line-height:1.5;color:var(--muted)}
+  ul.ben{list-style:none;margin-top:.4mm}
+  ul.ben li{font-size:4.9pt;color:var(--ink);padding:.35mm 0 .35mm 3.4mm;position:relative;line-height:1.35}
+  ul.ben li::before{content:"✓";position:absolute;left:0;color:var(--green);font-weight:900;font-size:4.6pt}
+  .contact{margin-top:auto;border-top:.3mm solid var(--gold);padding-top:1.4mm;
+    display:flex;justify-content:space-between;gap:1mm}
+  .contact div{font-size:4.3pt;color:var(--muted);text-align:center;line-height:1.4;flex:1}
+  .contact b{display:block;color:var(--green);font-size:4.6pt;font-weight:900}
+
+  @media print{
+    @page{size:60mm 92mm;margin:0}
+    body{background:#fff;padding:0}
+    .cap,.legend{display:none}
+    .sheet{display:block;gap:0}
+    .card{box-shadow:none;border-radius:0;page-break-after:always;margin:0}
+    .wrap{margin:0}
+  }
+  .legend{max-width:150mm;margin:10mm auto 0;font-size:9pt;color:#4B5563;line-height:1.6}
+  .legend b{color:#111}
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <!-- ══════════════ FRONT ══════════════ -->
+  <div class="wrap">
+    <div class="cap">FRONT — 54 × 86 mm + 3 mm BLEED</div>
+    <div class="card">
+      <img class="wm" src="/tnr-logo.png" alt="">
+      <div class="badge">TNR</div>
+      <div class="safe">
+
+        <img class="logo" src="/tnr-logo.png" alt="TNR" style="margin:0 auto">
+
+        <div style="margin-top:1.2mm">
+          <div class="org">TEHREEK-E-NOJAWANAN</div>
+          <div class="name-lg">ROUNDU</div>
+          <div class="values">
+            <span>UNITY</span><span>|</span><span>EDUCATION</span>
+            <span class="star">★</span><span>DEVELOPMENT</span><span>|</span><span>VISION</span>
+          </div>
+        </div>
+
+        <div class="rule"></div>
+        <div style="font-size:4.8pt;letter-spacing:.16em;color:var(--gold);font-weight:900;text-align:center;margin-bottom:1.6mm">
+          DIGITAL MEMBERSHIP CARD
+        </div>
+
+        <img class="photo" src="/tnr-logo.png" alt="Member photograph">
+
+        <div class="member">MUHAMMAD HAMZA</div>
+        <div class="status"><span class="tick">✓</span>ACTIVE MEMBER</div>
+
+        <table class="rows">
+          <tr><td class="k">MEMBERSHIP ID</td><td class="v">TNR-2026-000125</td></tr>
+          <tr><td class="k">CATEGORY</td><td class="v">General Member</td></tr>
+          <tr><td class="k">VILLAGE / AREA</td><td class="v">Roundu Sharif</td></tr>
+          <tr><td class="k">UNION COUNCIL</td><td class="v">Roundu</td></tr>
+          <tr><td class="k">DATE OF ISSUE</td><td class="v">01 May 2026</td></tr>
+          <tr><td class="k">VALID UNTIL</td><td class="v">30 April 2027</td></tr>
+        </table>
+
+        <div class="sign">
+          <div class="sig-line"></div>
+          <div class="sig-t">AUTHORIZED SIGNATURE<br><b style="color:var(--deep)">Central President</b><br>Tehreek-e-Nojawanan Roundu</div>
+        </div>
+      </div>
+
+      <svg class="wave" viewBox="0 0 60 14" preserveAspectRatio="none">
+        <path d="M0 6 Q 15 0 30 4 T 60 2 L60 14 L0 14 Z" fill="#063D2B"/>
+        <path d="M0 8.4 Q 15 2.6 30 6.4 T 60 4.4" fill="none" stroke="#C9A227" stroke-width=".45"/>
+      </svg>
+      <div class="proud">
+        <div class="b">PROUD TO SERVE ROUNDU</div>
+        <div class="stars">★ ★ ★</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ BACK ══════════════ -->
+  <div class="wrap">
+    <div class="cap">BACK — 54 × 86 mm + 3 mm BLEED</div>
+    <div class="card">
+      <img class="wm" src="/tnr-logo.png" alt="">
+      <div class="safe">
+
+        <div style="text-align:center">
+          <div class="org">TEHREEK-E-NOJAWANAN</div>
+          <div class="name-lg" style="font-size:13pt">ROUNDU (TNR)</div>
+          <div class="values">
+            <span>UNITY</span><span>•</span><span>EDUCATION</span>
+            <span class="star">★</span><span>DEVELOPMENT</span><span>•</span><span>VISION</span>
+          </div>
+        </div>
+        <div class="rule"></div>
+
+        <div class="qr-box">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=0&data=https%3A%2F%2Ftnroundu.org%2Fmembership%2Fverify%3Fid%3DTNR-2026-000125" alt="Verification QR code">
+        </div>
+        <div class="scan">🛡 SCAN TO VERIFY</div>
+        <div class="verified">🛡 VERIFIED TNR MEMBER</div>
+
+        <div class="h"><span class="dot"></span>ABOUT TNR</div>
+        <p class="p">Tehreek-e-Nojawanan Roundu is a youth-led organization committed to
+          education, unity, responsible leadership, community development, and a better future for Roundu.</p>
+
+        <div class="h"><span class="dot"></span>MEMBER BENEFITS</div>
+        <ul class="ben">
+          <li>Participation in TNR programs and events</li>
+          <li>Volunteer opportunities</li>
+          <li>Leadership development</li>
+          <li>Community welfare initiatives</li>
+          <li>Access to jobs and scholarships</li>
+          <li>Voting rights where eligible</li>
+        </ul>
+
+        <div class="contact">
+          <div><b>WEBSITE</b>www.tnroundu.org</div>
+          <div><b>EMAIL</b>info@tnroundu.org</div>
+          <div><b>PHONE</b>+92 300 1234567</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="legend">
+  <p><b>Print:</b> Ctrl/Cmd + P → Destination “Save as PDF” → Margins <b>None</b> → tick <b>Background graphics</b>.
+  Each side prints on its own 60 × 92 mm page (54 × 86 trim + 3 mm bleed all round).</p>
+  <p style="margin-top:3mm"><b>To finish:</b> replace the placeholder photo <code>src</code> with the member’s
+  photograph, and swap <code>/tnr-logo.png</code> for your full-colour logo file if you save it under a new name.</p>
+</div>
+
+</body>
+</html>

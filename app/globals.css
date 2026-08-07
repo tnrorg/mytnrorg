@@ -1,0 +1,250 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+
+html, body { height: 100%; }
+html {
+  font-family: var(--font-mulish), Mulish, system-ui, sans-serif;
+}
+body {
+  background:
+    radial-gradient(1100px 600px at 50% -12%, rgba(30,122,82,0.28), transparent 60%),
+    linear-gradient(180deg, #071410 0%, #0A0F0C 100%);
+  color: #F7F5EE;
+  font-family: var(--font-mulish), Mulish, system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv01", "cv11";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100%;
+}
+button, input, textarea, select, option { font-family: inherit; }
+
+/* Urdu text helper */
+.urdu { font-family: '"Noto Nastaliq Urdu"', serif; direction: rtl; line-height: 2.2; }
+
+/* Reusable component layer */
+@layer components {
+  .card {
+    @apply rounded-2xl border border-tnr-line bg-[#0E1A14]/80 backdrop-blur shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-gold {
+    @apply btn bg-gradient-to-b from-tnr-goldLight to-tnr-gold text-tnr-black shadow-gold hover:brightness-105;
+  }
+  .btn-green {
+    @apply btn bg-tnr-green2 text-white border border-tnr-line hover:bg-tnr-greenLight;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-tnr-cream border border-tnr-line hover:bg-white/5;
+  }
+  .input {
+    @apply w-full rounded-xl border border-tnr-line bg-black/30 px-4 py-3 text-white placeholder-white/40
+           outline-none focus:border-tnr-gold focus:ring-2 focus:ring-tnr-gold/30 transition;
+  }
+  .label { @apply block text-sm font-medium text-tnr-cream/80 mb-1.5; }
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold; }
+  .stat { @apply card p-5 flex flex-col gap-1; }
+  .gold-divider { @apply h-px w-full bg-gold-line; }
+  .heading-gold {
+    @apply bg-gradient-to-r from-tnr-goldLight via-tnr-gold to-tnr-goldLight bg-clip-text text-transparent;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(201,162,39,0.35); border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* OTP boxes */
+.otp-input { @apply w-12 h-14 text-center text-2xl font-bold; }
+
+/* Voting flow: mountain-green cards on the snow-white page */
+.vote-green .card {
+  background: linear-gradient(165deg, #0B6B4F 0%, #063D2B 100%);
+  border-color: rgba(212, 167, 44, 0.35);
+  color: #F7F5EE; /* text inside green cards stays cream, even where no color class is set */
+}
+
+
+/* ── Light-themed pages ────────────────────────────────────────────────
+   The app root declares `color-scheme: dark`, which makes browsers paint
+   every form control with a dark background. Light pages (public site,
+   membership, member portal) opt back into light form controls here. */
+.light-page { color-scheme: light; }
+.light-page input,
+.light-page textarea,
+.light-page select {
+  color-scheme: light;
+  background-color: #FFFFFF;
+  color: #111827;
+}
+.light-page input::placeholder,
+.light-page textarea::placeholder { color: #9CA3AF; }
+.light-page input:disabled,
+.light-page select:disabled { background-color: #F3F4F6; color: #6B7280; }
+.light-page option { background-color: #FFFFFF; color: #111827; }
+
+/* ── Admin console: snow-white page, mountain-green cards ──────────────
+   The shell is light so the console reads as a clean document; every card
+   keeps the TNR mountain green. Order matters below: the page-level rule
+   darkens text for the white background first, then the card rules put the
+   cream back on green surfaces. Relying on :not(.card *) alone was not
+   reliable, so card content is restored explicitly. */
+.admin-light { background: #FDFDFD; color: #15231D; }
+
+/* 1 — text sitting on the white page */
+.admin-light [class*="text-tnr-cream"] { color: #4B5563 !important; }
+.admin-light > main .heading-gold {
+  background: none; -webkit-text-fill-color: initial; color: #063D2B;
+}
+
+/* 2 — mountain-green surfaces */
+.admin-light .card,
+.admin-light .stat {
+  background: linear-gradient(165deg, #0E7A5A 0%, #07452F 100%);
+  border-color: rgba(212, 167, 44, 0.30);
+  color: #F7F5EE;
+  box-shadow: 0 1px 3px rgba(6, 61, 43, .10);
+}
+.admin-light aside {
+  background: linear-gradient(180deg, #063D2B 0%, #04241A 100%);
+  border-color: rgba(212, 167, 44, 0.22);
+}
+
+/* 3 — restore legible text on those green surfaces. Higher specificity than
+   rule 1, so card and sidebar content stays cream whatever utility it uses. */
+.admin-light .card [class*="text-tnr-cream"],
+.admin-light .stat [class*="text-tnr-cream"],
+.admin-light aside [class*="text-tnr-cream"] { color: #F1EDE2 !important; }
+.admin-light .card h1, .admin-light .card h2, .admin-light .card h3,
+.admin-light .card h4, .admin-light .card label, .admin-light .card th {
+  color: #FFFDF7;
+}
+.admin-light .card p, .admin-light .card td, .admin-light .card li,
+.admin-light .card span:not([class*="text-"]) { color: #E4EFE9; }
+.admin-light .card .heading-gold { color: #EBC55C; }
+
+/* Inputs inside a green card: darker well, cream text. */
+.admin-light .card .input,
+.admin-light .card input, .admin-light .card textarea, .admin-light .card select {
+  background: rgba(3, 26, 18, .45);
+  border-color: rgba(212, 167, 44, .28);
+  color: #FFFDF7;
+}
+.admin-light .card input::placeholder,
+.admin-light .card textarea::placeholder { color: rgba(241, 237, 226, .55); }
+.admin-light .card .btn-ghost { color: #FFFDF7; border-color: rgba(212, 167, 44, .45); }
+.admin-light .card .btn-ghost:hover { background: rgba(255, 255, 255, .10); }
+
+/* Inputs and ghost buttons that sit directly on the white page. */
+.admin-light > main > .input,
+.admin-light > main > div > .input { background: #fff; border-color: #E5E7EB; color: #15231D; }
+/* Destructive actions need to stay legible against the green. */
+.admin-light .card .text-red-400 { color: #FCA5A5; }
+.admin-light .card .text-red-300 { color: #FECACA; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DESIGN SYSTEM FOUNDATION (Phase 2)
+   Tokens mirror lib/design/tokens.js and the Tailwind `tnr` palette.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --tnr-green-950: #062D21;
+  --tnr-green-900: #0A3D2C;
+  --tnr-green-800: #0F5138;
+  --tnr-green-700: #176B49;
+  --tnr-gold-500:  #C89A2B;
+  --tnr-gold-400:  #D7AE4A;
+  --tnr-white:     #FFFFFF;
+  --tnr-snow:      #F8FAF8;
+  --tnr-neutral:   #F1F4F2;
+  --tnr-charcoal:  #17211C;
+  --tnr-muted:     #647169;
+
+  /* Motion scale — micro / standard / reveal, per the spec. */
+  --tnr-dur-micro: 150ms;
+  --tnr-dur-standard: 250ms;
+  --tnr-dur-reveal: 450ms;
+  --tnr-ease: cubic-bezier(.22,.61,.36,1);
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────
+   The audit found zero handling for this. Anyone who has asked their OS to
+   reduce motion now gets a near-static experience, including Framer Motion
+   (which respects these overrides because it animates real CSS). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Visible focus ────────────────────────────────────────────────────────
+   Keyboard users must always be able to see where they are. Gold reads on
+   both the dark shell and the snow-white pages. */
+:focus-visible {
+  outline: 2px solid var(--tnr-gold-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* Only suppress the ring for pointer users, never for keyboard. */
+:focus:not(:focus-visible) { outline: none; }
+
+/* ── Skip to content ──────────────────────────────────────────────────────
+   Visually hidden until focused, so keyboard and screen-reader users can
+   jump past the navigation. */
+.tnr-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+}
+.tnr-skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--tnr-green-900);
+  color: #fff;
+  border: 2px solid var(--tnr-gold-500);
+  border-radius: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+/* ── Screen-reader-only text (for chart summaries and icon buttons) ────── */
+.tnr-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+/* ── Hero carousel type scale ──────────────────────────────────────────────
+   Each slide carries its own phone and desktop font sizes, chosen by an admin.
+   Inline styles cannot hold a media query, so the sizes arrive as CSS custom
+   properties on the slide and these two rules pick the right one. A size that
+   reads well on a 15-inch screen is unusable on a phone, which is why the two
+   are stored and applied separately rather than scaled from one number. */
+.hero-title { font-size: var(--hero-title-m); line-height: 1.08; }
+.hero-text  { font-size: var(--hero-text-m); }
+@media (min-width: 1024px) {
+  .hero-title { font-size: var(--hero-title-d); }
+  .hero-text  { font-size: var(--hero-text-d); }
+}
+
+/* ── Smooth scrolling ──────────────────────────────────────────────────────
+   Applies to in-page anchor jumps and the back-to-top control. The
+   prefers-reduced-motion block above already forces `scroll-behavior: auto`,
+   so this is opt-out for anyone who has asked their OS to reduce motion.
+
+   scroll-padding-top matters as much as the smoothness: the site header is
+   sticky, so without it an anchor lands underneath the header and the reader
+   sees the wrong line. 84px clears it with a little breathing room. */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 84px;
+}

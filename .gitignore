@@ -1,0 +1,22 @@
+node_modules
+.next
+.env
+.env.local
+npm-debug.log*
+.DS_Store
+/out
+# extra safety
+.env*.local
+*.local.example
+whatsapp-service/auth
+whatsapp-service/node_modules
+node_modules_REMOVE_ME_run_npm_install
+
+# Installers and large binaries must never enter the repo — GitHub rejects
+# anything over 100 MB, and the rejection blocks the whole push.
+*.exe
+*.msi
+*.dmg
+*.zip
+*.7z
+*.iso
