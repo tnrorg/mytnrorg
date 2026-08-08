@@ -11,6 +11,7 @@ import {
   MIN_AGE, MAX_AGE, organisationLabel, needsOrganisation, organisationOptional,
 } from '@/lib/membership/validateApplication';
 import AddressSelect from '@/components/membership/AddressSelect';
+import PhoneInput from '@/components/membership/PhoneInput';
 import Combobox from '@/components/ui/Combobox';
 import Avatar from '@/components/ui/Avatar';
 import { ROLES, roleLabel as ROLE_LABEL } from '@/lib/membership/roles';
@@ -389,7 +390,10 @@ export default function ApplyPage() {
                   min={dobBounds().min} max={dobBounds().max}
                   onBlur={() => blur('date_of_birth')} bad={!!showErr('date_of_birth')} />
               </Field>
-              <Field label="Mobile / WhatsApp Number" req error={showErr('mobile')}><Input value={f.mobile} onChange={v => set('mobile', v)} placeholder="+92 3xx xxxxxxx" onBlur={() => blur('mobile')} bad={!!showErr('mobile')} /></Field>
+              <Field label="Mobile / WhatsApp Number" req error={showErr('mobile')}>
+                <PhoneInput value={f.mobile} onChange={v => set('mobile', v)}
+                  onBlur={() => blur('mobile')} bad={!!showErr('mobile')} />
+              </Field>
               <Field label="Email Address" req error={showErr('email')}><Input type="email" value={f.email} onChange={v => set('email', v)} placeholder="name@example.com" onBlur={() => blur('email')} bad={!!showErr('email')} /></Field>
             </Grid>
 
