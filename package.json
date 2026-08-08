@@ -2,7 +2,7 @@
   "name": "tnr-election-portal",
   "version": "1.0.0",
   "private": true,
-  "description": "Tehreek-e-Nojawanan Roundu (TNR) \u2014 Organization Internal Election Portal",
+  "description": "Tehreek-e-Nojawanan Roundu (TNR) \u2014 Digital Community Platform",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -11,9 +11,28 @@ const mulish = Mulish({
 });
 
 export const metadata = {
-  title: 'Tehreek-e-Nojawanan Roundu — Election Portal',
-  description: 'Official online election portal of Tehreek-e-Nojawanan Roundu. Your Vote, Your Voice.',
+  metadataBase: new URL('https://www.mytnr.org'),
+  title: 'Tehreek-e-Nojawanan Roundu — Digital Community Platform',
+  description:
+    'Official digital community platform of Tehreek-e-Nojawanan Roundu — membership, leadership, projects and elections for the youth of Roundu.',
   icons: { icon: '/tnr-logo.png' },
+  openGraph: {
+    title: 'Tehreek-e-Nojawanan Roundu — Digital Community Platform',
+    description:
+      'Official digital community platform of Tehreek-e-Nojawanan Roundu — membership, leadership, projects and elections for the youth of Roundu.',
+    url: 'https://www.mytnr.org',
+    siteName: 'Tehreek-e-Nojawanan Roundu',
+    images: [{ url: '/tnr-logo.png', width: 1200, height: 630, alt: 'Tehreek-e-Nojawanan Roundu' }],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Tehreek-e-Nojawanan Roundu — Digital Community Platform',
+    description:
+      'Official digital community platform of Tehreek-e-Nojawanan Roundu — membership, leadership, projects and elections for the youth of Roundu.',
+    images: ['/tnr-logo.png'],
+  },
 };
 
 export default function RootLayout({ children }) {
