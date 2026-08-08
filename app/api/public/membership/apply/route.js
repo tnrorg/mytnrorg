@@ -6,6 +6,8 @@ import {
 } from '@/lib/membership/core';
 import { sendApplicationReceived, sendAdminNewApplication } from '@/lib/membership/emails';
 import { uploadDataUrl } from '@/lib/storage';
+import { uploadPrivateDataUrl, deletePrivatePath } from '@/lib/privateStorage';
+import { hashPassword } from '@/lib/membership/auth';
 import { validateApplication, REQUIRED_LABELS, ageFrom } from '@/lib/membership/validateApplication';
 import { ROLE_KEYS, roleLabel } from '@/lib/membership/roles';
 
@@ -76,6 +78,36 @@ export async function POST(req) {
       message: 'Your photo could not be uploaded. Please try again.' });
   }
 
+  // ── Identity documents ──
+  // These go to a PRIVATE bucket, never Cloudinary. Only the storage path is
+  // kept; admins receive a short-lived signed link when they open the
+  // application. A CNIC on a public URL would expose the number, date of
+  // birth, address and photograph to anyone who ever saw the link.
+  let cnic_front_path = null;
+  let cnic_back_path = null;
+  try {
+    cnic_front_path = await uploadPrivateDataUrl(b.cnic_front_data, 'cnic');
+    cnic_back_path = await uploadPrivateDataUrl(b.cnic_back_data, 'cnic');
+  } catch (e) {
+    // Roll back whichever side did land, so a retry does not orphan a file.
+    await deletePrivatePath(cnic_front_path);
+    await deletePrivatePath(cnic_back_path);
+    return fail('UPLOAD_FAILED', 502, {
+      message: 'Your CNIC images could not be uploaded. ' + (e?.message || 'Please try again.'),
+    });
+  }
+  if (!cnic_front_path || !cnic_back_path) {
+    await deletePrivatePath(cnic_front_path);
+    await deletePrivatePath(cnic_back_path);
+    return fail('UPLOAD_FAILED', 502, {
+      message: 'Both sides of your CNIC are required. Please upload them again.' });
+  }
+
+  // ── Sign-in password ──
+  // Hashed here and never stored or logged in plain form. Carried onto the
+  // member record at approval, so no invitation link is needed afterwards.
+  const password_hash = await hashPassword(String(b.password));
+
   // ── Insert (status ALWAYS pending_review — never auto-active) ──
   // The chosen type is recorded as a REQUEST only. The member row — and with
   // it the actual role — is created at approval by an admin, so submitting
@@ -112,6 +144,9 @@ export async function POST(req) {
     mobile, mobile_normalized: mobile,
     email, email_normalized: email,
     photo_url,
+    cnic_number: String(b.cnic_number || '').replace(/[\s-]/g, '') || null,
+    cnic_front_path, cnic_back_path,
+    password_hash,
     education_level: b.education_level || null,
     // Category and free text kept apart: the category is what the profession
     // statistics group on, so the typed value never lands in that column.

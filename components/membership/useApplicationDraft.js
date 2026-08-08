@@ -2,9 +2,21 @@
 import { useEffect, useRef, useState } from 'react';
 
 const KEY = 'tnr_application_draft_v1';
-// Photos are large base64 strings; keeping them out of the draft avoids
-// blowing the ~5MB localStorage budget and storing a face on a shared device.
-const OMIT = ['photo_data'];
+// Never written to localStorage.
+//
+//   photo_data       — large base64; would blow the ~5MB budget, and leaves a
+//                      face behind on a shared or internet-café machine.
+//   cnic_*_data      — identity documents. localStorage is readable by any
+//                      script on the origin and survives until cleared; a
+//                      national ID card must not sit there after the applicant
+//                      walks away.
+//   password         — never persist a plaintext password anywhere, least of
+//                      all in storage that any XSS could read.
+const OMIT = [
+  'photo_data',
+  'cnic_front_data', 'cnic_back_data',
+  'password', 'password_confirm',
+];
 
 /** Auto-saves the in-progress application so a refresh or a dropped
  *  connection does not lose a long-form answer. Returns a save indicator. */

@@ -85,7 +85,17 @@ export async function PATCH(req, { params }) {
       // applicant asked for, but the admin can override — that is the control
       // that stops anyone self-appointing to a leadership body.
       role: ROLE_KEYS.includes(b.role) ? b.role : (ROLE_KEYS.includes(app.applied_role) ? app.applied_role : 'general'),
+      // Identity documents stay in the private bucket; only the paths move.
+      cnic_number: app.cnic_number ?? null,
+      cnic_front_path: app.cnic_front_path ?? null,
+      cnic_back_path: app.cnic_back_path ?? null,
+      // The applicant chose their password on the form, so it carries straight
+      // over and they can sign in the moment they are approved.
+      password_hash: app.password_hash ?? null,
       status: 'active', approved_by: admin.username, approved_at: now, issued_at: now,
+      // An invite token is still issued, but only as a recovery path for
+      // applications submitted before passwords were collected. When a hash
+      // came across, the welcome email carries no set-password link.
       invite_token: inviteTok, invite_expires_at: inviteExpiry(), invite_sent_at: now,
     }).select('*').single();
     if (insErr) return fail('APPROVE_FAILED', 500, { message: 'Could not create the member record.', detail: insErr.message });
