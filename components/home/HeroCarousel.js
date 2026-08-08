@@ -124,15 +124,13 @@ export default function HeroCarousel() {
             min-h-[520px] sm:min-h-[580px] lg:min-h-[660px] flex flex-col justify-end
             ${s.align === 'center' ? 'items-center text-center' : 'items-start'}`}>
           <AnimatePresence mode="wait">
-            {/* Frosted panel behind the copy. Over photography this does two
-                jobs at once: it reads as premium, and it guarantees the text
-                has a consistent backdrop regardless of what the admin uploads
-                — a light patch of sky behind white text was previously
-                unreadable no matter what the overlay value was set to. */}
+            {/* Copy sits directly on the photograph — no panel. Readability
+                comes from the gradient wash on the image plus the text shadows
+                below, which darken only the pixels behind the glyphs rather
+                than boxing off a rectangle of the picture. */}
             <motion.div
               key={s.id}
-              className={`tnr-glass-dark tnr-sheen px-6 py-7 sm:px-9 sm:py-9
-                ${s.align === 'center' ? 'max-w-3xl' : 'max-w-2xl'}`}
+              className={s.align === 'center' ? 'max-w-3xl' : 'max-w-2xl'}
               // Font sizes arrive as custom properties; globals.css picks the
               // phone or desktop one at the 1024px breakpoint.
               style={{
@@ -154,16 +152,21 @@ export default function HeroCarousel() {
                 </div>
               )}
 
+              {/* Two stacked shadows on the title: a tight dark one to lift the
+                  glyph off whatever is immediately behind it, and a wide soft
+                  one that darkens the general area. One large blur alone leaves
+                  thin strokes disappearing against a bright patch of sky. */}
               {s.title && (
                 <h1 className="hero-title mt-4 font-extrabold tracking-tight text-white"
-                  style={{ textShadow: '0 2px 24px rgba(0,0,0,.35)' }}>
+                  style={{ textShadow: '0 1px 3px rgba(0,0,0,.55), 0 4px 30px rgba(0,0,0,.45)' }}>
                   {s.title}
                 </h1>
               )}
 
               {s.subtitle && (
                 <p className={`hero-text mt-5 leading-relaxed ${s.align === 'center' ? 'mx-auto' : ''}`}
-                  style={{ color: 'rgba(255,255,255,.82)', maxWidth: '46rem' }}>
+                  style={{ color: 'rgba(255,255,255,.88)', maxWidth: '46rem',
+                           textShadow: '0 1px 3px rgba(0,0,0,.5), 0 2px 18px rgba(0,0,0,.35)' }}>
                   {s.subtitle}
                 </p>
               )}

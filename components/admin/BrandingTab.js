@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { aGet, aPatch } from './adminApi';
 import { Card, Field } from './ui';
+import { SOCIALS, normaliseUrl } from '@/lib/siteHeader';
 
 /**
  * Edit the header lines that appear on every email the site sends.
@@ -28,7 +29,7 @@ export default function BrandingTab({ toast }) {
     const r = await aPatch('/api/admin/branding', f);
     setBusy(false);
     if (!r.ok) return toast(r.message || 'Could not save.', 'err');
-    toast('Email branding updated. New messages use it immediately.');
+    toast('Saved. The top bar updates on the next page load; emails use it immediately.');
     load();
   }
 
@@ -40,6 +41,50 @@ export default function BrandingTab({ toast }) {
 
   return (
     <div className="space-y-5 max-w-3xl">
+
+      {/* ── Site header ─────────────────────────────────────────────────── */}
+      <Card>
+        <h3 className="font-black text-tnr-cream mb-1">Top Bar</h3>
+        <p className="text-sm text-tnr-cream/60 mb-4">
+          The thin dark strip above the main navigation, on every page of the site.
+        </p>
+
+        <Field label="Tagline">
+          <input className="input" value={f.header_tagline || ''}
+            onChange={set('header_tagline')} maxLength={120} />
+        </Field>
+
+        <div className="mt-2">
+          <span className="label">Social links</span>
+          <p className="text-[11px] text-tnr-cream/40 mb-2">
+            Paste the full page address. Leave one blank to hide that icon —
+            better than linking to an account you do not have.
+          </p>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {SOCIALS.map(([key, chip, name]) => {
+              const href = normaliseUrl(f[key]);
+              return (
+                <div key={key}>
+                  <label className="flex items-center gap-2">
+                    <span className="w-6 h-6 shrink-0 rounded grid place-items-center bg-white/10 text-[10px] font-bold text-tnr-cream/70">
+                      {chip}
+                    </span>
+                    <input className="input flex-1" placeholder={`${name} page URL`}
+                      value={f[key] || ''} onChange={set(key)} maxLength={300} />
+                  </label>
+                  {href && (
+                    <a href={href} target="_blank" rel="noopener noreferrer"
+                      className="ml-8 mt-1 inline-block text-[11px] text-tnr-goldLight hover:underline break-all">
+                      {href}
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Card>
+
       <Card>
         <h3 className="font-black text-tnr-cream mb-1">Email Branding</h3>
         <p className="text-sm text-tnr-cream/60 mb-4">

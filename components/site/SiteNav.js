@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { NAV } from './navConfig';
+import { HEADER_DEFAULTS, SOCIALS, normaliseUrl } from '@/lib/siteHeader';
 
 const G = '#063D2B', GOLD = '#D4A72C';
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
@@ -73,20 +74,42 @@ export default function SiteNav() {
     return () => { document.body.style.overflow = ''; };
   }, [mobile]);
 
+  // Utility-bar content. Starts from the defaults so the bar renders complete
+  // on first paint and never flashes empty while the request is in flight.
+  const [header, setHeader] = useState(HEADER_DEFAULTS);
+  useEffect(() => {
+    let off = false;
+    fetch('/api/public/site-header', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => { if (!off && j?.ok && j.header) setHeader(j.header); })
+      .catch(() => {});
+    return () => { off = true; };
+  }, []);
+
   return (
     <>
-    {/* Utility bar */}
+    {/* Utility bar — tagline and social links come from Admin → Branding.
+        The links used to be hardcoded to bare domains (facebook.com etc), so
+        every icon led to a generic homepage rather than TNR's own page. */}
     <div className="hidden sm:block text-white text-[12px]" style={{ background: '#052A1E' }}>
       <div className="max-w-[1400px] mx-auto px-4 py-1.5 flex items-center gap-4">
-        <span className="text-white/70">Uniting the Rondo Community Worldwide</span>
+        <span className="text-white/70">{header.header_tagline}</span>
         <div className="ml-auto flex items-center gap-4">
           <a href="/help" className="text-white/70 hover:text-white transition">Help Center</a>
           <a href="/contact" className="text-white/70 hover:text-white transition">Contact Us</a>
           <div className="flex items-center gap-2">
-            {[['f','https://facebook.com'],['t','https://twitter.com'],['y','https://youtube.com'],['in','https://linkedin.com'],['ig','https://instagram.com']].map(([l,h]) => (
-              <a key={l} href={h} target="_blank" rel="noopener noreferrer"
-                className="w-5 h-5 rounded grid place-items-center bg-white/10 hover:bg-[#D4A72C] hover:text-[#063D2B] transition text-[10px] font-bold">{l}</a>
-            ))}
+            {SOCIALS.map(([key, label, name]) => {
+              const href = normaliseUrl(header[key]);
+              // No account configured — render nothing rather than a dead icon.
+              if (!href) return null;
+              return (
+                <a key={key} href={href} target="_blank" rel="noopener noreferrer"
+                  aria-label={name} title={name}
+                  className="w-5 h-5 rounded grid place-items-center bg-white/10 hover:bg-[#D4A72C] hover:text-[#063D2B] transition text-[10px] font-bold">
+                  {label}
+                </a>
+              );
+            })}
           </div>
         </div>
       </div>

@@ -42,7 +42,7 @@ const TOP_TABS = [
   ['projects', 'Projects', '🏗️'],
   ['institutions', 'Schools & Colleges', '🏫'],
   ['cec', 'CEC Recruitment', '📋'],
-  ['branding', 'Email Branding', '✉️'],
+  ['branding', 'Branding', '✉️'],
 ];
 const ELECTION_TABS = [
   ['elections', 'Elections', '🗳️'], ['candidates', 'Candidates', '🎖️'], ['members', 'Members', '👥'],
