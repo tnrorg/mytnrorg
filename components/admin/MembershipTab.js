@@ -109,7 +109,8 @@ export default function MembershipTab({ toast }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wider text-tnr-cream/50 border-b border-tnr-line">
-              <th className="px-3 py-2.5">Reference</th><th className="px-3 py-2.5">Name</th>
+              <th className="px-3 py-2.5">Reference</th><th className="px-3 py-2.5">Membership No.</th>
+              <th className="px-3 py-2.5">Name</th>
               <th className="px-3 py-2.5">Email</th><th className="px-3 py-2.5">Union Council</th>
               <th className="px-3 py-2.5">Submitted</th><th className="px-3 py-2.5">Status</th>
               <th className="px-3 py-2.5"></th>
@@ -119,6 +120,11 @@ export default function MembershipTab({ toast }) {
             {apps.map(a => (
               <tr key={a.id} className="border-t border-tnr-line/40 hover:bg-white/5">
                 <td className="px-3 py-2 font-mono text-xs text-tnr-gold/90 whitespace-nowrap">{a.reference_no}</td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {a.membership_id
+                    ? <span className="font-mono text-xs font-bold text-emerald-300">{a.membership_id}</span>
+                    : <span className="text-tnr-cream/30">—</span>}
+                </td>
                 <td className="px-3 py-2 font-medium text-tnr-cream">{a.full_name}</td>
                 <td className="px-3 py-2 text-tnr-cream/70">{a.email}</td>
                 <td className="px-3 py-2 text-tnr-cream/70">{a.union_council || '—'}</td>
@@ -132,7 +138,7 @@ export default function MembershipTab({ toast }) {
                 </td>
               </tr>
             ))}
-            {!apps.length && <tr><td colSpan={7} className="px-3 py-10 text-center text-tnr-cream/40">
+            {!apps.length && <tr><td colSpan={8} className="px-3 py-10 text-center text-tnr-cream/40">
               {loading ? 'Loading…' : err ? 'Could not load applications.' :
                 `No applications${status ? ' with this status' : ''} yet.`}</td></tr>}
           </tbody>
@@ -160,6 +166,12 @@ function ReviewModal({ app, busy, onClose, onAct }) {
           <div className="flex-1 min-w-0">
             <h3 className="text-xl font-bold text-tnr-cream">{app.full_name}</h3>
             <div className="text-xs font-mono text-tnr-gold/90">{app.reference_no}</div>
+            {app.membership_id && (
+              <div className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-0.5">
+                <span className="text-[10px] uppercase tracking-wider text-emerald-300/70">Membership No.</span>
+                <span className="font-mono text-xs font-bold text-emerald-300">{app.membership_id}</span>
+              </div>
+            )}
           </div>
         </div>
 
