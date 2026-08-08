@@ -16,8 +16,8 @@ const TABLES = [
   'candidates',
   'members',
   'leadership_profiles',
-  'projects',
-  'institutions',
+  'tnr_projects',
+  'tnr_institutions',
   'hero_slides',
 ];
 
@@ -38,9 +38,20 @@ export async function GET() {
     urlLooksWrong: url ? /\/rest\/v1\/?$/.test(url) : null,
   };
 
+  // Media backend — tells you at a glance where new uploads will land.
+  const cldName = process.env.CLOUDINARY_CLOUD_NAME;
+  const cldKey = process.env.CLOUDINARY_API_KEY;
+  const cldSecret = process.env.CLOUDINARY_API_SECRET;
+  const media = {
+    cloudName: cldName || '❌ MISSING',
+    apiKey: cldKey ? mask(cldKey) : '❌ MISSING',
+    apiSecret: cldSecret ? mask(cldSecret) : '❌ MISSING',
+    activeBackend: cldName && cldKey && cldSecret ? 'cloudinary' : 'supabase-storage',
+  };
+
   if (!url || !svc) {
     return Response.json(
-      { ok: false, reason: 'Supabase env vars missing on this deployment', env },
+      { ok: false, reason: 'Supabase env vars missing on this deployment', env, media },
       { status: 200 }
     );
   }
@@ -72,6 +83,7 @@ export async function GET() {
   return Response.json({
     ok: missing.length === 0,
     env,
+    media,
     tables,
     summary: {
       tablesWithErrors: missing.map(([k]) => k),
