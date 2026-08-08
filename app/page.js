@@ -26,11 +26,11 @@ const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' }
 
 
 export default function Home() {
+  // tnr-ambient lays two very faint radial gradients behind everything. Glass
+  // panels need something underneath to refract — on a flat white page a
+  // frosted panel just looks grey.
   return (
     <main style={{ background: C.bg, color: C.ink, fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' }}
-      /* tnr-ambient lays two very faint radial gradients behind everything.
-         Glass panels need something underneath to refract — on a flat white
-         page a frosted panel just looks grey. */
       className="light-page tnr-ambient min-h-screen flex flex-col">
       <SiteNav />
       {/* Admin-managed slides; falls back to the built-in hero when none exist. */}

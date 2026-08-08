@@ -35,10 +35,10 @@ export default function ExecutiveCard({ member }) {
   const named = !!member.name;
   // Gold hairline ring to match the council cards, and a lighter lift than
   // the old shadow-2xl / -translate-y-1.5, which the design system disallows.
+  // Deliberately not .tnr-glass: the portrait needs an opaque backdrop, and a
+  // blur behind a face reads as a rendering fault rather than an effect. It
+  // takes the gold hairline and the shared lift so it still belongs to the set.
   return (
-    {/* Not .tnr-glass here: the portrait needs an opaque backdrop, and a blur
-        behind a face reads as a rendering fault rather than an effect. It takes
-        the gold hairline and the shared lift so it still belongs to the set. */}
     <article className="tnr-ring-gold tnr-lift group relative h-full rounded-tnr-lg bg-white overflow-hidden flex flex-col
       border border-[rgba(200,154,43,.35)] shadow-tnr-flat transition-colors duration-standard
       hover:border-[rgba(200,154,43,.75)]">

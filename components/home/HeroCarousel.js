@@ -124,13 +124,13 @@ export default function HeroCarousel() {
             min-h-[520px] sm:min-h-[580px] lg:min-h-[660px] flex flex-col justify-end
             ${s.align === 'center' ? 'items-center text-center' : 'items-start'}`}>
           <AnimatePresence mode="wait">
+            {/* Frosted panel behind the copy. Over photography this does two
+                jobs at once: it reads as premium, and it guarantees the text
+                has a consistent backdrop regardless of what the admin uploads
+                — a light patch of sky behind white text was previously
+                unreadable no matter what the overlay value was set to. */}
             <motion.div
               key={s.id}
-              /* Frosted panel behind the copy. Over photography this does two
-                 jobs at once: it reads as premium, and it guarantees the text
-                 has a consistent backdrop regardless of what the admin uploads
-                 — a light patch of sky behind white text was previously
-                 unreadable no matter what the overlay value was set to. */
               className={`tnr-glass-dark tnr-sheen px-6 py-7 sm:px-9 sm:py-9
                 ${s.align === 'center' ? 'max-w-3xl' : 'max-w-2xl'}`}
               // Font sizes arrive as custom properties; globals.css picks the
