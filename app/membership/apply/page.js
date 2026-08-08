@@ -207,18 +207,31 @@ export default function ApplyPage() {
     <main id="main" className="light-page min-h-screen flex flex-col bg-[#FDFDFD]" style={{ color: C.ink, ...mont }}>
       <SiteNav />
       <section className="flex-1 grid place-items-center px-4 py-20">
-        <div className="max-w-lg w-full text-center rounded-3xl bg-white border border-gray-100 shadow-xl p-8">
-          <div className="w-16 h-16 mx-auto rounded-full grid place-items-center text-3xl" style={{ background: '#0B6B4F14' }}>✅</div>
+        <div className="tnr-glass tnr-sheen tnr-ring-gold max-w-lg w-full text-center rounded-3xl p-8">
+          <div className="w-16 h-16 mx-auto rounded-full grid place-items-center text-3xl"
+            style={{ background: 'radial-gradient(circle at 50% 30%, rgba(23,107,73,.16), rgba(23,107,73,.06))' }}>✅</div>
           <h1 style={{ ...mont, color: C.deep }} className="mt-4 text-2xl font-black">Application Submitted</h1>
-          <p className="mt-2 text-gray-500 text-sm">Thank you for applying to Tehreek-e-Naujawanan Roundu. Your application is now pending review.</p>
-          <div className="mt-5 rounded-2xl p-4" style={{ background: '#0B6B4F0d' }}>
-            <div className="text-[11px] uppercase tracking-wider text-gray-500">Reference Number</div>
-            <div style={{ ...mont, color: C.deep }} className="text-xl font-black tracking-wide">{done.reference_no}</div>
+          <div className="tnr-rule mt-3 mx-auto" />
+          <p className="mt-3 text-gray-500 text-sm">Thank you for applying to Tehreek-e-Naujawanan Roundu. Your application is now pending review.</p>
+          {/* The reference number is the one thing on this screen the applicant
+              must keep. Dark panel and gold type so it is unmistakably the
+              takeaway, not another paragraph. */}
+          <div className="mt-5 rounded-2xl p-5 tnr-ring-gold"
+            style={{ background: `linear-gradient(140deg,${C.green},${C.deep})` }}>
+            <div className="text-[11px] uppercase tracking-[.18em]" style={{ color: 'rgba(255,255,255,.6)' }}>
+              Reference Number
+            </div>
+            <div style={{ ...mont, color: '#E4C25B' }} className="mt-1 text-2xl font-black tracking-wider font-mono">
+              {done.reference_no}
+            </div>
           </div>
           <p className="mt-4 text-xs text-gray-400">Save this reference number. You will need it with your email to check your application status.</p>
           <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <a href="/membership/status" className="flex-1 py-3 rounded-xl font-bold text-white" style={{ background: `linear-gradient(180deg,${C.green},${C.deep})` }}>Check Status</a>
-            <a href="/" className="flex-1 py-3 rounded-xl font-bold border-2 border-[#063D2B]/15 text-[#063D2B]">Back to Home</a>
+            <a href="/membership/status" className="tnr-lift flex-1 py-3 rounded-xl font-bold text-white"
+              style={{ background: `linear-gradient(180deg,${C.green},${C.deep})`, border: '1px solid rgba(200,154,43,.4)' }}>
+              Check Status
+            </a>
+            <a href="/" className="tnr-glass tnr-lift flex-1 py-3 rounded-xl font-bold text-[#063D2B]">Back to Home</a>
           </div>
         </div>
       </section>
@@ -227,13 +240,23 @@ export default function ApplyPage() {
   );
 
   return (
-    <main className="min-h-screen flex flex-col bg-[#FDFDFD]" style={{ color: C.ink, ...mont }}>
+    <main className="light-page tnr-ambient min-h-screen flex flex-col bg-[#FDFDFD]" style={{ color: C.ink, ...mont }}>
       <SiteNav />
       <section className="max-w-3xl w-full mx-auto px-4 py-10">
-        <h1 style={{ ...mont, color: C.deep }} className="text-3xl font-black">Membership Application</h1>
-        <p className="mt-2 text-gray-500 text-sm">Join Tehreek-e-Naujawanan Roundu. All applications are reviewed by the membership committee.</p>
+        {/* Masthead. The eyebrow and rule match the home-page section headings
+            so the form reads as part of the same site, not a bare utility page. */}
+        <div className="text-center sm:text-left">
+          <div className="tnr-eyebrow">Membership</div>
+          <h1 style={{ ...mont, color: C.deep }} className="mt-1.5 text-3xl sm:text-[2.25rem] font-black tracking-tight">
+            Membership Application
+          </h1>
+          <div className="tnr-rule mt-3 mx-auto sm:mx-0" />
+          <p className="mt-3 text-gray-500 text-sm max-w-xl mx-auto sm:mx-0">
+            Join Tehreek-e-Naujawanan Roundu. All applications are reviewed by the membership committee.
+          </p>
+        </div>
 
-        <div className="mt-8 rounded-tnr-lg bg-white border border-gray-100 p-5 shadow-tnr-flat">
+        <div className="tnr-glass tnr-sheen mt-8 rounded-tnr-lg p-5">
           <Stepper steps={STEPS} current={step}
             isComplete={(k) => isStepComplete(f, k)}
             onJump={(i) => { setErr(''); setTried(false); setStep(i); }} />
@@ -254,8 +277,16 @@ export default function ApplyPage() {
                 const on = f.applied_role === r.key;
                 return (
                   <label key={r.key}
-                    className={`flex gap-3 items-start rounded-xl border p-4 cursor-pointer transition-colors duration-micro
-                      ${on ? 'border-[#176B49] bg-[rgba(23,107,73,.05)]' : 'border-gray-200 hover:border-gray-300'}`}>
+                    className={`relative flex gap-3 items-start rounded-xl border p-4 cursor-pointer
+                      transition-all duration-300
+                      ${on
+                        ? 'border-[#176B49] bg-[rgba(23,107,73,.06)] shadow-[0_2px_4px_rgba(6,45,33,.06),0_10px_28px_-10px_rgba(6,45,33,.28)]'
+                        : 'border-gray-200 bg-white/70 hover:border-[#176B49]/40 hover:bg-white'}`}>
+                    {/* Gold marker on the selected option. The border colour
+                        alone is easy to miss on a phone in daylight. */}
+                    {on && <span aria-hidden="true"
+                      className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r"
+                      style={{ background: 'linear-gradient(180deg,#D7AE4A,#C89A2B)' }} />}
                     <input type="radio" name="applied_role" value={r.key} checked={on}
                       onChange={() => { set('applied_role', r.key); blur('applied_role'); }}
                       className="mt-1 w-4 h-4 shrink-0" />
@@ -468,7 +499,7 @@ export default function ApplyPage() {
                 Check every answer below. Use “Edit” to correct anything before submitting.
               </p>
               {STEPS.slice(0, 5).map((st, i) => (
-                <div key={st.key} className="rounded-tnr border border-gray-100 p-4">
+                <div key={st.key} className="tnr-glass rounded-tnr p-4">
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-[13px] font-black uppercase tracking-wide" style={{ color: C.deep }}>
                       {st.title}
@@ -493,14 +524,14 @@ export default function ApplyPage() {
             </Card>
           )}
 
-          {err && <div className="rounded-tnr bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3" role="alert">{err}</div>}
+          {err && <div className="tnr-glass rounded-tnr border-red-200 bg-red-50/80 text-red-700 text-sm px-4 py-3" role="alert">{err}</div>}
 
           {/* ── Step navigation ── */}
           <div className="flex flex-col sm:flex-row gap-3">
             {step > 0 && (
               <button type="button" onClick={back} disabled={busy}
-                className="sm:w-40 py-3.5 rounded-tnr font-bold border transition-colors duration-micro
-                  hover:bg-tnr-neutral disabled:opacity-40"
+                className="tnr-glass tnr-lift sm:w-40 py-3.5 rounded-tnr font-bold
+                  disabled:opacity-40"
                 style={{ borderColor: 'rgba(10,61,44,.16)', color: C.deep }}>
                 ← Back
               </button>
@@ -509,18 +540,20 @@ export default function ApplyPage() {
               /* Kept clickable on purpose: a disabled button gives no reason why,
                  so pressing it reveals exactly what is still missing. */
               <button type="button" onClick={next}
-                className="flex-1 py-3.5 rounded-tnr font-bold text-white shadow-tnr-raise
-                  transition-transform duration-micro hover:-translate-y-[2px]"
-                style={{ background: `linear-gradient(180deg,${C.green},${C.deep})` }}>
+                className="tnr-lift group flex-1 py-3.5 rounded-tnr font-bold text-white shadow-tnr-raise
+                  relative overflow-hidden"
+                style={{ background: `linear-gradient(180deg,${C.green},${C.deep})`,
+                         border: '1px solid rgba(200,154,43,.4)' }}>
                 Continue →
               </button>
             ) : (
               <button type="submit" disabled={busy}
-                className="flex-1 py-3.5 rounded-tnr font-bold text-white text-lg shadow-tnr-raise
-                  transition-transform duration-micro hover:-translate-y-[2px] disabled:opacity-40 disabled:cursor-not-allowed"
+                className="tnr-lift flex-1 py-3.5 rounded-tnr font-bold text-white text-lg shadow-tnr-raise
+                  disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ background: missing && tried
                   ? 'linear-gradient(180deg,#9CA3AF,#6B7280)'
-                  : `linear-gradient(180deg,${C.green},${C.deep})` }}>
+                  : `linear-gradient(180deg,${C.green},${C.deep})`,
+                  border: '1px solid rgba(200,154,43,.4)' }}>
                 {busy ? 'Submitting…' : missing && tried
                   ? `${missing} field${missing === 1 ? '' : 's'} still required`
                   : 'Submit Application'}
@@ -539,8 +572,15 @@ export default function ApplyPage() {
 
 /* ── small building blocks ── */
 function Card({ title, children }) {
-  return <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5 sm:p-6">
-    <h2 style={{ ...mont, color: C.deep }} className="text-sm font-black uppercase tracking-wide">{title}</h2>
+  return <div className="tnr-glass tnr-sheen rounded-2xl p-5 sm:p-6">
+    <h2 style={{ ...mont, color: C.deep }}
+      className="text-sm font-black uppercase tracking-wide flex items-center gap-2.5">
+      {/* Gold tick to the left of each section title — gives the form a spine
+          to read down, instead of six identical unanchored headings. */}
+      <span aria-hidden="true" className="inline-block h-4 w-[3px] rounded-full"
+        style={{ background: 'linear-gradient(180deg,#D7AE4A,#C89A2B)' }} />
+      {title}
+    </h2>
     <div className="mt-4 space-y-4">{children}</div>
   </div>;
 }
@@ -564,8 +604,14 @@ function Field({ label, req, error, children }) {
     {error && <p className="mt-1 text-[11px] font-semibold text-red-600">{error}</p>}
   </div>;
 }
-const base = 'w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition bg-white';
-const ring = (bad) => `${base} ${bad ? 'border-red-300 focus:border-red-500 bg-red-50/40' : 'border-gray-200 focus:border-[#0B6B4F]'}`;
+// 16px on the input itself, not 14 — iOS Safari zooms the whole page when a
+// focused input is below 16px, which on a 6-step form means the layout jumps
+// every time the applicant taps a field.
+const base = 'w-full rounded-xl border px-3.5 py-3 text-[16px] sm:text-sm outline-none bg-white/85 ' +
+  'transition-[border-color,box-shadow,background-color] duration-200';
+const ring = (bad) => `${base} ${bad
+  ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-500/15 bg-red-50/50'
+  : 'border-gray-200 hover:border-gray-300 focus:border-[#0B6B4F] focus:ring-2 focus:ring-[#0B6B4F]/15 focus:bg-white'}`;
 const Input = ({ value, onChange, onBlur, bad, type = 'text', placeholder, min, max }) =>
   <input type={type} value={value} placeholder={placeholder} onBlur={onBlur} min={min} max={max}
     onChange={e => onChange(e.target.value)} className={ring(bad)} />;
