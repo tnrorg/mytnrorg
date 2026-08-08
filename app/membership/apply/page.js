@@ -12,6 +12,7 @@ import {
 } from '@/lib/membership/validateApplication';
 import AddressSelect from '@/components/membership/AddressSelect';
 import Combobox from '@/components/ui/Combobox';
+import Avatar from '@/components/ui/Avatar';
 import { ROLES, roleLabel as ROLE_LABEL } from '@/lib/membership/roles';
 import Stepper from '@/components/membership/Stepper';
 import { useApplicationDraft } from '@/components/membership/useApplicationDraft';
@@ -125,6 +126,9 @@ export default function ApplyPage() {
   const errors = validateApplication(f);
   const stepKey = STEPS[step].key;
   const onReview = stepKey === 'REVIEW';
+  // Mirrors the rule in validateApplication: mandatory for men, optional for
+  // women and for anyone selecting Other.
+  const photoRequired = !['female', 'other'].includes(String(f.gender || '').toLowerCase());
   // An error is only shown once the applicant has left that field, or after
   // they try to submit — no wall of red before they have typed anything.
   const showErr = (k) => (tried || touched[k]) ? errors[k] : '';
@@ -328,11 +332,17 @@ export default function ApplyPage() {
               <div className="w-24 h-28 rounded-xl overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 grid place-items-center shrink-0">
                 {f.photo_data
                   ? <img src={f.photo_data} alt="Selected photo" className="w-full h-full object-cover" />
-                  : <span className="text-3xl text-gray-300">👤</span>}
+                  /* Shows the exact placeholder that will represent her across
+                     the site, so the choice is informed rather than a leap. */
+                  : <Avatar gender={f.gender} name="Placeholder"
+                      className="w-full h-full" rounded="rounded-none" />}
               </div>
               <div className="min-w-0">
                 <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                  Profile Photo<span className="text-red-500"> *</span>
+                  Profile Photo{photoRequired && <span className="text-red-500"> *</span>}
+                  {!photoRequired && f.gender && (
+                    <span className="ml-1 font-normal text-gray-400">(optional)</span>
+                  )}
                 </label>
                 <input type="file" accept="image/png,image/jpeg,image/webp"
                   onChange={e => pickPhoto(e.target.files?.[0])}
@@ -342,6 +352,14 @@ export default function ApplyPage() {
                     file:bg-[#0B6B4F] hover:file:bg-[#063D2B]" />
                 <p className="mt-1.5 text-[11px] text-gray-400">
                   A clear passport-style photo. JPG, PNG or WEBP. This appears on your membership card.
+                </p>
+                {/* Shown to everyone, not only after "Female" is picked — a
+                    woman deciding whether to apply at all needs to know this
+                    before she reaches the gender field. */}
+                <p className="mt-1.5 rounded-lg px-2.5 py-2 text-[11px] leading-relaxed"
+                  style={{ background: 'rgba(23,107,73,.07)', color: '#0B6B4F' }}>
+                  For female applicants, uploading your photo is <b>optional</b> if you have
+                  privacy concerns. A respectful icon will be shown instead.
                 </p>
                 {showErr('photo_data') && (
                   <p className="mt-1 text-[11px] font-semibold text-red-600">{showErr('photo_data')}</p>

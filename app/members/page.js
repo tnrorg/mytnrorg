@@ -28,7 +28,7 @@ function MemberCard({ m }) {
 
   return (
     <div className="rounded-2xl bg-white border border-gray-100 p-5 text-center transition-colors hover:border-[#0B6B4F]/30">
-      <Avatar src={m.photo_url} name={m.full_name} fontSize={24}
+      <Avatar src={m.photo_url} name={m.full_name} gender={m.gender} fontSize={24}
         className="w-20 h-20 mx-auto rounded-full object-cover ring-2 ring-[#D4A72C]/60 bg-gray-50" />
 
       {/* The badge sits inline, straight after the surname, the way a verified

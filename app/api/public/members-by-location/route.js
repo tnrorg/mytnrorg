@@ -24,7 +24,7 @@ export const fetchCache = 'force-no-store';
  * heading count and the number of cards always reconcile.
  */
 const PUBLIC_FIELDS =
-  'membership_id, full_name, photo_url, village, union_council, ' +
+  'membership_id, full_name, gender, photo_url, village, union_council, ' +
   'current_position, profession, profession_other, organization_name, ' +
   'education_level, current_city, current_state_province, current_country, current_country_code';
 

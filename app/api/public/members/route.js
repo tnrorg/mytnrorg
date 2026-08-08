@@ -11,7 +11,10 @@ export const fetchCache = 'force-no-store';
 // through this endpoint regardless of who is listed.
 // A member is withheld only if an admin has explicitly hidden them.
 const PUBLIC_FIELDS =
-  'membership_id, full_name, photo_url, village, union_council, current_position, ' +
+  // `gender` is needed only to choose the placeholder icon when a member has
+  // no photo. It is already published in the aggregate gender statistics, so
+  // this exposes nothing new about any individual.
+  'membership_id, full_name, gender, photo_url, village, union_council, current_position, ' +
   'profession, profession_other, organization_name, current_country, current_country_code, ' +
   'education_level, contribution_areas, category_id';
 

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { X, MapPin, Briefcase, ArrowRight } from 'lucide-react';
 import CountryFlag from '@/components/stats/CountryFlag';
+import Avatar from '@/components/ui/Avatar';
 import { COLORS, FONT } from '@/lib/design/tokens';
 
 /* Members in one place, opened from any statistics section.
@@ -153,7 +154,8 @@ function MemberCard({ m }) {
       <div className="w-14 h-16 rounded-tnr overflow-hidden bg-tnr-neutral shrink-0 grid place-items-center">
         {m.photo_url
           ? <img src={m.photo_url} alt="" className="w-full h-full object-cover object-top" />
-          : <span className="text-xl" style={{ color: COLORS.muted }} aria-hidden="true">👤</span>}
+          : <Avatar gender={m.gender} name={m.full_name}
+              className="w-full h-full" rounded="rounded-none" />}
       </div>
 
       <div className="min-w-0 flex-1">

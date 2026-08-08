@@ -60,7 +60,7 @@ export default function MembershipCard({ m, verifyUrl }) {
           {/* Photo with a double gold frame for a premium finish */}
           <div style={{ width: 68, height: 80, margin: '0 auto', padding: 2,
             borderRadius: 7, background: `linear-gradient(150deg,${GOLD_LT},${GOLD})` }}>
-            <Avatar src={m?.photo_url} name={m?.full_name} fontSize={22}
+            <Avatar src={m?.photo_url} name={m?.full_name} gender={m?.gender} fontSize={22}
               style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 5,
                 background: '#F3F4F6', display: 'block' }} />
           </div>
