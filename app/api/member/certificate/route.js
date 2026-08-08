@@ -3,6 +3,7 @@ import { requireMember } from '@/lib/membership/auth';
 import { roleLabel, rolePhrase } from '@/lib/membership/roles';
 import { ok, fail } from '@/lib/api';
 import { generateCertificateNo } from '@/lib/membership/verify';
+import { CERT_DEFAULTS } from '@/lib/certificateDefaults';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -85,8 +86,21 @@ export async function GET(req) {
     designation = lp?.designation || null;
   }
 
+  // Admin-editable template (Admin → Certificate Template). A missing table
+  // must not break a member's certificate, so fall back to the defaults.
+  let settings = { ...CERT_DEFAULTS };
+  try {
+    const { data: cs } = await sb.from('certificate_settings').select('*').eq('id', 1).maybeSingle();
+    if (cs) {
+      for (const [k, v] of Object.entries(cs)) {
+        if (v !== null && v !== undefined && v !== '') settings[k] = v;
+      }
+    }
+  } catch { /* defaults already in place */ }
+
   return ok({
     certificate: cert,
+    settings,
     member: {
       membership_id: mm.membership_id, full_name: mm.full_name, first_name: mm.first_name,
       photo_url: mm.photo_url, village: mm.village, union_council: mm.union_council,

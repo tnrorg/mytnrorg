@@ -1,6 +1,7 @@
 import './globals.css';
 import { Mulish } from 'next/font/google';
 import BackToTop from '@/components/site/BackToTop';
+import VisitTracker from '@/components/site/VisitTracker';
 import SmoothScroll from '@/components/site/SmoothScroll';
 
 const mulish = Mulish({
@@ -52,6 +53,8 @@ export default function RootLayout({ children }) {
         {/* One back-to-top control for the whole site — public pages, the
             member portal and the admin panel all get it. */}
         <BackToTop />
+        {/* Counts one visit per browser session. Renders nothing. */}
+        <VisitTracker />
         {/* Eases mouse-wheel scrolling. Renders nothing; safe to delete. */}
         <SmoothScroll />
       </body>

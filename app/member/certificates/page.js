@@ -4,6 +4,7 @@ import MemberShell from '@/components/member/MemberShell';
 import QrCode from '@/components/member/QrCode';
 import { printSheet } from '@/components/member/printSheet';
 import { mGet } from '@/components/member/memberApi';
+import { CERT_DEFAULTS, fillCertificate } from '@/lib/certificateDefaults';
 
 const G = '#063D2B', GR = '#0B6B4F', GOLD = '#D4A72C';
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
@@ -31,6 +32,11 @@ export default function CertificatePage() {
   if (!d) return <MemberShell active="/member/certificates"><p className="text-gray-400">Loading…</p></MemberShell>;
 
   const { certificate: c, member: m } = d;
+  // Admin-editable template (Admin → Certificate Template). Falls back to the
+  // built-in defaults when the migration has not been run.
+  const s = { ...CERT_DEFAULTS, ...(d.settings || {}) };
+  const GOLD_A = s.accent_gold || GOLD;
+  const GREEN_A = s.accent_green || G;
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const verifyUrl = `${origin}/membership/verify?id=${c.certificate_no}`;
   const fmt = (x) => x ? new Date(x).toLocaleDateString('en-GB', { dateStyle: 'long' }) : '—';
@@ -52,47 +58,52 @@ export default function CertificatePage() {
           {/* A4 landscape certificate */}
           <div id="cert-sheet" className="bg-white shadow-xl relative"
             style={{ width: '297mm', height: '210mm', padding: '18mm', ...mont, color: '#111' }}>
-            <div className="absolute inset-[8mm] pointer-events-none" style={{ border: `2px solid ${GOLD}` }} />
-            <div className="absolute inset-[10mm] pointer-events-none" style={{ border: `1px solid ${GR}44` }} />
+            {s.show_border !== false && <>
+              <div className="absolute inset-[8mm] pointer-events-none" style={{ border: `2px solid ${GOLD_A}` }} />
+              <div className="absolute inset-[10mm] pointer-events-none" style={{ border: `1px solid ${GR}44` }} />
+            </>}
 
             <div className="relative h-full flex flex-col items-center text-center">
-              <img src="/tnr-logo.png" alt="TNR" className="w-[22mm] h-[22mm] object-contain" />
-              <div className="text-[10pt] font-black tracking-[0.2em] mt-2" style={{ color: G }}>
-                TEHREEK-E-NOJAWANAN ROUNDU
+              <img src={s.logo_url || '/tnr-logo.png'} alt="" className="w-[22mm] h-[22mm] object-contain"
+                onError={(e) => { e.currentTarget.src = '/tnr-logo.png'; }} />
+              <div className="text-[10pt] font-black tracking-[0.2em] mt-2" style={{ color: GREEN_A }}>
+                {s.org_line1}
               </div>
-              <div className="text-[8pt] tracking-widest text-gray-400">ROUNDU · GILGIT-BALTISTAN</div>
+              <div className="text-[8pt] tracking-widest text-gray-400">{s.org_line2}</div>
 
-              <h1 className="text-[30pt] font-black mt-6" style={{ color: G }}>Certificate of Membership</h1>
-              <div className="w-[60mm] h-[2px] mt-2" style={{ background: GOLD }} />
+              <h1 className="text-[30pt] font-black mt-6" style={{ color: GREEN_A }}>{s.cert_title}</h1>
+              <div className="w-[60mm] h-[2px] mt-2" style={{ background: GOLD_A }} />
 
-              <p className="text-[11pt] text-gray-500 mt-6">This is to certify that</p>
+              <p className="text-[11pt] text-gray-500 mt-6">{s.intro_line}</p>
               <h2 className="text-[24pt] font-black mt-1" style={{ color: GR }}>{m.full_name}</h2>
+              {/* Body comes from the admin template with {{tokens}} substituted.
+                  Rendered as plain text, not HTML — an admin editing a template
+                  should never be able to inject markup into every member's
+                  certificate. */}
               <p className="text-[11pt] text-gray-600 mt-3 max-w-[180mm] leading-relaxed">
-                bearing Membership ID <b className="font-mono" style={{ color: G }}>{m.membership_id}</b>
-                {m.village ? <> of <b>{m.village}</b></> : null}
-                {m.union_council ? <>, Union Council <b>{m.union_council}</b></> : null},
-                is a duly registered {m.memberPhrase || m.memberType || 'General Member'} of Tehreek-e-Nojawanan Roundu,
-                and is entitled to all rights and privileges of membership.
+                {fillCertificate(s.body_text, m)}
               </p>
 
               <div className="mt-auto w-full flex items-end justify-between">
                 <div className="text-left">
-                  <QrCode value={verifyUrl} size={80} />
-                  <div className="text-[7pt] text-gray-400 mt-1">SCAN TO VERIFY</div>
+                  {s.show_qr !== false && <>
+                    <QrCode value={verifyUrl} size={80} />
+                    <div className="text-[7pt] text-gray-400 mt-1">{s.scan_label}</div>
+                  </>}
                   <div className="text-[7pt] font-mono text-gray-500">{c.certificate_no}</div>
                 </div>
                 <div className="text-center text-[9pt] text-gray-500">
-                  <div>Issued on</div>
-                  <div className="font-bold" style={{ color: G }}>{fmt(c.issued_at)}</div>
+                  <div>{s.issued_label}</div>
+                  <div className="font-bold" style={{ color: GREEN_A }}>{fmt(c.issued_at)}</div>
                 </div>
                 <div className="text-center">
-                  <img src="/signature.png" alt="Signature"
+                  <img src={s.signature_url || '/signature.png'} alt=""
                     onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     style={{ height: '14mm', width: 'auto', maxWidth: '46mm', objectFit: 'contain',
                       display: 'block', margin: '0 auto 1mm', mixBlendMode: 'multiply', filter: 'contrast(1.25)' }} />
-                  <div className="w-[50mm] border-b" style={{ borderColor: GOLD }} />
-                  <div className="text-[8pt] mt-1 font-semibold" style={{ color: G }}>Central President</div>
-                  <div className="text-[7.5pt] text-gray-500">Tehreek-e-Nojawanan Roundu</div>
+                  <div className="w-[50mm] border-b" style={{ borderColor: GOLD_A }} />
+                  <div className="text-[8pt] mt-1 font-semibold" style={{ color: GREEN_A }}>{s.signatory_title}</div>
+                  <div className="text-[7.5pt] text-gray-500">{s.signatory_org}</div>
                 </div>
               </div>
             </div>

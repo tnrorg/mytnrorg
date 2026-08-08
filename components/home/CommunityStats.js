@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Users, MapPin, Landmark, Briefcase, GraduationCap, HeartHandshake } from 'lucide-react';
+import { Users, MapPin, Landmark, Briefcase, GraduationCap, HeartHandshake, Eye } from 'lucide-react';
 import { RevealGroup, RevealItem } from '@/components/ui';
 import CountUp from '@/components/ui/CountUp';
 import { COLORS, FONT } from '@/lib/design/tokens';
@@ -15,6 +15,7 @@ const CARDS = [
   ['professionals', 'Professionals',       Briefcase],
   ['students',      'Students',            GraduationCap],
   ['qualified',     'Skilled Contributors', HeartHandshake],
+  ['visits',        'Website Visitors',    Eye],
 ];
 
 export default function CommunityStats() {
@@ -32,6 +33,11 @@ export default function CommunityStats() {
   // that would misrepresent the organisation.
   if (failed) return null;
 
+  // The visitor tile only appears once the counter table exists — the API
+  // returns null for it otherwise, and publishing "0 Website Visitors" on a
+  // site that plainly has some would be worse than omitting the figure.
+  const cards = CARDS.filter(([key]) => key !== 'visits' || (c && c.visits != null));
+
   return (
     // Sits flush below the hero. It used to be pulled up 24px, which read as a
     // deliberate ledge over the old flat hero but looks like a misalignment
@@ -42,12 +48,13 @@ export default function CommunityStats() {
           gaps rather than borders — borders on a 6-up grid double up at every
           seam and read as a heavier line on the inner edges than the outer. */}
       <RevealGroup
-        className="tnr-ring-gold rounded-tnr-xl grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px overflow-hidden"
+        className={`tnr-ring-gold rounded-tnr-xl grid grid-cols-2 sm:grid-cols-3 gap-px overflow-hidden
+          ${cards.length === 7 ? 'lg:grid-cols-7' : 'lg:grid-cols-6'}`}
         style={{
           background: 'rgba(255,255,255,.08)',
           boxShadow: '0 2px 4px rgba(6,45,33,.06), 0 22px 50px -14px rgba(6,45,33,.35)',
         }}>
-        {CARDS.map(([key, label, Icon]) => (
+        {cards.map(([key, label, Icon]) => (
           <RevealItem key={key}>
             <div className="group relative h-full px-4 py-7 text-center overflow-hidden transition-colors duration-500"
               style={{ background: `linear-gradient(165deg,${COLORS.green900},${COLORS.green950})` }}>

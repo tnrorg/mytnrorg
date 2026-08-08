@@ -19,11 +19,13 @@ import CommitteeTab from '@/components/admin/CommitteeTab';
 import RemindersTab from '@/components/admin/RemindersTab';
 import LeadershipTab from '@/components/admin/LeadershipTab';
 import MessagesTab from '@/components/admin/MessagesTab';
+import BrandingTab from '@/components/admin/BrandingTab';
 import HeroTab from '@/components/admin/HeroTab';
 import ProjectsTab from '@/components/admin/ProjectsTab';
 import InstitutionsTab from '@/components/admin/InstitutionsTab';
 import CecTab from '@/components/admin/CecTab';
 import CardTemplateTab from '@/components/admin/CardTemplateTab';
+import CertificateTemplateTab from '@/components/admin/CertificateTemplateTab';
 import AreasTab from '@/components/admin/AreasTab';
 // Loaded on demand, only after the SERVER confirms Super Admin.
 const CommitteeVoteTab = dynamicImport(() => import('@/components/admin/CommitteeVoteTab'), { ssr: false });
@@ -40,6 +42,7 @@ const TOP_TABS = [
   ['projects', 'Projects', '🏗️'],
   ['institutions', 'Schools & Colleges', '🏫'],
   ['cec', 'CEC Recruitment', '📋'],
+  ['branding', 'Email Branding', '✉️'],
 ];
 const ELECTION_TABS = [
   ['elections', 'Elections', '🗳️'], ['candidates', 'Candidates', '🎖️'], ['members', 'Members', '👥'],
@@ -49,7 +52,7 @@ const ELECTION_TABS = [
 // Super-admin election tools that also belong inside the group.
 const ELECTION_SUPER = ['committee', 'voterdata'];
 // Membership module (separate from the election system).
-const MEMBERSHIP_TABS = [['mapplications', 'Applications', '📝'], ['mmembers', 'Members', '🪪'], ['mrequests', 'Profile Requests', '✏️'], ['mcard', 'Card Template', '🎫'], ['mareas', 'Areas', '📍']];
+const MEMBERSHIP_TABS = [['mapplications', 'Applications', '📝'], ['mmembers', 'Members', '🪪'], ['mrequests', 'Profile Requests', '✏️'], ['mcard', 'Card Template', '🎫'], ['mcert', 'Certificate Template', '📜'], ['mareas', 'Areas', '📍']];
 
 export default function Admin() {
   const [authed, setAuthed] = useState(false);
@@ -153,6 +156,7 @@ export default function Admin() {
       {tab === 'leadership' && <LeadershipTab toast={toast} />}
       {tab === 'hero' && <HeroTab toast={toast} />}
       {tab === 'messages' && <MessagesTab toast={toast} />}
+      {tab === 'branding' && <BrandingTab toast={toast} />}
       {tab === 'projects' && <ProjectsTab toast={toast} />}
       {tab === 'institutions' && <InstitutionsTab toast={toast} />}
       {tab === 'cec' && <CecTab toast={toast} />}
@@ -171,6 +175,7 @@ export default function Admin() {
       {tab === 'mrequests' && <ProfileRequestsTab toast={toast} />}
       {tab === 'mmembers' && <MembersDirectoryTab toast={toast} />}
       {tab === 'mcard' && <CardTemplateTab toast={toast} />}
+      {tab === 'mcert' && <CertificateTemplateTab toast={toast} />}
       {tab === 'mareas' && <AreasTab toast={toast} />}
     </main>
     <Toast msg={toastMsg} tone={toastTone} />
