@@ -30,7 +30,7 @@ export default function MembersPreview() {
   return (
     <section className="max-w-tnr-wide mx-auto px-4 pb-16 w-full" style={FONT}>
       <Reveal>
-        <div className="rounded-tnr-xl bg-white border border-gray-100 p-6 sm:p-8 shadow-tnr-flat">
+        <div className="tnr-glass tnr-sheen rounded-tnr-xl p-6 sm:p-8">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <SectionHeading eyebrow="Our Members" title="Membership Across Roundu"
               lead="Approved members, grouped by the village or area they call home." />

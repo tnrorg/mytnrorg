@@ -38,18 +38,34 @@ export default function CommunityStats() {
     // over the carousel's full-bleed photography.
     <section className="max-w-tnr-wide mx-auto px-4 mt-10 mb-16 w-full" style={FONT}
       aria-label="Community statistics">
-      <RevealGroup className="rounded-tnr-xl grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px overflow-hidden"
-        style={{ background: 'rgba(255,255,255,.08)' }}>
+      {/* One dark slab carrying a gold hairline, with the cells divided by 1px
+          gaps rather than borders — borders on a 6-up grid double up at every
+          seam and read as a heavier line on the inner edges than the outer. */}
+      <RevealGroup
+        className="tnr-ring-gold rounded-tnr-xl grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px overflow-hidden"
+        style={{
+          background: 'rgba(255,255,255,.08)',
+          boxShadow: '0 2px 4px rgba(6,45,33,.06), 0 22px 50px -14px rgba(6,45,33,.35)',
+        }}>
         {CARDS.map(([key, label, Icon]) => (
           <RevealItem key={key}>
-            <div className="h-full px-4 py-6 text-center"
+            <div className="group relative h-full px-4 py-7 text-center overflow-hidden transition-colors duration-500"
               style={{ background: `linear-gradient(165deg,${COLORS.green900},${COLORS.green950})` }}>
-              <Icon size={18} strokeWidth={2} aria-hidden="true"
-                className="mx-auto mb-2" style={{ color: COLORS.gold400 }} />
-              <div className="text-2xl sm:text-3xl font-extrabold" style={{ color: '#F3E4B3' }}>
-                {c ? <CountUp value={c[key] ?? 0} /> : <span className="opacity-40">—</span>}
+              {/* Gold wash that fades in under the cursor. Sits behind the
+                  content and is inert, so it cannot swallow a tap. */}
+              <div aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                style={{ background: 'radial-gradient(70% 60% at 50% 0%, rgba(200,154,43,.20), transparent 70%)' }} />
+              <div className="relative">
+                <Icon size={19} strokeWidth={2} aria-hidden="true"
+                  className="mx-auto mb-2.5 transition-transform duration-500 group-hover:-translate-y-0.5"
+                  style={{ color: COLORS.gold400 }} />
+                <div className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: '#F3E4B3' }}>
+                  {c ? <CountUp value={c[key] ?? 0} /> : <span className="opacity-40">—</span>}
+                </div>
+                <div className="text-[11px] mt-1.5 leading-tight tracking-wide"
+                  style={{ color: 'rgba(255,255,255,.66)' }}>{label}</div>
               </div>
-              <div className="text-[11px] mt-1 leading-tight" style={{ color: 'rgba(255,255,255,.62)' }}>{label}</div>
             </div>
           </RevealItem>
         ))}

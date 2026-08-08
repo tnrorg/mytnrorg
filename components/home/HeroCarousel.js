@@ -126,7 +126,13 @@ export default function HeroCarousel() {
           <AnimatePresence mode="wait">
             <motion.div
               key={s.id}
-              className={s.align === 'center' ? 'max-w-3xl' : 'max-w-2xl'}
+              /* Frosted panel behind the copy. Over photography this does two
+                 jobs at once: it reads as premium, and it guarantees the text
+                 has a consistent backdrop regardless of what the admin uploads
+                 — a light patch of sky behind white text was previously
+                 unreadable no matter what the overlay value was set to. */
+              className={`tnr-glass-dark tnr-sheen px-6 py-7 sm:px-9 sm:py-9
+                ${s.align === 'center' ? 'max-w-3xl' : 'max-w-2xl'}`}
               // Font sizes arrive as custom properties; globals.css picks the
               // phone or desktop one at the 1024px breakpoint.
               style={{

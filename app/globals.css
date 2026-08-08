@@ -248,3 +248,187 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: 84px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PREMIUM SURFACE SYSTEM
+   Glassmorphism, depth and hover motion for the public pages.
+
+   One vocabulary rather than per-component styling, so every card on the home
+   page shares the same light source, blur radius and easing. Mixing three
+   different blurs and shadows is what makes a page read as "busy" instead of
+   "premium".
+
+   Performance: backdrop-filter forces a new compositor layer and is the most
+   expensive property here. Blur radii are kept low (10–18px), and the effect
+   is dropped entirely on very small screens and for reduced-motion users.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --glass-bg:        rgba(255, 255, 255, 0.62);
+  --glass-bg-strong: rgba(255, 255, 255, 0.80);
+  --glass-brd:       rgba(255, 255, 255, 0.55);
+  --glass-blur:      14px;
+
+  /* Layered shadow — a tight contact shadow plus a wide ambient one reads as
+     real depth; a single large blur reads as a smudge. */
+  --shadow-soft:
+    0 1px 2px rgba(6, 45, 33, 0.05),
+    0 8px 24px -6px rgba(6, 45, 33, 0.10);
+  --shadow-lift:
+    0 2px 4px rgba(6, 45, 33, 0.06),
+    0 18px 44px -10px rgba(6, 45, 33, 0.20);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Frosted panel on light backgrounds ─────────────────────────────────── */
+.tnr-glass {
+  position: relative;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-brd);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-soft);
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  @media (min-width: 640px) {
+    .tnr-glass {
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+      backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+      background: rgba(255, 255, 255, 0.5);
+    }
+  }
+}
+
+/* Slightly more opaque — use when text sits directly on the panel. */
+.tnr-glass-solid { background: var(--glass-bg-strong); }
+
+/* ── Frosted panel over photography (hero) ──────────────────────────────── */
+.tnr-glass-dark {
+  background: linear-gradient(
+    135deg,
+    rgba(6, 45, 33, 0.55) 0%,
+    rgba(6, 45, 33, 0.34) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 1.5rem;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.55);
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .tnr-glass-dark {
+    -webkit-backdrop-filter: blur(16px) saturate(130%);
+    backdrop-filter: blur(16px) saturate(130%);
+  }
+}
+
+/* ── Top highlight ──────────────────────────────────────────────────────────
+   A 1px light line along the top edge. This is the detail that separates a
+   glass panel from a plain translucent box — it implies a light source above,
+   the way a real pane of glass catches light on its top bevel. */
+.tnr-sheen::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.85) 22%,
+    rgba(255, 255, 255, 0.85) 78%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* ── Gold gradient hairline border ──────────────────────────────────────── */
+.tnr-ring-gold {
+  position: relative;
+}
+.tnr-ring-gold::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    140deg,
+    rgba(200, 154, 43, 0.75),
+    rgba(200, 154, 43, 0.08) 42%,
+    rgba(200, 154, 43, 0.55)
+  );
+  /* Mask out the middle so only the 1px padding ring paints. */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── Hover lift ─────────────────────────────────────────────────────────── */
+.tnr-lift {
+  transition:
+    transform 0.42s var(--ease-out-soft),
+    box-shadow 0.42s var(--ease-out-soft);
+  will-change: transform;
+}
+@media (hover: hover) and (pointer: fine) {
+  .tnr-lift:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lift);
+  }
+}
+/* Touch devices have no hover — give a press response instead, or the card
+   feels dead on a phone. */
+@media (hover: none) {
+  .tnr-lift:active { transform: scale(0.985); }
+}
+
+/* ── Ambient background wash ────────────────────────────────────────────────
+   Two large, very low-opacity radial gradients. Adds depth behind glass
+   panels — glass needs something to refract or it just looks grey. */
+.tnr-ambient {
+  position: relative;
+  isolation: isolate;
+}
+.tnr-ambient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 55% at 12% 8%,  rgba(23, 107, 73, 0.10), transparent 68%),
+    radial-gradient(55% 50% at 92% 82%, rgba(200, 154, 43, 0.11), transparent 66%);
+}
+
+/* ── Gold divider ───────────────────────────────────────────────────────── */
+.tnr-rule {
+  height: 2px;
+  width: 3rem;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #C89A2B, rgba(200, 154, 43, 0.25));
+}
+
+/* ── Section heading eyebrow ────────────────────────────────────────────── */
+.tnr-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #176B49;
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────────
+   The global block above kills durations. Transforms are not durations, so
+   the lift must be disabled explicitly or it snaps instantly on hover. */
+@media (prefers-reduced-motion: reduce) {
+  .tnr-lift:hover,
+  .tnr-lift:active { transform: none; }
+  .tnr-glass,
+  .tnr-glass-dark {
+    -webkit-backdrop-filter: none;
+            backdrop-filter: none;
+    background: var(--glass-bg-strong);
+  }
+  .tnr-glass-dark { background: rgba(6, 45, 33, 0.72); }
+}

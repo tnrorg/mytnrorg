@@ -148,7 +148,7 @@ export default function MembershipReach() {
    section of the page rather than two features. */
 function Card({ icon: Icon, title, stat, statLabel, note, children }) {
   return (
-    <div className="h-full rounded-tnr-xl bg-white border border-gray-100 p-6 sm:p-7 shadow-tnr-flat">
+    <div className="tnr-glass tnr-sheen tnr-lift h-full rounded-tnr-xl p-6 sm:p-7">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <span className="w-9 h-9 rounded-tnr grid place-items-center shrink-0"
