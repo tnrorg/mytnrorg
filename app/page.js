@@ -77,8 +77,16 @@ function ExecutiveCommittee() {
       </Reveal>
 
       {/* One per row on mobile, three per row from desktop up. RevealGroup
-          staggers the cards so the grid builds rather than snapping in. */}
-      <RevealGroup className="mt-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          staggers the cards so the grid builds rather than snapping in.
+
+          `key` on the count is load-bearing, not cosmetic. Leadership arrives
+          asynchronously, so the viewport observer can fire while this grid is
+          still empty. RevealGroup only animates once — cards mounting after
+          that would stay at the variant's opacity: 0 and the whole section
+          would render as blank space. Re-keying remounts the group when the
+          data lands, so the reveal runs against the real cards. */}
+      <RevealGroup key={executive.length}
+        className="mt-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {executive.map(m => (
           // h-full on the wrapper AND the card: the extra div would otherwise
           // absorb the grid stretch and leave cards of unequal height.

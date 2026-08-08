@@ -47,7 +47,10 @@ export default function CommunityStats() {
       {/* One dark slab carrying a gold hairline, with the cells divided by 1px
           gaps rather than borders — borders on a 6-up grid double up at every
           seam and read as a heavier line on the inner edges than the outer. */}
-      <RevealGroup
+      {/* Keyed on the tile count for the same reason as the leadership grid:
+          the visitor tile appears only after the stats request resolves, and a
+          RevealGroup that already fired would leave the late tile invisible. */}
+      <RevealGroup key={cards.length}
         className={`tnr-ring-gold rounded-tnr-xl grid grid-cols-2 sm:grid-cols-3 gap-px overflow-hidden
           ${cards.length === 7 ? 'lg:grid-cols-7' : 'lg:grid-cols-6'}`}
         style={{

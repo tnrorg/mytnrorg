@@ -344,24 +344,36 @@ html {
 .tnr-ring-gold {
   position: relative;
 }
-.tnr-ring-gold::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    140deg,
-    rgba(200, 154, 43, 0.75),
-    rgba(200, 154, 43, 0.08) 42%,
-    rgba(200, 154, 43, 0.55)
-  );
-  /* Mask out the middle so only the 1px padding ring paints. */
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          mask-composite: exclude;
-  pointer-events: none;
+/* The ring is a pseudo-element covering the whole box, masked so only its 1px
+   padding edge paints.
+
+   That mask is load-bearing. Without it the pseudo-element is a solid gold
+   gradient sitting on top of the card, hiding everything inside it — so the
+   whole rule is gated behind @supports. A browser that cannot do
+   mask-composite gets a plain gold border rather than a blanked-out card. */
+@supports ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+  .tnr-ring-gold::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      140deg,
+      rgba(200, 154, 43, 0.75),
+      rgba(200, 154, 43, 0.08) 42%,
+      rgba(200, 154, 43, 0.55)
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+@supports not ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+  .tnr-ring-gold { border: 1px solid rgba(200, 154, 43, 0.5); }
 }
 
 /* ── Hover lift ─────────────────────────────────────────────────────────── */
