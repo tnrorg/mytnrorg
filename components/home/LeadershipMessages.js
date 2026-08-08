@@ -16,8 +16,8 @@ import { COLORS, FONT } from '@/lib/design/tokens';
  */
 /* Fallback only — the real heading is the admin-entered one on each row. */
 const DEFAULT_HEADING = {
-  founder: 'From Our Founder',
-  president: 'From Our President',
+  founder: 'Founder’s Message',
+  president: 'President’s Message',
 };
 
 export default function LeadershipMessages() {
@@ -46,10 +46,7 @@ export default function LeadershipMessages() {
         {rows.map((m, i) => (
           <div key={m.key}>
             <Reveal className="text-center" delay={i * 0.04}>
-              <div className="text-[11px] font-bold uppercase tracking-[.18em]" style={{ color: COLORS.green700 }}>
-                In Their Words
-              </div>
-              <h2 className="mt-1.5 text-2xl sm:text-[2rem] font-extrabold tracking-tight"
+              <h2 className="text-2xl sm:text-[2rem] font-extrabold tracking-tight"
                 style={{ color: COLORS.green900 }}>
                 {m.heading || DEFAULT_HEADING[m.key] || 'Message'}
               </h2>
