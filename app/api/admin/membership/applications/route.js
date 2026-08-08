@@ -44,7 +44,7 @@ async function withMembershipIds(apps) {
   try {
     const { data, error } = await supabaseAdmin()
       .from('membership_members')
-      .select('application_id, membership_id, member_status')
+      .select('application_id, membership_id, status')
       .in('application_id', ids)
       .is('deleted_at', null);
     if (error) return apps;
@@ -55,7 +55,7 @@ async function withMembershipIds(apps) {
     return apps.map(a => {
       const m = byApp.get(a.id);
       return m
-        ? { ...a, membership_id: m.membership_id, member_status: m.member_status }
+        ? { ...a, membership_id: m.membership_id, member_status: m.status }
         : a;
     });
   } catch {
