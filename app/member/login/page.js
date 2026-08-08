@@ -3,6 +3,7 @@ import { useState } from 'react';
 import SiteNav from '@/components/site/SiteNav';
 import SiteFooter from '@/components/site/SiteFooter';
 import { setToken, clearToken } from '@/components/member/memberApi';
+import Turnstile from '@/components/ui/Turnstile';
 
 const C = { deep: '#063D2B', green: '#0B6B4F', ink: '#15231D' };
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
@@ -11,16 +12,22 @@ export default function MemberLogin() {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const [forgot, setForgot] = useState(false); const [sent, setSent] = useState('');
+  const [cf, setCf] = useState('');
 
   async function login(e) {
     e.preventDefault(); if (busy) return;
     setBusy(true); setErr('');
     const r = await fetch('/api/member/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, turnstileToken: cf }),
     }).then(x => x.json()).catch(() => ({ ok: false, message: 'Network error.' }));
     setBusy(false);
-    if (!r.ok) return setErr(r.message || 'Invalid email or password.');
+    if (!r.ok) {
+      // Turnstile tokens are single-use — reset before the member retries.
+      setCf('');
+      try { window.turnstile?.reset?.(); } catch {}
+      return setErr(r.message || 'Invalid email or password.');
+    }
     if (!r.token) return setErr('Sign-in failed: no session was issued. Please contact support.');
 
     // Store the token, then VERIFY it works before navigating. Without this a
@@ -79,6 +86,9 @@ export default function MemberLogin() {
                     className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#0B6B4F]" />
                 </div>
               )}
+              {/* Only on the sign-in path — the forgot-password form posts to a
+                  different endpoint that does not check a token. */}
+              {!forgot && <Turnstile onToken={setCf} />}
               {err && <p className="text-sm text-red-600">{err}</p>}
               <button disabled={busy || !email || (!forgot && !password)}
                 className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-40"
