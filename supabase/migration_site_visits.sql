@@ -44,6 +44,14 @@ begin
   end if;
 end $$;
 
--- Optional: seed the counter with a figure from your previous analytics so the
--- number does not restart at zero. Edit and run once if you want that.
---   update site_counters set value = 12345 where key = 'visits';
+-- Do NOT seed this counter with an invented figure.
+--
+-- An earlier version of this file suggested it, and the example number was
+-- copied verbatim — the home page then published 12,345 visitors that had
+-- never happened, beside a real membership count. The figure sits on a public
+-- page for an organisation whose case rests on transparency; a number nobody
+-- can account for costs more than a small number does.
+--
+-- If you are migrating from real analytics, set the counter to that provider's
+-- actual total and note where it came from:
+--   update site_counters set value = <verified total> where key = 'visits';

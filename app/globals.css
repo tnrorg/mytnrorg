@@ -413,6 +413,52 @@ html {
     radial-gradient(55% 50% at 92% 82%, rgba(200, 154, 43, 0.11), transparent 66%);
 }
 
+/* ── Announcement ticker ───────────────────────────────────────────────────
+   The track holds two identical copies of the list and translates by exactly
+   -50%, so when the first copy leaves the viewport the second sits precisely
+   where the first began. The reset is therefore invisible and the seam has no
+   gap — animating one copy and snapping back produces a visible jump. */
+.tnr-ticker-track {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation-name: tnr-ticker;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes tnr-ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+/* Pause on hover so a reader can finish a line, and on focus so a keyboard
+   user can reach a link inside it. */
+.tnr-ticker-track:hover,
+.tnr-ticker-track:focus-within { animation-play-state: paused; }
+
+/* Fade the strip's edges rather than cutting text off mid-glyph. */
+.tnr-ticker-mask {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+}
+
+/* Motion that never stops is the clearest case for honouring this preference:
+   for some readers a permanent scroll makes the rest of the page unusable.
+   The lines are shown stacked and static instead — same information, no
+   movement. */
+@media (prefers-reduced-motion: reduce) {
+  .tnr-ticker-track {
+    animation: none;
+    transform: none;
+    white-space: normal;
+    display: block;
+  }
+  .tnr-ticker-track > div:last-child { display: none; }
+  .tnr-ticker-mask {
+    -webkit-mask-image: none;
+            mask-image: none;
+  }
+}
+
 /* ── Gold divider ───────────────────────────────────────────────────────── */
 .tnr-rule {
   height: 2px;

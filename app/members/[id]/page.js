@@ -11,6 +11,7 @@ import ProfileHero from '@/components/council/ProfileHero';
 import { Section, Timeline, TimelineItem, Tag, glass, yearRange } from '@/components/council/ProfileParts';
 import { Skeleton, EmptyState } from '@/components/ui';
 import { COLORS, FONT } from '@/lib/design/tokens';
+import ViewTracker from '@/components/members/ViewTracker';
 
 /* Full public profile for any member.
  *
@@ -61,6 +62,8 @@ export default function PublicMemberProfile() {
     <main id="main" className="light-page min-h-screen flex flex-col bg-tnr-snow"
       style={{ color: COLORS.charcoal, ...FONT }}>
       <SiteNav />
+      {/* Records how long a reader stays. Renders nothing. */}
+      {p?.membership_id && <ViewTracker membershipId={p.membership_id} />}
 
       {err && (
         <section className="max-w-tnr mx-auto px-5 py-20 w-full flex-1">

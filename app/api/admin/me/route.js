@@ -26,7 +26,8 @@ export async function GET(req) {
     is_super: superUser,
     // Labels live on the server — a normal admin never downloads these strings.
     extra_tabs: superUser
-      ? [['committee', 'Committee Vote Entry', '🔐'], ['voterdata', 'Voter Data', '🗃️'], ['admins', 'Admin Accounts', '🛡️']]
+      ? [['committee', 'Committee Vote Entry', '🔐'], ['voterdata', 'Voter Data', '🗃️'],
+         ['visitors', 'Visitors', '👁️'], ['admins', 'Admin Accounts', '🛡️']]
       : [],
   });
 }

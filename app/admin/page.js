@@ -20,6 +20,7 @@ import RemindersTab from '@/components/admin/RemindersTab';
 import LeadershipTab from '@/components/admin/LeadershipTab';
 import MessagesTab from '@/components/admin/MessagesTab';
 import BrandingTab from '@/components/admin/BrandingTab';
+import AnnouncementsTab from '@/components/admin/AnnouncementsTab';
 import HeroTab from '@/components/admin/HeroTab';
 import ProjectsTab from '@/components/admin/ProjectsTab';
 import InstitutionsTab from '@/components/admin/InstitutionsTab';
@@ -31,6 +32,7 @@ import AreasTab from '@/components/admin/AreasTab';
 const CommitteeVoteTab = dynamicImport(() => import('@/components/admin/CommitteeVoteTab'), { ssr: false });
 const AdminsTab = dynamicImport(() => import('@/components/admin/AdminsTab'), { ssr: false });
 const VoterDataTab = dynamicImport(() => import('@/components/admin/VoterDataTab'), { ssr: false });
+const VisitorsTab = dynamicImport(() => import('@/components/admin/VisitorsTab'), { ssr: false });
 
 // Sidebar structure. All election functions live INSIDE the Election Portal group,
 // leaving room for future platform modules (Membership, Community, Welfare…).
@@ -42,6 +44,7 @@ const TOP_TABS = [
   ['projects', 'Projects', '🏗️'],
   ['institutions', 'Schools & Colleges', '🏫'],
   ['cec', 'CEC Recruitment', '📋'],
+  ['announcements', 'Announcements', '📢'],
   ['branding', 'Branding', '✉️'],
 ];
 const ELECTION_TABS = [
@@ -156,6 +159,7 @@ export default function Admin() {
       {tab === 'leadership' && <LeadershipTab toast={toast} />}
       {tab === 'hero' && <HeroTab toast={toast} />}
       {tab === 'messages' && <MessagesTab toast={toast} />}
+      {tab === 'announcements' && <AnnouncementsTab toast={toast} />}
       {tab === 'branding' && <BrandingTab toast={toast} />}
       {tab === 'projects' && <ProjectsTab toast={toast} />}
       {tab === 'institutions' && <InstitutionsTab toast={toast} />}
@@ -171,6 +175,7 @@ export default function Admin() {
       {tab === 'committee' && hasTab('committee') && <CommitteeVoteTab toast={toast} />}
       {tab === 'admins' && hasTab('admins') && <AdminsTab toast={toast} me={admin} />}
       {tab === 'voterdata' && hasTab('voterdata') && <VoterDataTab toast={toast} />}
+      {tab === 'visitors' && hasTab('visitors') && <VisitorsTab toast={toast} />}
       {tab === 'mapplications' && <MembershipTab toast={toast} />}
       {tab === 'mrequests' && <ProfileRequestsTab toast={toast} />}
       {tab === 'mmembers' && <MembersDirectoryTab toast={toast} />}

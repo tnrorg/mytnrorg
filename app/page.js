@@ -7,6 +7,7 @@ import { CEC_INTRO } from '@/content/executiveCommittee';
 import { useLeadership } from '@/components/site/useLeadership';
 import { Reveal, RevealGroup, RevealItem } from '@/components/ui';
 import HeroCarousel from '@/components/home/HeroCarousel';
+import Ticker from '@/components/home/Ticker';
 import CommunityStats from '@/components/home/CommunityStats';
 import LeadershipMessages from '@/components/home/LeadershipMessages';
 import CoreAreas from '@/components/home/CoreAreas';
@@ -35,6 +36,9 @@ export default function Home() {
       <SiteNav />
       {/* Admin-managed slides; falls back to the built-in hero when none exist. */}
       <HeroCarousel />
+      {/* Admin-managed scrolling notices (Admin → Announcements).
+          Renders nothing when the list is empty. */}
+      <Ticker />
       <CommunityStats />
       {/* Founder's then President's message — a human voice after the figures,
           before the leadership rosters. Renders nothing until an admin
