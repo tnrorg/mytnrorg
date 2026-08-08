@@ -4,6 +4,7 @@ import MemberShell from '@/components/member/MemberShell';
 import { mGet, mPatch, mPost } from '@/components/member/memberApi';
 import AddressSelect from '@/components/membership/AddressSelect';
 import { PROFESSIONS } from '@/lib/membership/options';
+import Combobox from '@/components/ui/Combobox';
 
 const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#D4A72C' };
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
@@ -251,15 +252,17 @@ function AddressProfessionCard({ core, onSaved }) {
 
       <div className="grid sm:grid-cols-2 gap-3 mt-3">
         <PF label="Profession / Field">
-          <input list="tnr-portal-professions" value={f.profession} className={base}
-            placeholder="Type to search…" autoComplete="off"
-            onChange={e => set('__profession', {
-              profession: e.target.value,
-              ...(e.target.value === 'Other' ? {} : { profession_other: '' }),
+          {/* Was <input list> + <datalist>, which iOS Safari never renders as a
+              dropdown — the options landed in the keyboard suggestion bar
+              instead, so on a phone this looked like an empty text field. */}
+          <Combobox
+            value={f.profession}
+            options={PROFESSIONS}
+            placeholder="Type to search…"
+            onChange={v => set('__profession', {
+              profession: v,
+              ...(v === 'Other' ? {} : { profession_other: '' }),
             })} />
-          <datalist id="tnr-portal-professions">
-            {PROFESSIONS.map(o => <option key={o} value={o} />)}
-          </datalist>
         </PF>
         {f.profession === 'Other' && (
           <PF label="Specify Profession">

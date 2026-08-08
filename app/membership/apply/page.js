@@ -11,6 +11,7 @@ import {
   MIN_AGE, MAX_AGE, organisationLabel, needsOrganisation, organisationOptional,
 } from '@/lib/membership/validateApplication';
 import AddressSelect from '@/components/membership/AddressSelect';
+import Combobox from '@/components/ui/Combobox';
 import { ROLES, roleLabel as ROLE_LABEL } from '@/lib/membership/roles';
 import Stepper from '@/components/membership/Stepper';
 import { useApplicationDraft } from '@/components/membership/useApplicationDraft';
@@ -571,19 +572,19 @@ const Input = ({ value, onChange, onBlur, bad, type = 'text', placeholder, min, 
 const Textarea = ({ value, onChange, onBlur, bad, rows = 3 }) =>
   <textarea rows={rows} value={value} onBlur={onBlur}
     onChange={e => onChange(e.target.value)} className={ring(bad) + ' leading-relaxed'} />;
-/* Searchable single-select. A native <input list> gives real type-ahead
-   filtering across a long list, which a <select> does not, while remaining the
-   same element the rest of the form already styles. The validator rejects
-   anything that is not on the list, so free typing cannot create a stray
-   category. */
+/* Searchable single-select with real type-ahead filtering across a long list,
+   which a <select> does not give.
+
+   This used to be a native <input list> + <datalist>. That renders nothing on
+   iOS Safari — the options are pushed into the keyboard's QuickType bar rather
+   than shown as a dropdown — so on a phone the field looked like a plain text
+   box. Combobox renders the list as real DOM and behaves the same everywhere.
+
+   The validator still rejects anything not on the list, so free typing cannot
+   create a stray category. */
 const Combo = ({ value, onChange, onBlur, bad, options, listId, placeholder }) => (
-  <>
-    <input list={listId} value={value} placeholder={placeholder} onBlur={onBlur}
-      onChange={e => onChange(e.target.value)} className={ring(bad)} autoComplete="off" />
-    <datalist id={listId}>
-      {options.map(o => <option key={o} value={o} />)}
-    </datalist>
-  </>
+  <Combobox value={value} onChange={onChange} onBlur={onBlur} bad={bad}
+    options={options} id={listId} placeholder={placeholder} />
 );
 const Select = ({ value, onChange, onBlur, bad, options, placeholder = '— select —', disabled }) =>
   <select value={value} onBlur={onBlur} disabled={disabled} onChange={e => onChange(e.target.value)}
