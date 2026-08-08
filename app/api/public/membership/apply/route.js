@@ -144,7 +144,6 @@ export async function POST(req) {
     mobile, mobile_normalized: mobile,
     email, email_normalized: email,
     photo_url,
-    cnic_number: String(b.cnic_number || '').replace(/[\s-]/g, '') || null,
     cnic_front_path, cnic_back_path,
     password_hash,
     education_level: b.education_level || null,

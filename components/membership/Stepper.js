@@ -14,8 +14,12 @@ export default function Stepper({ steps, current, isComplete, onJump }) {
           const done = i < current && isComplete(s.key);
           const active = i === current;
           const reachable = i <= current || done;
-          const bg = active ? COLORS.green700 : done ? COLORS.green800 : COLORS.neutral;
-          const fg = active || done ? '#fff' : COLORS.muted;
+
+          // On the deep-green panel the circles read as: gold = where you are,
+          // solid cream = already done, outlined = still ahead. Three distinct
+          // fills, so the current step is unmistakable at a glance.
+          const bg = active ? COLORS.gold500 : done ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.10)';
+          const fg = active ? COLORS.green950 : done ? COLORS.green900 : 'rgba(255,255,255,.55)';
           return (
             <li key={s.key} className="flex-1 min-w-0">
               <button type="button" disabled={!reachable} onClick={() => reachable && onJump(i)}
@@ -28,11 +32,13 @@ export default function Stepper({ steps, current, isComplete, onJump }) {
                     {done ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : i + 1}
                   </span>
                   <span className="hidden sm:block h-[2px] flex-1 rounded"
-                    style={{ background: i < current ? COLORS.green700 : COLORS.neutral }} />
+                    style={{ background: i < current ? COLORS.gold500 : 'rgba(255,255,255,.14)' }} />
                 </div>
                 <div className="mt-2 pr-2">
                   <div className="text-[11px] font-bold leading-tight truncate"
-                    style={{ color: active ? COLORS.green900 : COLORS.muted }}>{s.title}</div>
+                    style={{ color: active ? COLORS.gold400 : done ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.5)' }}>
+                    {s.title}
+                  </div>
                 </div>
               </button>
             </li>

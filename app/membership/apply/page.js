@@ -33,7 +33,7 @@ const BLANK = {
   youth_issues: '', declaration_accepted: false, whatsapp_opt_in: false,
   // Verification step. None of these are persisted to the local draft — see
   // the OMIT list in useApplicationDraft.js.
-  cnic_number: '', cnic_front_data: '', cnic_back_data: '',
+  cnic_front_data: '', cnic_back_data: '',
   password: '', password_confirm: '',
 };
 
@@ -72,7 +72,6 @@ function reviewRows(f, key) {
     ['Join WhatsApp group', yes(f.whatsapp_opt_in)],
   ];
   if (key === 'V') return [
-    ['CNIC number', f.cnic_number],
     ['CNIC front', f.cnic_front_data ? 'Uploaded' : '—'],
     ['CNIC back', f.cnic_back_data ? 'Uploaded' : '—'],
     // Never echo the password back, not even masked to its real length.
@@ -271,13 +270,20 @@ export default function ApplyPage() {
           </p>
         </div>
 
-        <div className="tnr-glass tnr-sheen mt-8 rounded-tnr-lg p-5">
+        {/* Deep green panel — the progress bar is the one fixed element on a
+            seven-screen form, so it anchors the page rather than blending into
+            the white cards below it. */}
+        <div className="tnr-ring-gold mt-8 rounded-tnr-lg p-5"
+          style={{
+            background: `linear-gradient(140deg,${C.green},${C.deep})`,
+            boxShadow: '0 2px 4px rgba(6,45,33,.08), 0 18px 40px -14px rgba(6,45,33,.35)',
+          }}>
           <Stepper steps={STEPS} current={step}
             isComplete={(k) => isStepComplete(f, k)}
             onJump={(i) => { setErr(''); setTried(false); setStep(i); }} />
-          <p className="mt-4 text-[13px] text-gray-500">{STEPS[step].blurb}</p>
+          <p className="mt-4 text-[13px]" style={{ color: 'rgba(255,255,255,.72)' }}>{STEPS[step].blurb}</p>
           {draftStatus !== 'idle' && (
-            <p className="mt-2 text-[11px] font-semibold" style={{ color: '#647169' }} aria-live="polite">
+            <p className="mt-2 text-[11px] font-semibold" style={{ color: '#D7AE4A' }} aria-live="polite">
               {draftStatus === 'restored'
                 ? '↻ Unfinished application restored — continue where you left off.'
                 : '✓ Draft saved on this device'}
@@ -528,12 +534,6 @@ export default function ApplyPage() {
               and are visible only to the membership committee — they never appear on your
               profile, your card, or anywhere public.
             </p>
-
-            <Field label="CNIC Number" req error={showErr('cnic_number')}>
-              <Input value={f.cnic_number || ''} onChange={v => set('cnic_number', v)}
-                onBlur={() => blur('cnic_number')} bad={!!showErr('cnic_number')}
-                placeholder="71501-1234567-1" />
-            </Field>
 
             <Grid>
               <Field label="CNIC — Front" req error={showErr('cnic_front_data')}>

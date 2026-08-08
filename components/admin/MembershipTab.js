@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { aGet, aPatch } from './adminApi';
+import CnicViewer from './CnicViewer';
 
 const STATUSES = [
   ['', 'All'], ['pending_review', 'Pending'], ['under_review', 'Under Review'],
@@ -145,12 +146,12 @@ export default function MembershipTab({ toast }) {
         </table>
       </div>
 
-      {open && <ReviewModal app={open} busy={busy} onClose={() => setOpen(null)} onAct={act} />}
+      {open && <ReviewModal app={open} busy={busy} onClose={() => setOpen(null)} onAct={act} toast={toast} />}
     </div>
   );
 }
 
-function ReviewModal({ app, busy, onClose, onAct }) {
+function ReviewModal({ app, busy, onClose, onAct, toast }) {
   const [notes, setNotes] = useState(app.admin_notes || '');
   const R = ({ k, v }) => v ? (
     <div className="flex gap-3 py-2 border-b border-tnr-line/40 text-sm">
@@ -197,6 +198,12 @@ function ReviewModal({ app, busy, onClose, onAct }) {
         <div className="mt-4 space-y-3">
           <Long title="Why do you want to join TNR?" text={app.why_join} />
           <Long title="Biggest issues facing Roundu youth" text={app.youth_issues} />
+        </div>
+
+        {/* Identity verification. Loads on demand — see CnicViewer for why. */}
+        <div className="mt-4">
+          <div className="mb-1.5 text-xs text-tnr-cream/50">Identity verification</div>
+          <CnicViewer applicationId={app.id} toast={toast} />
         </div>
 
         <div className="mt-4">
