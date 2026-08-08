@@ -43,11 +43,14 @@ export default function Home() {
       {/* Leadership leads: who guides TNR, then what TNR does. */}
       <CouncilSection />
       <ExecutiveCommittee />
-      <CoreAreas />
       <MembersPreview />
       {/* Pakistan and worldwide reach, straight after Membership Across Roundu.
           Renders nothing until members have recorded a current address. */}
       <MembershipReach />
+      {/* What TNR does, after who its members are — the work reads better once
+          the reader knows the people behind it, and it sits directly above the
+          Join call to action it is meant to motivate. */}
+      <CoreAreas />
       <JoinCta />
       <SiteFooter />
       <AiFab />
