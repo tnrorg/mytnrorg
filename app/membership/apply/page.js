@@ -192,6 +192,14 @@ export default function ApplyPage() {
   async function submit(e) {
     e.preventDefault();
     if (busy) return;                          // disables repeated clicks
+
+    // Enter inside any text field fires a form's submit handler, on any step.
+    // Without this guard an applicant pressing Enter while typing could send
+    // the whole application before ever seeing the Review screen — silently,
+    // if the data happened to validate. Submission must be a deliberate click
+    // on the final step, never a keystroke.
+    if (!onReview) { next(); return; }
+
     setTried(true);
     if (missing) {
       // Every incomplete field is now flagged; jump to the first one so the
