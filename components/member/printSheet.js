@@ -101,9 +101,28 @@ export function printSheet(elementId, title) {
       #print-root > * { background: #fff !important; }
       #print-root, #print-root * { box-shadow: none !important; }
 
-      /* Backgrounds and accent colours are part of the design, not decoration
-         the browser should helpfully strip. */
-      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      /* Backgrounds and accent colours inside the DOCUMENT are part of the
+         design, not decoration the browser should helpfully strip.
+
+         Scoped to #print-root and never applied to html/body. Applied to *, it
+         also forces the site's dark body gradient into the output — which is
+         exactly how a black frame ended up printed around the page. */
+      #print-root, #print-root * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* And the page itself must print white regardless of what the copied
+         stylesheets say. The "economy" value lets the browser drop the
+         background entirely, which is what we want here. */
+      @media print {
+        html, body {
+          background: #fff !important;
+          background-image: none !important;
+          -webkit-print-color-adjust: economy;
+          print-color-adjust: economy;
+        }
+      }
 
       @media print {
         #print-root { display: block; padding: 0; overflow: visible; min-height: 0; }

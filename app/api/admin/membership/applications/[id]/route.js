@@ -81,10 +81,21 @@ export async function PATCH(req, { params }) {
       current_position: app.current_position, contribution_areas: app.contribution_areas,
       whatsapp_opt_in: app.whatsapp_opt_in,
       category_id: b.category_id || null,
-      // The admin confirms the role at approval. It defaults to whatever the
-      // applicant asked for, but the admin can override — that is the control
-      // that stops anyone self-appointing to a leadership body.
-      role: ROLE_KEYS.includes(b.role) ? b.role : (ROLE_KEYS.includes(app.applied_role) ? app.applied_role : 'general'),
+      /* Membership type at approval.
+       *
+       * Defaults to `general`, NEVER to what the applicant asked for.
+       *
+       * It used to fall back to `applied_role`, so an admin who simply pressed
+       * Approve granted whatever the person had selected — and people who
+       * ticked "Advisory Council" on the form appeared publicly as advisers.
+       * The override existed but did nothing unless the admin remembered to
+       * use it, which is the wrong way round for a privilege.
+       *
+       * A leadership role now requires the admin to send it explicitly. The
+       * applicant's request is still recorded on the application, so the
+       * committee can see what was asked for and grant it deliberately.
+       */
+      role: ROLE_KEYS.includes(b.role) ? b.role : 'general',
       // Identity documents stay in the private bucket; only the paths move.
       cnic_number: app.cnic_number ?? null,
       cnic_front_path: app.cnic_front_path ?? null,

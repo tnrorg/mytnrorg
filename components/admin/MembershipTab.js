@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { aGet, aPatch } from './adminApi';
 import CnicViewer from './CnicViewer';
+import { ROLES, roleLabel as ROLE_LABEL } from '@/lib/membership/roles';
 
 const STATUSES = [
   ['', 'All'], ['pending_review', 'Pending'], ['under_review', 'Under Review'],
@@ -153,6 +154,8 @@ export default function MembershipTab({ toast }) {
 
 function ReviewModal({ app, busy, onClose, onAct, toast }) {
   const [notes, setNotes] = useState(app.admin_notes || '');
+  // Always opens on General Member, whatever the applicant asked for.
+  const [grantRole, setGrantRole] = useState('general');
   const R = ({ k, v }) => v ? (
     <div className="flex gap-3 py-2 border-b border-tnr-line/40 text-sm">
       <span className="text-tnr-cream/40 w-40 shrink-0">{k}</span>
@@ -214,9 +217,34 @@ function ReviewModal({ app, busy, onClose, onAct, toast }) {
             className="mt-2 text-xs text-tnr-goldLight hover:underline">Save notes</button>
         </div>
 
+        {/* Membership type, chosen at approval.
+            The applicant's request is shown but is NOT the default — a
+            leadership role has to be granted deliberately. People were ticking
+            "Advisory Council" on the form and appearing publicly as advisers
+            because Approve carried their choice straight through. */}
         {app.status !== 'approved' && (
-          <div className="mt-5 flex flex-wrap gap-2">
-            <button disabled={busy} onClick={() => onAct(app, 'approve')}
+          <div className="mt-5 rounded-xl border border-tnr-line p-3.5">
+            <label className="block text-xs text-tnr-cream/50 mb-1.5">
+              Membership type to grant
+            </label>
+            <select value={grantRole} onChange={e => setGrantRole(e.target.value)}
+              className="input w-full">
+              {ROLES.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+            </select>
+            {app.applied_role && app.applied_role !== 'general' && (
+              <p className="mt-2 text-[11.5px] leading-relaxed"
+                style={{ color: grantRole === app.applied_role ? '#E4C25B' : '#9CA3AF' }}>
+                {grantRole === app.applied_role
+                  ? `⚠ You are granting ${ROLE_LABEL(app.applied_role)} — the role this applicant requested. Confirm they actually hold this position.`
+                  : `This applicant requested ${ROLE_LABEL(app.applied_role)}. Granting General Member.`}
+              </p>
+            )}
+          </div>
+        )}
+
+        {app.status !== 'approved' && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button disabled={busy} onClick={() => onAct(app, 'approve', { role: grantRole })}
               className="btn-gold flex-1 !py-2.5 text-sm">✓ Approve & Issue Membership ID</button>
             <button disabled={busy} onClick={() => onAct(app, 'reject')}
               className="btn-ghost !py-2.5 text-sm text-red-300 border-red-500/30">Reject</button>

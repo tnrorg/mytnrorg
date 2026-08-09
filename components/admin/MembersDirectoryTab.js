@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { aGet, aPatch, aPost, aDel } from './adminApi';
+import { ROLES, LEADERSHIP_ROLES, roleLabel } from '@/lib/membership/roles';
 import { exportExcel } from './exporters';
 
 const TONE = {
@@ -44,6 +45,21 @@ export default function MembersDirectoryTab({ toast }) {
     const r = await aPatch('/api/admin/membership/members/' + m.id, patch);
     if (!r.ok) return toast?.(r.message || 'Failed', 'err');
     toast?.('Member updated', 'ok'); load();
+  }
+
+  /** Change a member's type.
+   *  Promoting to Advisory or CEC publishes a public leadership profile, so
+   *  that direction asks for confirmation; demoting does not need a prompt. */
+  async function changeRole(m, role) {
+    if (role === (m.role || 'general')) return;
+    if (LEADERSHIP_ROLES.includes(role) && !confirm(
+      `Grant ${roleLabel(role)} to ${m.full_name}?\n\n` +
+      `This publishes a public leadership profile and lists them among TNR's ` +
+      `office bearers. Only do this if they actually hold the position.`)) return;
+    const r = await aPatch('/api/admin/membership/members/' + m.id, { role });
+    if (!r.ok) return toast?.(r.message || 'Could not change the membership type.', 'err');
+    toast?.(`${m.full_name} → ${roleLabel(role)}`, 'ok');
+    load();
   }
 
   /** Permanent deletion. The Membership ID must be typed to confirm, because
@@ -120,6 +136,7 @@ export default function MembersDirectoryTab({ toast }) {
             <tr className="text-left text-[11px] uppercase tracking-wider text-tnr-cream/50 border-b border-tnr-line">
               <th className="px-3 py-2.5">Membership ID</th><th className="px-3 py-2.5">Name</th>
               <th className="px-3 py-2.5">Email</th><th className="px-3 py-2.5">Village</th>
+              <th className="px-3 py-2.5">Membership Type</th>
               <th className="px-3 py-2.5">Status</th><th className="px-3 py-2.5">Public</th>
               <th className="px-3 py-2.5">Actions</th>
             </tr>
@@ -131,6 +148,22 @@ export default function MembersDirectoryTab({ toast }) {
                 <td className="px-3 py-2 font-medium text-tnr-cream">{m.full_name}</td>
                 <td className="px-3 py-2 text-tnr-cream/70">{m.email}</td>
                 <td className="px-3 py-2 text-tnr-cream/70">{m.village || '—'}</td>
+
+                {/* Membership type, editable in place.
+                    Advisory and CEC publish a public leadership profile, so
+                    changing this is what corrects someone who was approved
+                    into a role they do not hold. */}
+                <td className="px-3 py-2">
+                  <select value={m.role || 'general'}
+                    onChange={e => changeRole(m, e.target.value)}
+                    className={`rounded-lg border bg-black/30 px-2 py-1 text-xs
+                      ${LEADERSHIP_ROLES.includes(m.role)
+                        ? 'border-tnr-gold text-tnr-gold font-semibold'
+                        : 'border-tnr-line text-tnr-cream/70'}`}>
+                    {ROLES.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+                  </select>
+                </td>
+
                 <td className="px-3 py-2">
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${TONE[m.status] || ''}`}>
                     {m.status}</span></td>
@@ -153,7 +186,7 @@ export default function MembersDirectoryTab({ toast }) {
                 </td>
               </tr>
             ))}
-            {!rows.length && !err && <tr><td colSpan={7} className="px-3 py-10 text-center text-tnr-cream/40">
+            {!rows.length && !err && <tr><td colSpan={8} className="px-3 py-10 text-center text-tnr-cream/40">
               {loading ? 'Loading members…'
                 : status || search
                   ? 'No members match this filter.'
