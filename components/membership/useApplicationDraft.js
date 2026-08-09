@@ -6,15 +6,10 @@ const KEY = 'tnr_application_draft_v1';
 //
 //   photo_data       — large base64; would blow the ~5MB budget, and leaves a
 //                      face behind on a shared or internet-café machine.
-//   cnic_*_data      — identity documents. localStorage is readable by any
-//                      script on the origin and survives until cleared; a
-//                      national ID card must not sit there after the applicant
-//                      walks away.
 //   password         — never persist a plaintext password anywhere, least of
 //                      all in storage that any XSS could read.
 const OMIT = [
   'photo_data',
-  'cnic_front_data', 'cnic_back_data',
   'password', 'password_confirm',
 ];
 

@@ -32,9 +32,8 @@ const BLANK = {
   profession: '', profession_other: '',
   why_join: '', contribution_areas: [], leadership_view: '', leadership_note: '',
   youth_issues: '', declaration_accepted: false, whatsapp_opt_in: false,
-  // Verification step. None of these are persisted to the local draft — see
-  // the OMIT list in useApplicationDraft.js.
-  cnic_front_data: '', cnic_back_data: '',
+  // Password is never persisted to the local draft — see the OMIT list in
+  // useApplicationDraft.js.
   password: '', password_confirm: '',
 };
 
@@ -73,8 +72,6 @@ function reviewRows(f, key) {
     ['Join WhatsApp group', yes(f.whatsapp_opt_in)],
   ];
   if (key === 'V') return [
-    ['CNIC front', f.cnic_front_data ? 'Uploaded' : '—'],
-    ['CNIC back', f.cnic_back_data ? 'Uploaded' : '—'],
     // Never echo the password back, not even masked to its real length.
     ['Password', f.password ? 'Set' : '—'],
   ];
@@ -540,23 +537,6 @@ export default function ApplyPage() {
           </Card>}
 
           {/* ── Verification & password ── */}
-          {stepKey === 'V' && <Card title="Identity Verification">
-            <p className="text-[13px] text-gray-500 -mt-1">
-              Upload clear photographs of both sides of your CNIC. These are stored privately
-              and are visible only to the membership committee — they never appear on your
-              profile, your card, or anywhere public.
-            </p>
-
-            <Grid>
-              <Field label="CNIC — Front" req error={showErr('cnic_front_data')}>
-                <IdUpload value={f.cnic_front_data} onPick={v => { set('cnic_front_data', v); blur('cnic_front_data'); }} />
-              </Field>
-              <Field label="CNIC — Back" req error={showErr('cnic_back_data')}>
-                <IdUpload value={f.cnic_back_data} onPick={v => { set('cnic_back_data', v); blur('cnic_back_data'); }} />
-              </Field>
-            </Grid>
-          </Card>}
-
           {stepKey === 'V' && <Card title="Create Your Password">
             <p className="text-[13px] text-gray-500 -mt-1">
               Choose the password you will use to sign in once your application is approved.
@@ -675,61 +655,6 @@ function Card({ title, children }) {
 }
 const Grid = ({ children }) => <div className="grid sm:grid-cols-2 gap-4">{children}</div>;
 
-/* Identity-document picker.
- *
- * Deliberately its own component rather than reusing the profile-photo input:
- * these files go to a private bucket, PDFs are allowed as well as images, and
- * the preview must make it obvious the applicant picked the right side of the
- * card — a wrong-side upload is the most common reason an application gets
- * sent back for correction. */
-function IdUpload({ value, onPick }) {
-  const [name, setName] = useState('');
-  const [tooBig, setTooBig] = useState(false);
-
-  function pick(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // 8 MB matches the server-side cap in lib/privateStorage.js. Checking here
-    // too means the applicant is told immediately instead of after a slow
-    // upload that then fails.
-    if (file.size > 8 * 1024 * 1024) { setTooBig(true); setName(''); return; }
-    setTooBig(false);
-    setName(file.name);
-    const rd = new FileReader();
-    rd.onload = () => onPick(rd.result);
-    rd.readAsDataURL(file);
-  }
-
-  const isPdf = typeof value === 'string' && value.startsWith('data:application/pdf');
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-3">
-        <div className="w-28 h-[70px] rounded-xl overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 grid place-items-center shrink-0">
-          {value
-            ? (isPdf
-              ? <span className="text-[10px] font-bold text-gray-500">PDF</span>
-              : <img src={value} alt="" className="w-full h-full object-cover" />)
-            : <span className="text-[10px] text-gray-300">No file</span>}
-        </div>
-        <label className="flex-1">
-          <input type="file" accept="image/*,application/pdf" onChange={pick}
-            className="block w-full text-xs text-gray-500
-              file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0
-              file:text-xs file:font-semibold file:bg-[#0B6B4F] file:text-white
-              hover:file:bg-[#063D2B] cursor-pointer" />
-          {name && <span className="mt-1 block truncate text-[11px] text-gray-400">{name}</span>}
-        </label>
-      </div>
-      {tooBig && (
-        <p className="text-[11px] font-semibold text-red-600">
-          That file is larger than 8 MB. Please take a smaller photo or reduce the quality.
-        </p>
-      )}
-    </div>
-  );
-}
-
 /* Section divider inside a card. Same type treatment as the Card title, one
    step quieter, so the new sections read as original rather than bolted on. */
 const SubHeading = ({ children }) => (
@@ -739,6 +664,7 @@ const SubHeading = ({ children }) => (
     <div className="mt-1.5 h-px bg-gray-100" />
   </div>
 );
+
 function Field({ label, req, error, children }) {
   return <div data-invalid={error ? 'true' : undefined}>
     <label className="block text-xs font-semibold text-gray-500 mb-1.5">
