@@ -61,8 +61,13 @@ function MemberCard({ m }) {
       {m.organization_name && (
         <div className="text-[11.5px] text-gray-500 mt-0.5">{m.organization_name}</div>
       )}
+      {/* justify-center, not just text-center. The card is a flex column now,
+          so this row stretches to full width and its contents pack to the
+          start unless told otherwise — which is why the flag and country name
+          sat hard against the left edge while the name above stayed centred
+          (that one carries its own justify-center). */}
       {m.current_country && (
-        <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11.5px] text-gray-500">
+        <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[11.5px] text-gray-500">
           <CountryFlag code={m.current_country_code} size={11} />
           {m.current_country}
         </div>
