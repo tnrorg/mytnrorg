@@ -42,14 +42,18 @@ export default function CvPreview({ cv }) {
 
   const Entry = ({ e }) => (
     <div className="cv-entry mb-2.5">
+      {/* min-w-0 on the title and shrink-0 on the dates.
+          Without them a long job title pushes the date out of the box and it
+          prints clipped — "Jan 2016 - Jan 2024" arriving as "Jan 2024". The
+          title wraps instead, which costs a line and loses nothing. */}
       <div className="flex justify-between gap-3 items-baseline">
-        <span className="font-bold text-[10.5pt]">{e.title}</span>
+        <span className="font-bold text-[10.5pt] min-w-0">{e.title}</span>
         {/* An en dash between dates extracts as a stray character in some
             parsers. A plain hyphen with spaces is the safest range separator,
             and dates are normalised to "Feb 2006" — an ISO string reads as a
             number to a parser looking for a month. */}
         {(e.start || e.end) && (
-          <span className="text-[9pt] text-gray-500 whitespace-nowrap">
+          <span className="shrink-0 text-[9pt] text-gray-500 whitespace-nowrap">
             {fmtDate(e.start)} - {fmtDate(e.end) || 'Present'}
           </span>
         )}

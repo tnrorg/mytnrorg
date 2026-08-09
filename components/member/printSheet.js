@@ -35,11 +35,16 @@ export function printSheet(elementId, title) {
   const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
     .map(n => n.outerHTML).join('');
 
-  /* Flowing documents only.
-     The margin moves to @page because a sheet's own padding is applied once —
-     which is why page 1 had a top margin and every page after it started hard
-     against the paper edge. @page margins apply to every page. */
+  /* Flowing documents only, and ONLY inside @media print.
+     These rules strip the sheet's fixed width and padding so the printed page
+     box owns the geometry. Applied unconditionally they also hit the popup
+     window on screen, where there is no page box — the sheet then loses its
+     210mm width, the text runs past the window edge and the dates get cut off.
+     The margin moves to @page because a sheet's own padding is applied once:
+     that is why page 1 had a top margin and every later page started hard
+     against the paper edge. */
   const flowCss = cfg.flow ? `
+    @media print {
       #print-root > * {
         width: auto !important;
         min-height: 0 !important;
@@ -56,6 +61,7 @@ export function printSheet(elementId, title) {
       .cv-header  { break-after: avoid;  page-break-after: avoid; }
       /* Two lines alone at the top or bottom of a page. */
       p, li { orphans: 2; widows: 2; }
+    }
   ` : '';
 
   const w = window.open('', '_blank', 'width=900,height=1000');
@@ -64,11 +70,34 @@ export function printSheet(elementId, title) {
   w.document.write(`<!doctype html><html><head><title>${title || 'Document'}</title>${styles}
     <style>
       @page { size: ${cfg.size}; margin: ${cfg.margin}; }
-      html, body { margin: 0; background: #fff; }
+
+      /* White everywhere. The popup inherits the site's stylesheets, and a
+         dark surface variable leaking in is what put a black frame around the
+         sheet. Set explicitly rather than relying on a default. */
+      html, body {
+        margin: 0;
+        background: #fff !important;
+        color: #111;
+      }
+      #print-root {
+        background: #fff !important;
+        /* Centre the sheet in the preview window and stop it being clipped on
+           a narrow screen — the sheet is 210mm wide and the popup is not. */
+        display: flex;
+        justify-content: center;
+        padding: 16px;
+        overflow: auto;
+      }
+      #print-root > * { background: #fff !important; }
       #print-root, #print-root * { box-shadow: none !important; }
+
       /* Backgrounds and accent colours are part of the design, not decoration
          the browser should helpfully strip. */
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+      @media print {
+        #print-root { display: block; padding: 0; overflow: visible; }
+      }
       ${flowCss}
     </style></head>
     <body><div id="print-root">${el.outerHTML}</div></body></html>`);
