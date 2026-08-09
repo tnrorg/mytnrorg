@@ -2,6 +2,7 @@
 import { motion } from 'framer-motion';
 import { MapPin, Building2, Mail, Phone, FileDown, MessageSquarePlus } from 'lucide-react';
 import VerifiedBadge from '@/components/ui/VerifiedBadge';
+import { FemaleIcon } from '@/components/ui/Avatar';
 import { academicTitle } from '@/lib/membership/options';
 import { COLORS, FONT, MOTION } from '@/lib/design/tokens';
 import { initials } from '@/content/advisoryCouncil';
@@ -28,9 +29,14 @@ export default function ProfileHero({ p, onRequestGuidance }) {
           {p.photo_url
             ? <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover object-top" />
             : <div role="img" aria-label={p.name}
-                className="w-full h-full grid place-items-center text-4xl font-extrabold text-white"
+                className="w-full h-full grid place-items-center text-white"
                 style={{ background: `linear-gradient(140deg,${COLORS.green700},${COLORS.green950})` }}>
-                <span aria-hidden="true">{initials(p.name || '')}</span>
+                {/* A woman who has chosen not to publish her photograph gets
+                    the silhouette, not her initials — initials still single
+                    her out as "the one without a picture". */}
+                {String(p.gender || '').toLowerCase() === 'female'
+                  ? <FemaleIcon className="w-1/2 h-1/2" title={p.name} />
+                  : <span aria-hidden="true" className="text-4xl font-extrabold">{initials(p.name || '')}</span>}
               </div>}
         </motion.div>
 

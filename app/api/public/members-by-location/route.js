@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseServer';
+import { withholdPhoto } from '@/lib/membership/photoVisibility';
 import { ok, fail } from '@/lib/api';
 import { ACTIVE_STATUSES } from '@/lib/membershipStats';
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,7 @@ export const fetchCache = 'force-no-store';
  * heading count and the number of cards always reconcile.
  */
 const PUBLIC_FIELDS =
-  'membership_id, full_name, gender, photo_url, village, union_council, ' +
+  'membership_id, full_name, gender, photo_url, photo_public, village, union_council, ' +
   'current_position, profession, profession_other, organization_name, ' +
   'education_level, current_city, current_state_province, current_country, current_country_code';
 
@@ -101,7 +102,10 @@ export async function GET(req) {
     });
   }
 
-  const members = (data || []).map(m => ({
+  // withholdPhoto drops photo_url entirely for a member who has turned
+  // publication off — the URL must not reach the browser, since a public
+  // storage address is the photograph.
+  const members = (data || []).map(m => withholdPhoto({
     ...m,
     // The category, not the typed text, unless they chose "Other".
     profession: m.profession === 'Other' ? (m.profession_other || 'Other') : m.profession,

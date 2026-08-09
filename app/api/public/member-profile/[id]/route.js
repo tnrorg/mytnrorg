@@ -24,7 +24,7 @@ export const fetchCache = 'force-no-store';
  *     filled those in for TNR's records, not for the open web.
  */
 const CORE_FIELDS =
-  'id, membership_id, full_name, photo_url, village, union_council, role, ' +
+  'id, membership_id, full_name, photo_url, photo_public, gender, village, union_council, role, ' +
   'current_position, profession, profession_other, organization_name, ' +
   'education_level, field_of_study, contribution_areas, category_id, ' +
   'current_city, current_state_province, current_country, current_country_code';
@@ -111,7 +111,9 @@ export async function GET(_req, { params }) {
     skills: skillNames(cv.skills),
     research_areas: [],
     duties: [],
-    photo_url: m.photo_url,
+    // Dropped entirely when the member has turned publication off.
+    ...(m.photo_public === false ? { photo_hidden: true } : { photo_url: m.photo_url }),
+    gender: m.gender || null,
     verified: true,
   };
 

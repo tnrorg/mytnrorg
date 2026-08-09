@@ -17,6 +17,10 @@ export async function PATCH(req) {
   // hide an individual member if there is a reason to.
   if (b.whatsapp_opt_in !== undefined) patch.whatsapp_opt_in = !!b.whatsapp_opt_in;
 
+  // Whether the member's photograph is published. Withholding happens in the
+  // public API, not the browser — see the note there.
+  if (b.photo_public !== undefined) patch.photo_public = !!b.photo_public;
+
   if (b.new_password) {
     if (String(b.new_password).length < 8)
       return fail('WEAK', 400, { message: 'Password must be at least 8 characters.' });

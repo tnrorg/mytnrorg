@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseServer';
+import { withholdPhoto } from '@/lib/membership/photoVisibility';
 import { ok } from '@/lib/api';
 import { ACTIVE_STATUSES } from '@/lib/membershipStats';
 
@@ -14,7 +15,7 @@ const PUBLIC_FIELDS =
   // `gender` is needed only to choose the placeholder icon when a member has
   // no photo. It is already published in the aggregate gender statistics, so
   // this exposes nothing new about any individual.
-  'membership_id, full_name, gender, photo_url, village, union_council, current_position, ' +
+  'membership_id, full_name, gender, photo_url, photo_public, village, union_council, current_position, ' +
   'profession, profession_other, organization_name, current_country, current_country_code, ' +
   'education_level, contribution_areas, category_id';
 
@@ -54,7 +55,10 @@ export async function GET(req) {
   const { data: cats } = await supabaseAdmin().from('membership_categories').select('id, name');
   const cmap = Object.fromEntries((cats || []).map(c => [c.id, c.name]));
 
-  let members = rows.map(({ category_id, profession_other, ...m }) => ({
+  // withholdPhoto drops photo_url for anyone who has turned publication off.
+  // Done here rather than in the component: the URL must never reach the
+  // browser at all — a public Cloudinary address IS the photograph.
+  let members = rows.map(({ category_id, profession_other, ...m }) => withholdPhoto({
     ...m,
     category: cmap[category_id] || null,
     profession: m.profession === 'Other' ? (profession_other || 'Other') : m.profession,

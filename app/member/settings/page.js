@@ -54,6 +54,22 @@ export default function Settings() {
           public member directory. Your email, phone number and date of birth are
           never shown publicly.
         </p>
+        {/* Photo visibility.
+            Offered to every member, not only women — a control that appears
+            for one gender announces that the choice is unusual, which is the
+            opposite of what it is for. It matters most to women here, so the
+            explanation says so plainly. */}
+        <div className="mb-4 rounded-xl border border-gray-200 p-3.5">
+          <Toggle label="Show my photo publicly"
+            checked={m.photo_public !== false}
+            onChange={v => toggle('photo_public', v)} />
+          <p className="mt-2 text-[12px] leading-relaxed text-gray-500">
+            {m.photo_public === false
+              ? 'Your photo is hidden. A respectful icon appears in the directory, on your profile and on your membership card instead. Only the membership committee can see your photo.'
+              : 'Turn this off to keep your photo private. This is entirely your choice — many members, particularly women, prefer not to publish a photograph, and an icon is shown in its place.'}
+          </p>
+        </div>
+
         <Toggle label="I want to join the official TNR WhatsApp group"
           checked={!!m.whatsapp_opt_in} onChange={v => toggle('whatsapp_opt_in', v)} />
         {m.whatsapp_opt_in && (
