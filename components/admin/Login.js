@@ -26,8 +26,11 @@ export default function Login({ onIn }) {
       <input className="input mb-3" type="password" placeholder="Password" value={p} onChange={e => setP(e.target.value)} />
       <Turnstile onToken={setCf} theme="dark" className="mb-3" />
       {err && <p className="text-red-400 text-sm mb-3">{err}</p>}
+      {/* The default credentials used to be printed here. A public sign-in
+          page should never advertise a working username and password — the
+          hint only helped whoever set the site up, once, and helped everyone
+          else every day after that. */}
       <button className="btn-gold w-full" disabled={busy}>{busy ? '…' : 'Sign in'}</button>
-      <p className="text-[11px] text-tnr-cream/40 mt-4 text-center">Default: admin / admin123 — change after first login.</p>
     </form>
   </div>;
 }
