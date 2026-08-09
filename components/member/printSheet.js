@@ -106,11 +106,22 @@ export function printSheet(elementId, title) {
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
       @media print {
-        #print-root { display: block; padding: 0; overflow: visible; }
+        #print-root { display: block; padding: 0; overflow: visible; min-height: 0; }
+        /* The toolbar is screen furniture; it must never reach the paper. */
+        #tnr-bar { display: none !important; }
       }
       ${flowCss}
     </style></head>
     <body style="margin:0;background:#fff;background-image:none;color:#111">
+      <div id="tnr-bar" style="position:sticky;top:0;z-index:99;display:flex;gap:10px;
+        align-items:center;justify-content:center;padding:10px;background:#063D2B;color:#fff;
+        font:500 13px system-ui,sans-serif">
+        <span>Check the document below, then print or save as PDF.</span>
+        <button onclick="window.print()" style="border:0;border-radius:8px;padding:7px 16px;
+          background:#D4A72C;color:#063D2B;font:500 13px system-ui,sans-serif;cursor:pointer">
+          Print / Save as PDF
+        </button>
+      </div>
       <div id="print-root" style="background:#fff">${el.outerHTML}</div>
     </body></html>`);
 
@@ -141,6 +152,19 @@ export function printSheet(elementId, title) {
   paintWhite();
   // Again once the copied stylesheets have finished loading, in case one of
   // them repaints the body on arrival.
-  w.onload = () => { paintWhite(); w.focus(); w.print(); };
-  setTimeout(() => { paintWhite(); try { w.focus(); w.print(); } catch {} }, 600);
+  w.onload = paintWhite;
+  setTimeout(paintWhite, 600);
+
+  /* Deliberately does NOT call w.print().
+   *
+   * It used to fire twice — once on load and once on a timer — so the print
+   * dialog opened immediately, on top of the document. Everything the reader
+   * saw was Chrome's print preview: a white page on the browser's own dark
+   * backdrop, which no stylesheet can change and which does not appear in the
+   * saved PDF. That backdrop was repeatedly mistaken for a bug in the CV.
+   *
+   * The toolbar above prints on request instead, so the document is visible
+   * first and the dialog is something the reader chose to open.
+   */
+  try { w.focus(); } catch { /* window closed early */ }
 }
