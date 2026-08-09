@@ -20,3 +20,6 @@ node_modules_REMOVE_ME_run_npm_install
 *.zip
 *.7z
 *.iso
+
+.vercel
+.env*

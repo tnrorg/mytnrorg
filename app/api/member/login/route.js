@@ -45,8 +45,20 @@ export async function POST(req) {
   await supabaseAdmin().from('membership_members')
     .update({ last_login_at: new Date().toISOString() }).eq('id', m.id);
 
+  // Same guard as the admin route: a missing JWT_SECRET must report itself
+  // rather than surface as an unexplained 500 on the sign-in form.
+  let token;
+  try {
+    token = signMemberToken(m);
+  } catch (e) {
+    console.error('[member login] token signing failed:', e.message);
+    return fail('SERVER_MISCONFIGURED', 500, {
+      message: 'Sign-in is temporarily unavailable. Please contact the membership committee.',
+    });
+  }
+
   return ok({
-    token: signMemberToken(m),
+    token,
     member: { membership_id: m.membership_id, full_name: m.full_name, photo_url: m.photo_url },
   });
 }

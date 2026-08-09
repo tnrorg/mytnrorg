@@ -30,7 +30,23 @@ export async function POST(req) {
   }
 
   await clearLoginFailures('admin', { username, ip });
-  const token = signAdmin(admin);
+
+  /* Signing can fail for exactly one reason: JWT_SECRET is missing or too
+   * short, and jwtSecret() refuses to mint a token rather than fall back to a
+   * weak key. Left unhandled that surfaced as a bare "server returned 500" on
+   * the sign-in form — correct behaviour, useless message. The real cause is
+   * named here so the fix is one look at the environment variables rather than
+   * a hunt through the function logs. The secret itself is never echoed. */
+  let token;
+  try {
+    token = signAdmin(admin);
+  } catch (e) {
+    console.error('[admin login] token signing failed:', e.message);
+    return fail('SERVER_MISCONFIGURED', 500, {
+      message: 'Sign-in is unavailable: the server is missing its security configuration. ' +
+        'An administrator needs to set JWT_SECRET in the deployment environment.',
+    });
+  }
   await logAudit({ action: 'ADMIN_LOGIN', actor: admin.username, ip });
   // The role stays out of the response body — the client asks /api/admin/me instead.
   return ok({ token, admin: { id: admin.id, username: admin.username, full_name: admin.full_name } });
