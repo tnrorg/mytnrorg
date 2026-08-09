@@ -86,7 +86,7 @@ export async function GET(req) {
     await base('membership_id', { count: 'exact', head: true });
   if (countErr) {
     return fail('READ_FAILED', 500, {
-      message: 'Members are unavailable right now.', detail: countErr.message,
+      message: 'Members are unavailable right now.',
     });
   }
 
@@ -98,7 +98,7 @@ export async function GET(req) {
     .range(offset, offset + limit - 1);
   if (error) {
     return fail('READ_FAILED', 500, {
-      message: 'Members are unavailable right now.', detail: error.message,
+      message: 'Members are unavailable right now.' ,
     });
   }
 

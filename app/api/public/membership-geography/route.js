@@ -24,8 +24,7 @@ export async function GET() {
     // run. Say so, rather than returning zeros that look like real figures.
     const missing = /column .* does not exist|schema cache/i.test(e.message || '');
     return fail(missing ? 'SCHEMA_OUT_OF_DATE' : 'STATS_FAILED', 500, {
-      message: 'Membership figures are unavailable right now.',
-      detail: e.message,
+      message: 'Membership figures are unavailable right now.' ,
       hint: missing ? 'Run supabase/migration_address_organization.sql in the Supabase SQL Editor.' : undefined,
     });
   }

@@ -1,6 +1,7 @@
 -- ============================================================================
 --  TNR — Seed data (run AFTER schema.sql)
---  Default admin:  username = admin   password = admin123   (CHANGE after login)
+--  Bootstrap admin. CHANGE THE PASSWORD IMMEDIATELY after the first login —
+--  this file is in a public repository, so the seeded value is public too.
 --  Password is hashed with pgcrypto bcrypt ($2a$) — compatible with bcryptjs.
 -- ============================================================================
 

@@ -30,7 +30,9 @@ Copy the **Project URL**, **anon key**, and **service_role key** (Project Settin
 ### 2. Run the database SQL
 In Supabase → **SQL Editor**, run in order:
 1. `supabase/schema.sql`
-2. `supabase/seed.sql`  (creates default admin `admin` / `admin123` — change it after login)
+2. `supabase/seed.sql` — creates a bootstrap admin account.
+   **Change its password immediately after first login.** The credentials are
+   deliberately not printed here: this repository is public.
 
 ### 3. Create a Storage bucket
 Create a **public** bucket named `tnr-media` (see `supabase/storage.md`).
@@ -49,7 +51,7 @@ npm run dev        # http://localhost:3000
 ```
 
 - Public site: `/`  → vote at `/vote`, live at `/dashboard`, results at `/results`
-- Admin panel: `/admin`  (login `admin` / `admin123`)
+- Admin panel: `/admin`
 
 > **OTP note:** OTP delivery uses Twilio (WhatsApp first, SMS backup). Until Twilio is
 > fully configured, in **non-production** the API returns a `dev_code` so you can test the

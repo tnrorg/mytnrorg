@@ -1,13 +1,22 @@
 import { supabaseAdmin } from '@/lib/supabaseServer';
-import { ok, readJson } from '@/lib/api';
+import { ok, fail, readJson } from '@/lib/api';
 import { normalizeEmail } from '@/lib/membership/core';
 import { makeInviteToken, inviteExpiry, canLogin } from '@/lib/membership/auth';
 import { sendPasswordReset } from '@/lib/membership/emails';
 import { logMembershipAudit } from '@/lib/membership/core';
+import { clientIp } from '@/lib/audit';
+import { throttle, lockoutMessage } from '@/lib/loginGuard';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req) {
+  /* Unthrottled, this endpoint sends an email to any address on demand: an
+     attacker could flood one member's inbox, burn the 500/day Gmail quota so
+     that genuine OTPs stop arriving, and probe response timing for valid
+     accounts. Five requests per IP per 15 minutes is well above real use. */
+  const gate = await throttle('forgot', clientIp(req), { max: 5, windowMinutes: 15, lockMinutes: 15 });
+  if (gate.blocked) return fail('RATE_LIMITED', 429, { message: lockoutMessage(gate.retryAfter) });
+
   const b = await readJson(req);
   const email = normalizeEmail(b.email);
   const sb = supabaseAdmin();

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabaseServer';
 import { ok, fail, readJson } from '@/lib/api';
 import { clientIp } from '@/lib/audit';
+import { throttle } from '@/lib/loginGuard';
 import {
   normalizeEmail, normalizeMobile, isValidEmail, generateApplicationRef,
 } from '@/lib/membership/core';
@@ -16,8 +17,17 @@ const ACTIVE = ['pending_review', 'under_review', 'correction_requested', 'appro
 
 export async function POST(req) {
   const sb = supabaseAdmin();
-  const b = await readJson(req);
   const ip = clientIp(req);
+
+  /* Registration is a public write that creates a row, uploads an image and
+     sends two emails. Without a limit one script can fill the committee's
+     queue and exhaust the daily mail quota. Three per IP per hour still allows
+     a family sharing a connection to apply. */
+  const gate = await throttle('apply', ip, { max: 3, windowMinutes: 60, lockMinutes: 60 });
+  if (gate.blocked) return fail('RATE_LIMITED', 429, {
+    message: 'Too many applications from this connection. Please try again later.' });
+
+  const b = await readJson(req);
 
   // ── Required fields ──
   const first_name = String(b.first_name || '').trim();
@@ -69,8 +79,7 @@ export async function POST(req) {
       // failed upload can no longer be swallowed — an application without one
       // would reach the committee incomplete.
       return fail('UPLOAD_FAILED', 502, {
-        message: 'Your photo could not be uploaded. Please try a smaller image or a different file.',
-        detail: e.message,
+        message: 'Your photo could not be uploaded. Please try a smaller image or a different file.' ,
       });
     }
     if (!photo_url) return fail('UPLOAD_FAILED', 502, {
@@ -166,14 +175,12 @@ export async function POST(req) {
     const missingColumn = /column .* does not exist|schema cache/i.test(error.message || '');
     if (missingColumn) {
       return fail('SCHEMA_OUT_OF_DATE', 500, {
-        message: 'The application form is not fully set up yet. Please contact the TNR team.',
-        detail: error.message,
+        message: 'The application form is not fully set up yet. Please contact the TNR team.' ,
         hint: 'Run the pending migrations in supabase/ — most likely migration_profession.sql, migration_address_organization.sql, migration_date_of_birth.sql or migration_member_roles.sql.',
       });
     }
     return fail('SUBMIT_FAILED', 500, {
-      message: 'Could not submit your application. Please try again.',
-      detail: error.message,
+      message: 'Could not submit your application. Please try again.' ,
     });
   }
 
