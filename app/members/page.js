@@ -26,10 +26,23 @@ function MemberCard({ m }) {
   // things a visitor is actually scanning for.
   const home = [m.village, m.union_council].filter(Boolean).join(' · ');
 
+  // The gold hairline is the same treatment the executive and council cards
+  // carry, so a general member's card is not a lesser object than an office
+  // bearer's. h-full plus the column layout keeps the View Profile button on
+  // the baseline across a row — without it, cards with no organisation line
+  // end with the button floating higher than its neighbours.
   return (
-    <div className="rounded-2xl bg-white border border-gray-100 p-5 text-center transition-colors hover:border-[#0B6B4F]/30">
+    <div className="tnr-ring-gold tnr-lift group relative flex h-full flex-col rounded-2xl bg-white p-5 text-center
+      border border-[rgba(200,154,43,.35)] shadow-tnr-flat transition-colors duration-standard
+      hover:border-[rgba(200,154,43,.75)]">
+      {/* Faint green wash behind the portrait — gives the circle something to
+          sit on so it does not float on flat white. */}
+      <div aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-24 rounded-t-2xl"
+        style={{ background: 'linear-gradient(180deg, rgba(23,107,73,.07), transparent)' }} />
+
       <Avatar src={m.photo_url} name={m.full_name} gender={m.gender} fontSize={24}
-        className="w-20 h-20 mx-auto rounded-full object-cover ring-2 ring-[#D4A72C]/60 bg-gray-50" />
+        className="relative w-20 h-20 mx-auto rounded-full object-cover ring-2 ring-[#D4A72C] bg-gray-50 shadow-sm" />
 
       {/* The badge sits inline, straight after the surname, the way a verified
           mark reads on a profile — not as a separate chip on its own line.
@@ -62,9 +75,14 @@ function MemberCard({ m }) {
         </div>
       )}
 
+      {/* mt-auto pins the button to the bottom of whatever height the row
+          settles on, so every card in a row shares one baseline. */}
       <a href={`/members/${m.membership_id}`}
-        className="tnr-btn-profile mt-4 block rounded-xl py-2 text-xs font-bold text-white"
-        style={{ background: C.green }}>View Profile</a>
+        className="tnr-btn-profile mt-auto pt-0 block rounded-xl py-2 text-xs font-bold text-white"
+        style={{ background: `linear-gradient(180deg,${C.green},${C.deep})`,
+                 border: '1px solid rgba(200,154,43,.4)', marginTop: 'auto' }}>
+        View Profile
+      </a>
     </div>
   );
 }
