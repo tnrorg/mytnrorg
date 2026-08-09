@@ -116,23 +116,14 @@ export default function SiteNav() {
     </div>
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-100 shadow-sm relative">
       <div ref={ref} className="max-w-[1400px] mx-auto px-4 py-2.5 flex items-center gap-3">
-        {/* Mobile: account menu on the LEFT */}
-        <div className="xl:hidden relative shrink-0">
-          <button onClick={() => setAccount(o => !o)} aria-label="Register or log in"
-            aria-expanded={account} title="Register or log in"
-            className="grid place-items-center w-10 h-10 rounded-full text-[#063D2B] shadow"
-            style={{ background: 'linear-gradient(180deg,#F3E4B3,#D4A72C)' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <circle cx="9" cy="8" r="3.4" stroke="currentColor" strokeWidth="2" />
-              <path d="M2.8 20c0-3.4 2.8-5.6 6.2-5.6s6.2 2.2 6.2 5.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              <path d="M18.5 8.5v5M21 11h-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
-          <AccountMenu open={account} onClose={() => setAccount(false)} />
-        </div>
-
-        {/* Logo — centred on mobile, left on desktop */}
-        <a href="/" className="flex items-center gap-2.5 shrink-0 absolute left-1/2 -translate-x-1/2 xl:static xl:translate-x-0">
+        {/* Logo, left on every breakpoint.
+            It used to be absolutely centred on mobile with the account button
+            on the left. Centring meant it drifted whenever the right-hand
+            controls changed width, and the first thing in the bar was a button
+            rather than the organisation. Left is also where a reader looks for
+            "home". */}
+        <a href="/" aria-label="Tehreek-e-Nojawanan Roundu — home"
+          className="flex items-center gap-2.5 shrink-0">
           <span className="w-10 h-10 rounded-full grid place-items-center bg-white ring-2 ring-[#D4A72C] overflow-hidden shadow">
             <img src="/tnr-logo.png" alt="TNR" className="w-full h-full object-contain p-0.5" />
           </span>
@@ -174,7 +165,9 @@ export default function SiteNav() {
               <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
           </button>
           <a href="/member/login" className="hidden xl:inline-block px-3 py-2 rounded-xl text-[13px] font-semibold text-[#063D2B] border border-[#063D2B]/15 hover:bg-[#063D2B]/5">LOGIN</a>
-          <div className="hidden xl:block relative">
+          {/* Register / log in. One control at every breakpoint now — it moved
+              here from the mobile left slot so the logo could take it. */}
+          <div className="relative">
             <button onClick={() => setAccount(o => !o)} aria-label="Register or log in"
               aria-expanded={account} title="Register or log in"
               className="grid place-items-center w-10 h-10 rounded-full text-[#063D2B] shadow"
@@ -185,6 +178,8 @@ export default function SiteNav() {
                 <path d="M18.5 8.5v5M21 11h-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </button>
+            {/* Right-aligned so the panel cannot run off the screen edge on a
+                narrow phone, which it would if it opened leftwards from here. */}
             <AccountMenu open={account} onClose={() => setAccount(false)} align="right" />
           </div>
           <button className="xl:hidden p-2 -mr-1 text-gray-600" onClick={() => setMobile(!mobile)} aria-label="menu">
