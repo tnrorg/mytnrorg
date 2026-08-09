@@ -8,6 +8,18 @@ const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' }
 
 /* A dropdown entry. Planned pages render as a non-clickable row with a "Soon"
    chip rather than a link to a 404 — the roadmap stays visible and honest. */
+function NavLink({ item, onNavigate, className }) {
+  if (item.soon) return (
+    <span className={`${className} flex items-center justify-between cursor-default text-gray-400`}
+      aria-disabled="true">
+      {item.label}
+      <span className="ml-2 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide
+        bg-gray-100 text-gray-400">Soon</span>
+    </span>
+  );
+  return <a href={item.href} onClick={onNavigate} className={className}>{item.label}</a>;
+}
+
 export default function SiteNav() {
   const [open, setOpen] = useState(null);      // desktop dropdown label
   const [mobile, setMobile] = useState(false);
