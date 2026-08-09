@@ -71,13 +71,20 @@ export function printSheet(elementId, title) {
     <style>
       @page { size: ${cfg.size}; margin: ${cfg.margin}; }
 
-      /* White everywhere. The popup inherits the site's stylesheets, and a
-         dark surface variable leaking in is what put a black frame around the
-         sheet. Set explicitly rather than relying on a default. */
+      /* White everywhere.
+         globals.css paints <body> with a dark gradient
+         (linear-gradient(180deg,#071410,#0A0F0C)) and cream text. The popup
+         has to copy the site's stylesheets — the CV is built from Tailwind
+         classes — so that rule arrives too. background-image is reset
+         explicitly: the shorthand alone has been known to leave a gradient
+         behind when a later rule only sets background-color. */
       html, body {
-        margin: 0;
+        margin: 0 !important;
         background: #fff !important;
-        color: #111;
+        background-image: none !important;
+        background-color: #fff !important;
+        color: #111 !important;
+        min-height: 0 !important;
       }
       #print-root {
         background: #fff !important;
@@ -100,7 +107,9 @@ export function printSheet(elementId, title) {
       }
       ${flowCss}
     </style></head>
-    <body><div id="print-root">${el.outerHTML}</div></body></html>`);
+    <body style="margin:0;background:#fff;background-image:none;color:#111">
+      <div id="print-root" style="background:#fff">${el.outerHTML}</div>
+    </body></html>`);
 
   w.document.close();
   w.onload = () => { w.focus(); w.print(); };
