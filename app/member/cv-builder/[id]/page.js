@@ -10,6 +10,13 @@ const C = { deep: '#063D2B', green: '#0B6B4F' };
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
 const base = 'w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm outline-none focus:border-[#0B6B4F]';
 
+/** How many entries a section actually holds. Text sections count as 0 or 1. */
+function countOf(content, key) {
+  const v = content?.[key];
+  if (Array.isArray(v)) return v.length;
+  return String(v || '').trim() ? 1 : 0;
+}
+
 export default function CvEditor({ params }) {
   const [cv, setCv] = useState(null);
   const [saved, setSaved] = useState('');
@@ -35,6 +42,22 @@ export default function CvEditor({ params }) {
     const cur = cv.visible_sections || [];
     queueSave({ ...cv, visible_sections: cur.includes(k) ? cur.filter(x => x !== k) : [...cur, k] });
   };
+
+  const [syncing, setSyncing] = useState(false);
+
+  /** Pull the current profile back in — see the resync route for why. */
+  async function resync() {
+    setSyncing(true);
+    const r = await mPost('/api/member/cv/' + params.id + '/resync');
+    setSyncing(false);
+    if (!r.ok) { setSaved(r.message || 'Refresh failed'); setTimeout(() => setSaved(''), 2500); return; }
+    setCv(r.cv);
+    // Name what arrived, so "nothing changed" is distinguishable from "it
+    // worked but your profile really is empty".
+    const total = Object.values(r.counts || {}).reduce((a, b) => a + b, 0);
+    setSaved(total ? `Updated — ${total} entries` : 'Your profile has no entries yet');
+    setTimeout(() => setSaved(''), 3000);
+  }
 
   async function duplicate() {
     const r = await mPost('/api/member/cv/' + params.id);
@@ -81,13 +104,33 @@ export default function CvEditor({ params }) {
 
           <Panel title="Sections">
             <div className="space-y-1.5">
-              {CV_SECTIONS.map(([k, l]) => (
-                <label key={k} className="flex items-center gap-2 text-sm text-gray-600">
-                  <input type="checkbox" checked={(cv.visible_sections || []).includes(k)} onChange={() => toggleSection(k)} />
-                  {l}
-                </label>
-              ))}
+              {CV_SECTIONS.map(([k, l]) => {
+                const count = countOf(cv.content, k);
+                const ticked = (cv.visible_sections || []).includes(k);
+                return (
+                  <label key={k} className="flex items-center gap-2 text-sm text-gray-600">
+                    <input type="checkbox" checked={ticked} onChange={() => toggleSection(k)} />
+                    <span className="flex-1">{l}</span>
+                    {/* A ticked section with nothing in it prints as nothing.
+                        Saying so here is the difference between "the builder is
+                        broken" and "there is no data yet". */}
+                    {ticked && count === 0 && (
+                      <span className="text-[10px] font-semibold text-amber-600">empty</span>
+                    )}
+                  </label>
+                );
+              })}
             </div>
+
+            <button type="button" onClick={resync} disabled={syncing}
+              className="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-xs font-bold
+                text-[#0B6B4F] hover:bg-gray-50 disabled:opacity-40">
+              {syncing ? 'Refreshing…' : '↻ Refresh from my profile'}
+            </button>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-gray-400">
+              This CV holds a copy of your profile from when it was created.
+              Added a job or certificate since then? Refresh to pull it in.
+            </p>
           </Panel>
 
           <Panel title="Header">

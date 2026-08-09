@@ -68,7 +68,7 @@ export default function Home() {
 
 /* ─────────────────── Central Executive Committee ─────────────────── */
 function ExecutiveCommittee() {
-  const { executive } = useLeadership();
+  const { executive, loading } = useLeadership();
   return (
     <section className="max-w-[1400px] mx-auto px-4 py-14 w-full">
       <Reveal className="flex items-center justify-center gap-3">
@@ -89,14 +89,27 @@ function ExecutiveCommittee() {
           that would stay at the variant's opacity: 0 and the whole section
           would render as blank space. Re-keying remounts the group when the
           data lands, so the reveal runs against the real cards. */}
-      <RevealGroup key={executive.length}
-        className="mt-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {executive.map(m => (
-          // h-full on the wrapper AND the card: the extra div would otherwise
-          // absorb the grid stretch and leave cards of unequal height.
-          <RevealItem key={m.slug} className="h-full"><ExecutiveCard member={m} /></RevealItem>
-        ))}
-      </RevealGroup>
+      {/* While the roster is in flight, show placeholder panels rather than the
+          built-in "To Be Announced" cards. Rendering those and swapping them
+          for real names a moment later reads as the page glitching — and if
+          the request is slow, a visitor can screenshot office bearers who look
+          unfilled when they are not. */}
+      {loading ? (
+        <div className="mt-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" aria-hidden="true">
+          {[0, 1, 2].map(i => (
+            <div key={i} className="h-[340px] rounded-tnr-lg border border-gray-100 bg-white/60 animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        <RevealGroup key={executive.length}
+          className="mt-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {executive.map(m => (
+            // h-full on the wrapper AND the card: the extra div would otherwise
+            // absorb the grid stretch and leave cards of unequal height.
+            <RevealItem key={m.slug} className="h-full"><ExecutiveCard member={m} /></RevealItem>
+          ))}
+        </RevealGroup>
+      )}
     </section>
   );
 }

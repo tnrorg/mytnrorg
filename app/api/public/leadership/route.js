@@ -12,13 +12,22 @@ export async function GET() {
     const { data, error } = await supabaseAdmin().from('leadership_profiles')
       .select('body, slug, name, designation, qualification, field, affiliation, summary, expertise, duties, photo_url, sort_order')
       .eq('active', true).order('sort_order').order('created_at');
-    if (error) return ok({ advisory: [], executive: [] });
+
+    // `failed` is the point of this branch. Previously a database error and a
+    // genuinely empty table both returned empty arrays, so the client could not
+    // tell "nobody is configured" from "the query broke" — it fell back to the
+    // built-in placeholder roster either way, and real office bearers appeared
+    // as "To Be Announced" at random. The flag lets the client retry a failure
+    // and accept an empty result.
+    if (error) return ok({ advisory: [], executive: [], failed: true });
+
     const rows = data || [];
     return ok({
       advisory:  rows.filter(r => r.body === 'advisory'),
       executive: rows.filter(r => r.body === 'executive'),
+      failed: false,
     });
   } catch {
-    return ok({ advisory: [], executive: [] });
+    return ok({ advisory: [], executive: [], failed: true });
   }
 }

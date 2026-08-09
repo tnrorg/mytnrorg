@@ -5,7 +5,7 @@ import ExecutiveCard from '@/components/site/ExecutiveCard';
 import { useLeadership } from '@/components/site/useLeadership';
 
 export default function ExecutiveCommitteePage() {
-  const { executive } = useLeadership();
+  const { executive, loading } = useLeadership();
   return (
     <DocPage eyebrow="Governance" title="Central Executive Committee"
       lead="The principal executive body of TNR."
@@ -15,7 +15,12 @@ export default function ExecutiveCommitteePage() {
 
       <Section title="Committee Members">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {executive.map(m => <ExecutiveCard key={m.slug} member={m} />)}
+          {loading
+            ? [0, 1, 2].map(i => (
+                <div key={i} aria-hidden="true"
+                  className="h-[340px] rounded-tnr-lg border border-gray-100 bg-white/60 animate-pulse" />
+              ))
+            : executive.map(m => <ExecutiveCard key={m.slug} member={m} />)}
         </div>
       </Section>
 
