@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabaseServer';
 import { withholdPhoto } from '@/lib/membership/photoVisibility';
 import { ok } from '@/lib/api';
 import { ACTIVE_STATUSES } from '@/lib/membershipStats';
+import { roleRank } from '@/lib/membership/roles';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -15,7 +16,7 @@ const PUBLIC_FIELDS =
   // `gender` is needed only to choose the placeholder icon when a member has
   // no photo. It is already published in the aggregate gender statistics, so
   // this exposes nothing new about any individual.
-  'membership_id, full_name, gender, photo_url, photo_public, village, union_council, current_position, ' +
+  'membership_id, full_name, gender, role, photo_url, photo_public, village, union_council, current_position, ' +
   'profession, profession_other, organization_name, current_country, current_country_code, ' +
   'education_level, contribution_areas, category_id';
 
@@ -64,6 +65,16 @@ export async function GET(req) {
     profession: m.profession === 'Other' ? (profession_other || 'Other') : m.profession,
   }));
   if (category) members = members.filter(m => m.category === category);
+
+  /* Leadership first, then alphabetical within each tier.
+   *
+   * Sorted here rather than in the query: Postgres has no notion of this
+   * ordering, so doing it in SQL would mean a CASE expression that has to be
+   * kept in step with lib/membership/roles.js. ROLE_RANK lives beside the role
+   * definitions instead, and the alphabetical order the query already applied
+   * is preserved by Array.prototype.sort being stable.
+   */
+  members.sort((a, b) => roleRank(a.role) - roleRank(b.role));
 
   // Filter options come from the whole public roster, not the filtered result,
   // so the dropdowns do not collapse as the visitor narrows their search.

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Avatar from '@/components/member/Avatar';
+import { LEADERSHIP_ROLES, roleLabel } from '@/lib/membership/roles';
 import VerifiedBadge from '@/components/ui/VerifiedBadge';
 import CountryFlag from '@/components/stats/CountryFlag';
 import SiteNav from '@/components/site/SiteNav';
@@ -73,6 +74,20 @@ function MemberCard({ m }) {
         </div>
       )}
       {home && <div className="text-[11px] text-gray-400 mt-1">{home}</div>}
+
+      {/* Leadership badge.
+          The directory now lists Advisory and CEC members first, so without a
+          label the ordering looks arbitrary — the reader has no way to tell
+          why those cards come first. General members get no badge; a chip
+          saying "General Member" on three quarters of the grid is noise. */}
+      {LEADERSHIP_ROLES.includes(m.role) && (
+        <div className="mt-2">
+          <span className="inline-block rounded-full px-2.5 py-0.5 text-[9.5px] font-black uppercase tracking-[.12em]"
+            style={{ background: 'rgba(200,154,43,.16)', color: '#8A6A12', border: '1px solid rgba(200,154,43,.4)' }}>
+            {roleLabel(m.role)}
+          </span>
+        </div>
+      )}
 
       {m.category && (
         <div className="mt-2 text-[10px] font-bold tracking-wide uppercase" style={{ color: C.gold }}>
