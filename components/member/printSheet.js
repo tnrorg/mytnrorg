@@ -88,10 +88,13 @@ export function printSheet(elementId, title) {
       }
       #print-root {
         background: #fff !important;
-        /* Centre the sheet in the preview window and stop it being clipped on
-           a narrow screen — the sheet is 210mm wide and the popup is not. */
+        /* Fills the viewport, so no dark page shows below a short document. */
+        min-height: 100vh;
         display: flex;
-        justify-content: center;
+        /* "safe center" centres the sheet but falls back to flex-start when it
+           is wider than the window. Plain centring would push the left edge
+           off-screen and make it unreachable — you cannot scroll to it. */
+        justify-content: safe center;
         padding: 16px;
         overflow: auto;
       }
@@ -112,6 +115,32 @@ export function printSheet(elementId, title) {
     </body></html>`);
 
   w.document.close();
-  w.onload = () => { w.focus(); w.print(); };
-  setTimeout(() => { try { w.focus(); w.print(); } catch {} }, 600);
+
+  /* Force white on the document itself.
+   *
+   * The <style> block above should already win — it is last in the head and
+   * uses !important — but the site's stylesheet arrives as a <link> that
+   * resolves asynchronously, and the exact cascade in a document built with
+   * document.write has proved unreliable across browsers. An inline style set
+   * with priority 'important' sits above every stylesheet rule, so this is the
+   * one place the dark page background cannot follow us into.
+   */
+  const paintWhite = () => {
+    try {
+      for (const el of [w.document.documentElement, w.document.body]) {
+        if (!el) continue;
+        el.style.setProperty('background', '#ffffff', 'important');
+        el.style.setProperty('background-image', 'none', 'important');
+        el.style.setProperty('color', '#111111', 'important');
+      }
+      const root = w.document.getElementById('print-root');
+      if (root) root.style.setProperty('background', '#ffffff', 'important');
+    } catch { /* window closed early */ }
+  };
+
+  paintWhite();
+  // Again once the copied stylesheets have finished loading, in case one of
+  // them repaints the body on arrival.
+  w.onload = () => { paintWhite(); w.focus(); w.print(); };
+  setTimeout(() => { paintWhite(); try { w.focus(); w.print(); } catch {} }, 600);
 }
