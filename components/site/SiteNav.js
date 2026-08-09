@@ -8,58 +8,20 @@ const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' }
 
 /* A dropdown entry. Planned pages render as a non-clickable row with a "Soon"
    chip rather than a link to a 404 — the roadmap stays visible and honest. */
-/* The gold person icon used to go straight to the application form, which was
- * wrong for the many people who have already applied: they arrived at a blank
- * form instead of a way in. It now opens a small menu with both routes. */
-function AccountMenu({ open, onClose, align = 'left' }) {
-  if (!open) return null;
-  const rows = [
-    ['Register as a Member', 'Join TNR — new application', '/membership/apply', true],
-    ['Member Login', 'Already approved? Sign in', '/member/login'],
-    ['Check Application Status', 'Track an application you have submitted', '/membership/status'],
-  ];
-  return (
-    <div className={`absolute top-full mt-2 w-64 z-50 ${align === 'right' ? 'right-0' : 'left-0'}`}>
-      <div className="rounded-2xl bg-white shadow-2xl border border-gray-100 py-2 animate-fade-up" style={mont}>
-        {rows.map(([label, note, href, primary]) => (
-          <a key={href} href={href} onClick={onClose}
-            className="block px-4 py-2.5 hover:bg-[#0B6B4F]/5 transition-colors">
-            <div className="text-sm font-bold" style={{ color: primary ? '#0B6B4F' : G }}>{label}</div>
-            <div className="text-[11px] text-gray-500 leading-snug">{note}</div>
-          </a>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function NavLink({ item, onNavigate, className }) {
-  if (item.soon) return (
-    <span className={`${className} flex items-center justify-between cursor-default text-gray-400`}
-      aria-disabled="true">
-      {item.label}
-      <span className="ml-2 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide
-        bg-gray-100 text-gray-400">Soon</span>
-    </span>
-  );
-  return <a href={item.href} onClick={onNavigate} className={className}>{item.label}</a>;
-}
-
 export default function SiteNav() {
   const [open, setOpen] = useState(null);      // desktop dropdown label
   const [mobile, setMobile] = useState(false);
   const [acc, setAcc] = useState(null);        // mobile accordion
   const [search, setSearch] = useState(false);
-  const [account, setAccount] = useState(false);   // Register / Login popover
   const ref = useRef(null);
 
   useEffect(() => {
-    // A click anywhere outside the header bar closes both the nav dropdown and
-    // the account menu; Escape does the same from the keyboard.
+    // A click anywhere outside the header bar closes the nav dropdown;
+    // Escape does the same from the keyboard.
     const close = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) { setOpen(null); setAccount(false); }
+      if (ref.current && !ref.current.contains(e.target)) setOpen(null);
     };
-    const onKey = (e) => { if (e.key === 'Escape') { setOpen(null); setAccount(false); } };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(null); };
     document.addEventListener('click', close);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -115,18 +77,14 @@ export default function SiteNav() {
       </div>
     </div>
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-100 shadow-sm relative">
-      <div ref={ref} className="max-w-[1400px] mx-auto px-4 py-2.5 flex items-center gap-3">
-        {/* Logo, left on every breakpoint.
-            It used to be absolutely centred on mobile with the account button
-            on the left. Centring meant it drifted whenever the right-hand
-            controls changed width, and the first thing in the bar was a button
-            rather than the organisation. Left is also where a reader looks for
-            "home". */}
+      <div ref={ref} className="relative max-w-[1400px] mx-auto px-4 py-2.5 flex items-center gap-3">
+        {/* Logo, left on every breakpoint — where a reader looks for "home",
+            and where a screen reader lands first. */}
         <a href="/" aria-label="Tehreek-e-Nojawanan Roundu — home"
-          className="flex items-center gap-2.5 shrink-0">
-          <span className="w-10 h-10 rounded-full grid place-items-center bg-white ring-2 ring-[#D4A72C] overflow-hidden shadow">
-            <img src="/tnr-logo.png" alt="TNR" className="w-full h-full object-contain p-0.5" />
-          </span>
+          className="flex items-center shrink-0">
+          {/* Bare mark — no gold ring, no white disc. The logo already carries
+              its own circular border, so the added ring read as a second one. */}
+          <img src="/tnr-logo.png" alt="TNR" className="h-11 w-auto object-contain" />
         </a>
 
         {/* Desktop nav */}
@@ -164,24 +122,16 @@ export default function SiteNav() {
               <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
               <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
           </button>
+          {/* The gold register button used to sit here. Registration now lives
+              on the hero's "Join TNR" call to action; the hamburger menu still
+              carries Register and Member Login, so no route was lost — mobile
+              visitors would otherwise have had no way to sign in. */}
           <a href="/member/login" className="hidden xl:inline-block px-3 py-2 rounded-xl text-[13px] font-semibold text-[#063D2B] border border-[#063D2B]/15 hover:bg-[#063D2B]/5">LOGIN</a>
-          {/* Register / log in. One control at every breakpoint now — it moved
-              here from the mobile left slot so the logo could take it. */}
-          <div className="relative">
-            <button onClick={() => setAccount(o => !o)} aria-label="Register or log in"
-              aria-expanded={account} title="Register or log in"
-              className="grid place-items-center w-10 h-10 rounded-full text-[#063D2B] shadow"
-              style={{ background: 'linear-gradient(180deg,#F3E4B3,#D4A72C)' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <circle cx="9" cy="8" r="3.4" stroke="currentColor" strokeWidth="2" />
-                <path d="M2.8 20c0-3.4 2.8-5.6 6.2-5.6s6.2 2.2 6.2 5.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                <path d="M18.5 8.5v5M21 11h-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </button>
-            {/* Right-aligned so the panel cannot run off the screen edge on a
-                narrow phone, which it would if it opened leftwards from here. */}
-            <AccountMenu open={account} onClose={() => setAccount(false)} align="right" />
-          </div>
+          <a href="/membership/apply"
+            className="hidden xl:inline-block px-4 py-2 rounded-xl text-[13px] font-bold text-white"
+            style={{ background: 'linear-gradient(180deg,#0B6B4F,#063D2B)', border: '1px solid rgba(200,154,43,.4)' }}>
+            REGISTER
+          </a>
           <button className="xl:hidden p-2 -mr-1 text-gray-600" onClick={() => setMobile(!mobile)} aria-label="menu">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
           </button>
