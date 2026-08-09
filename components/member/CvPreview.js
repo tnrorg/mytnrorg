@@ -37,11 +37,11 @@ export default function CvPreview({ cv }) {
 
   const H = ({ children }) => (
     <h2 style={{ color: accent, borderColor: ats ? '#999' : accent + '33' }}
-      className="text-[11pt] font-black uppercase tracking-wide border-b pb-1 mb-2 mt-4">{children}</h2>
+      className="cv-heading text-[11pt] font-black uppercase tracking-wide border-b pb-1 mb-2 mt-4">{children}</h2>
   );
 
   const Entry = ({ e }) => (
-    <div className="mb-2.5">
+    <div className="cv-entry mb-2.5">
       <div className="flex justify-between gap-3 items-baseline">
         <span className="font-bold text-[10.5pt]">{e.title}</span>
         {/* An en dash between dates extracts as a stray character in some
@@ -108,7 +108,7 @@ export default function CvPreview({ cv }) {
     <div id="cv-sheet" className="bg-white mx-auto shadow-lg print:shadow-none"
       style={{ width: '210mm', minHeight: '297mm', padding: '14mm 14mm', fontFamily: ats ? 'Arial, sans-serif' : 'var(--font-mulish), Mulish, system-ui, sans-serif', color: '#111' }}>
       {/* Header */}
-      <div className={`flex gap-4 items-center pb-3 ${ats ? '' : 'border-b-2'}`} style={{ borderColor: accent }}>
+      <div className={`cv-header flex gap-4 items-center pb-3 ${ats ? '' : 'border-b-2'}`} style={{ borderColor: accent }}>
         {cv?.show_photo && c.photo_url && !ats && (
           <img src={c.photo_url} alt="" className="w-[26mm] h-[26mm] object-cover rounded-lg shrink-0" />
         )}
@@ -133,8 +133,13 @@ export default function CvPreview({ cv }) {
         </div>
       </div>
 
+      {/* cv-section, not break-inside-avoid.
+          Keeping a whole section together sounds tidy but is what left a third
+          of page 1 blank: Education did not fit in the remaining space, so all
+          five entries jumped to page 2. Sections now flow; the individual
+          entries inside them are what stay whole. See printSheet.js. */}
       {order.filter(on).map(k => body[k] ? (
-        <section key={k} className="break-inside-avoid">
+        <section key={k} className="cv-section">
           <H>{LABEL[k]}</H>
           {body[k]}
         </section>
