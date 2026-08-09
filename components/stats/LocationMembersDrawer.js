@@ -190,12 +190,15 @@ function MemberCard({ m }) {
           <span className="text-[10.5px] font-mono tabular-nums" style={{ color: COLORS.muted }}>
             {m.membership_id}
           </span>
+          {/* A bare text link, not a filled button — a gold wipe behind an
+              inline label would read as a highlighter mark. Only the arrow
+              travels, matching the buttons without imitating them. */}
           <a href={`/members/${m.membership_id}`}
-            className="group inline-flex items-center gap-1 text-[11.5px] font-bold"
+            className="group inline-flex items-center gap-1 text-[11.5px] font-bold hover:underline"
             style={{ color: COLORS.green700 }}>
             View Profile
             <ArrowRight size={11} strokeWidth={2.5} aria-hidden="true"
-              className="transition-transform duration-micro group-hover:translate-x-0.5" />
+              className="tnr-btn-arrow group-hover:translate-x-[3px]" />
           </a>
         </div>
       </div>

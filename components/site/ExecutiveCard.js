@@ -78,7 +78,7 @@ export default function ExecutiveCard({ member }) {
             description page is only useful when nobody holds the post yet, and
             the duties appear on the profile anyway. */}
         <a href={member.name ? `/council/${member.slug}` : `/about/executive-committee/${member.slug}`}
-          className="mt-5 block text-center text-[12.5px] font-bold py-2.5 rounded-xl text-white transition hover:opacity-90"
+          className="tnr-btn-profile mt-5 block text-center text-[12.5px] font-bold py-2.5 rounded-xl text-white"
           style={{ background: C.deep }}>
           {member.name ? 'View Profile' : 'About This Position'}
         </a>

@@ -63,7 +63,7 @@ function MemberCard({ m }) {
       )}
 
       <a href={`/members/${m.membership_id}`}
-        className="mt-4 block rounded-xl py-2 text-xs font-bold text-white transition-opacity hover:opacity-90"
+        className="tnr-btn-profile mt-4 block rounded-xl py-2 text-xs font-bold text-white"
         style={{ background: C.green }}>View Profile</a>
     </div>
   );

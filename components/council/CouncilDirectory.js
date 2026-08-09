@@ -75,13 +75,11 @@ function Card({ m, i }) {
         {/* Solid green button, matching the Executive Committee cards so both
             leadership sections share one call to action. */}
         <a href={`/council/${m.slug}`}
-          className="group mt-auto block rounded-tnr py-2.5 text-center text-[12px] font-bold text-white
-            transition-opacity duration-micro hover:opacity-90"
+          className="tnr-btn-profile mt-auto block rounded-tnr py-2.5 text-center text-[12px] font-bold text-white"
           style={{ background: `linear-gradient(180deg,${COLORS.green700},${COLORS.green900})` }}>
           <span className="inline-flex items-center gap-1.5">
             View Full Profile
-            <ArrowRight size={13} strokeWidth={2.5} aria-hidden="true"
-              className="transition-transform duration-micro group-hover:translate-x-0.5" />
+            <ArrowRight size={13} strokeWidth={2.5} aria-hidden="true" className="tnr-btn-arrow" />
           </span>
         </a>
       </div>

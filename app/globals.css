@@ -413,6 +413,66 @@ html {
     radial-gradient(55% 50% at 92% 82%, rgba(200, 154, 43, 0.11), transparent 66%);
 }
 
+/* ── Profile buttons ───────────────────────────────────────────────────────
+   Every "View Profile" across the executive, advisory, union-council and
+   member cards. One class so all four read identically — five separate hover
+   treatments is what makes a set of cards look assembled rather than designed.
+
+   The gold sweeps in from the left rather than cross-fading: a wipe reads as
+   deliberate motion, a fade of one flat colour into another reads as a bug. */
+.tnr-btn-profile {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition:
+    color .35s var(--ease-out-soft),
+    transform .35s var(--ease-out-soft),
+    box-shadow .35s var(--ease-out-soft);
+}
+.tnr-btn-profile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #D7AE4A, #C89A2B);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform .38s var(--ease-out-soft);
+}
+@media (hover: hover) and (pointer: fine) {
+  .tnr-btn-profile:hover::before { transform: scaleX(1); }
+  .tnr-btn-profile:hover {
+    color: #062D21;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(6,45,33,.08), 0 12px 26px -8px rgba(200,154,43,.55);
+  }
+  /* The arrow travels with the sweep. */
+  .tnr-btn-profile:hover .tnr-btn-arrow { transform: translateX(3px); }
+}
+/* Touch has no hover: the gold confirms the tap instead. */
+.tnr-btn-profile:active::before { transform: scaleX(1); }
+.tnr-btn-profile:active { color: #062D21; transform: scale(.985); }
+
+/* Keyboard users get the same affordance as a mouse. */
+.tnr-btn-profile:focus-visible::before { transform: scaleX(1); }
+.tnr-btn-profile:focus-visible {
+  color: #062D21;
+  outline: 2px solid #062D21;
+  outline-offset: 2px;
+}
+
+.tnr-btn-arrow { transition: transform .35s var(--ease-out-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tnr-btn-profile,
+  .tnr-btn-profile::before,
+  .tnr-btn-arrow { transition: none; }
+  .tnr-btn-profile:hover { transform: none; }
+  /* No wipe, but the colour change still has to happen — it is the feedback. */
+  .tnr-btn-profile:hover::before { transform: scaleX(1); }
+}
+
 /* ── Announcement ticker ───────────────────────────────────────────────────
    The track holds two identical copies of the list and translates by exactly
    -50%, so when the first copy leaves the viewport the second sits precisely
