@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
-import { FemaleIcon } from '@/components/ui/Avatar';
+import { FemaleIcon, NeutralIcon } from '@/components/ui/Avatar';
+import { genderIconKind } from '@/lib/membership/options';
 
 export function initials(name) {
   const p = String(name || '').trim().split(/\s+/).filter(Boolean);
@@ -29,12 +30,23 @@ export default function Avatar({ src, name, gender = '', style, className, fontS
     );
   }
 
-  if (String(gender || '').toLowerCase() === 'female') {
+  const kind = genderIconKind(gender);
+
+  /* A silhouette for anyone who chose something other than Male, initials for
+   * everyone else.
+   *
+   * `gender &&` matters: genderIconKind reports 'neutral' both for someone who
+   * picked "Prefer not to say" and for a legacy record where the field was
+   * never filled in. Only the first is a choice worth reflecting — the blank
+   * ones keep the initials they have always shown. */
+  const Icon = kind === 'female' ? FemaleIcon : (kind === 'neutral' && gender) ? NeutralIcon : null;
+
+  if (Icon) {
     return (
       <div style={{ ...style, display: 'grid', placeItems: 'center',
         background: 'linear-gradient(160deg,#0B6B4F,#063D2B)', color: '#F3E4B3' }}
         className={className}>
-        <FemaleIcon className="w-[68%] h-[68%]" title={name || 'Member'} />
+        <Icon className="w-[68%] h-[68%]" title={name || 'Member'} />
       </div>
     );
   }

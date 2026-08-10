@@ -1,4 +1,5 @@
 'use client';
+import { genderIconKind } from '@/lib/membership/options';
 
 /**
  * Member avatar with a gender-appropriate placeholder.
@@ -40,6 +41,32 @@ export function FemaleIcon({ className = '', title = 'Member' }) {
   );
 }
 
+/**
+ * Neutral silhouette — for Non-binary / Other, Prefer not to say, and members
+ * whose gender was never recorded.
+ *
+ * Drawn to sit beside the other two without reading as either: the head is the
+ * same circle, and the shoulders are a touch wider and squarer than the male
+ * form so the three are visibly a set rather than one of them reused. The point
+ * is that nobody's placeholder contradicts what they chose, and that choosing
+ * one of these options does not make a profile look conspicuously different.
+ */
+export function NeutralIcon({ className = '', title = 'Member' }) {
+  return (
+    <svg viewBox="0 0 100 100" className={className} role="img" aria-label={title}>
+      <title>{title}</title>
+      <circle cx="50" cy="34" r="17.5" fill="currentColor" />
+      <path fill="currentColor" d="
+        M50 56
+        c-18 0-31 11-33 26
+        c-0.4 2.4 1.1 4 3.5 4
+        h59
+        c2.4 0 3.9-1.6 3.5-4
+        C81 67 68 56 50 56 Z" />
+    </svg>
+  );
+}
+
 export function MaleIcon({ className = '', title = 'Member' }) {
   return (
     <svg viewBox="0 0 100 100" className={className} role="img" aria-label={title}>
@@ -58,7 +85,7 @@ export function MaleIcon({ className = '', title = 'Member' }) {
 
 /**
  * @param {string}  src     photo URL, if the member supplied one
- * @param {string}  gender  'male' | 'female' | 'other'
+ * @param {string}  gender  any recorded value, including blank
  * @param {string}  name    used for the alt text
  */
 export default function Avatar({
@@ -68,7 +95,7 @@ export default function Avatar({
   className = '',
   rounded = 'rounded-full',
 }) {
-  const g = String(gender || '').toLowerCase();
+  const kind = genderIconKind(gender);
 
   if (src) {
     return (
@@ -84,7 +111,7 @@ export default function Avatar({
     );
   }
 
-  const Icon = g === 'female' ? FemaleIcon : MaleIcon;
+  const Icon = kind === 'female' ? FemaleIcon : kind === 'male' ? MaleIcon : NeutralIcon;
 
   return (
     <span

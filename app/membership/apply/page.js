@@ -4,7 +4,7 @@ import SiteNav from '@/components/site/SiteNav';
 import SiteFooter from '@/components/site/SiteFooter';
 import {
   GENDERS, EDUCATION_LEVELS, POSITIONS, PROFESSIONS, CONTRIBUTION_AREAS,
-  LEADERSHIP_OPTIONS, DECLARATION_TEXT, DECLARATION_VERSION,
+  LEADERSHIP_OPTIONS, DECLARATION_TEXT, DECLARATION_VERSION, photoOptionalFor,
 } from '@/lib/membership/options';
 import {
   validateApplication, STEPS, stepErrors, isStepComplete, REQUIRED_LABELS, ageFrom,
@@ -123,9 +123,9 @@ export default function ApplyPage() {
   const errors = validateApplication(f);
   const stepKey = STEPS[step].key;
   const onReview = stepKey === 'REVIEW';
-  // Mirrors the rule in validateApplication: mandatory for men, optional for
-  // women and for anyone selecting Other.
-  const photoRequired = !['female', 'other'].includes(String(f.gender || '').toLowerCase());
+  // The SAME rule the validator uses, not a second copy of it — these two had
+  // already drifted apart once.
+  const photoRequired = !photoOptionalFor(f.gender);
   // An error is only shown once the applicant has left that field, or after
   // they try to submit — no wall of red before they have typed anything.
   const showErr = (k) => (tried || touched[k]) ? errors[k] : '';

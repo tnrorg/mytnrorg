@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { aGet, aPost, aPatch, aDel } from './adminApi';
 import { parseFile, exportExcel } from './exporters';
 import { Card, Badge, Field } from './ui';
+import { GENDERS } from '@/lib/membership/options';
 
 // A member can only receive an OTP if this passes.
 function validEmail(v) {
@@ -108,7 +109,11 @@ export default function MembersTab({ toast }) {
           <Field label="Mobile / WhatsApp *"><input className="input" value={form.mobile} onChange={e => setForm({ ...form, mobile: e.target.value })} /></Field>
           <Field label="Village / Area"><input className="input" value={form.village || ''} onChange={e => setForm({ ...form, village: e.target.value })} /></Field>
           <Field label="Gender"><select className="input" value={form.gender || ''} onChange={e => setForm({ ...form, gender: e.target.value })}>
-            <option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select></Field>
+            {/* Same list the public form offers. Admin-entered records used to
+                have their own shorter set, so a member who selected an option
+                here could not be matched to one entered there. */}
+            <option value="">—</option>
+            {GENDERS.map(g => <option key={g}>{g}</option>)}</select></Field>
           <Field label="Status"><select className="input" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
             <option>Pending</option><option>Approved</option><option>Blocked</option></select></Field>
         </div>
