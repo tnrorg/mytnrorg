@@ -42,6 +42,24 @@ const nextConfig = {
   // out of responses if the app is ever hosted elsewhere.
   poweredByHeader: false,
 
+  /* Inline the CSS the first screen actually needs, and load the rest without
+     blocking the render.
+   *
+   * The audit measured a 490ms render-blocking cost from two stylesheets that
+   * load in sequence — the Tailwind bundle, then the font CSS — so nothing
+   * paints for over a second while they resolve. Inlining what the first
+   * screen uses removes both from the critical path, which moves FCP and
+   * takes LCP with it.
+   *
+   * This is a Next EXPERIMENTAL flag and it is the one change here that could
+   * cause a visual regression rather than just a slower page: critters decides
+   * what counts as "critical", and it occasionally misjudges a rule that only
+   * applies after hydration. If anything looks wrong after deploying, delete
+   * this `experimental` block and redeploy — nothing else depends on it. */
+  experimental: {
+    optimizeCss: true,
+  },
+
   images: {
     /* Was hostname: '**' — the optimiser would fetch and serve an image from
        ANY https host on request, which is a server-side request forgery
