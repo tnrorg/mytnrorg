@@ -1,0 +1,128 @@
+import { supabaseAdmin } from '@/lib/supabaseServer';
+
+/* Sitemap for Google Search Console.
+ *
+ * Next serves whatever this returns at /sitemap.xml. It is generated from the
+ * live database rather than written by hand, so a member approved tomorrow is
+ * in the sitemap tomorrow without anyone remembering to add them.
+ *
+ * WHAT IS DELIBERATELY ABSENT
+ * The admin panel, the member portal, /membership/status and the super-admin
+ * tools. Those are either private or personal, next.config.js already sends
+ * them X-Robots-Tag: noindex, and listing a page here that the headers tell
+ * Google not to index is a contradiction Search Console reports as an error.
+ *
+ * FAILURE BEHAVIOUR
+ * Every database read is wrapped. A sitemap that returns a 500 is worse than
+ * one missing some URLs — Search Console records the fetch as failed and stops
+ * trying for a while — so on any error this still returns the static pages.
+ */
+
+const BASE = 'https://www.mytnr.org';
+
+// Re-read hourly. Members and office bearers change on a human timescale, and
+// Google does not re-fetch a sitemap more often than that anyway.
+export const revalidate = 3600;
+
+/* Fixed pages, with the priorities they actually deserve relative to one
+ * another. Priority is a hint about relative importance within this site — it
+ * says nothing to Google about ranking against anyone else. */
+const STATIC_ROUTES = [
+  ['',                              1.0, 'daily'],
+  ['/about',                        0.8, 'monthly'],
+  ['/about/vision-mission',         0.7, 'monthly'],
+  ['/about/governance',             0.6, 'monthly'],
+  ['/about/constitution',           0.6, 'yearly'],
+  ['/about/code-of-conduct',        0.6, 'yearly'],
+  ['/about/office-bearers',         0.8, 'monthly'],
+  ['/about/advisory-council',       0.8, 'weekly'],
+  ['/about/executive-committee',    0.8, 'weekly'],
+  ['/members',                      0.9, 'daily'],
+  ['/membership',                   0.9, 'monthly'],
+  ['/membership/apply',             0.9, 'monthly'],
+  ['/membership/verify',            0.7, 'monthly'],
+  ['/statistics',                   0.7, 'weekly'],
+  ['/statistics/education',         0.6, 'weekly'],
+  ['/statistics/employment',        0.6, 'weekly'],
+  ['/statistics/projects',          0.6, 'weekly'],
+  ['/cec/apply',                    0.6, 'monthly'],
+  ['/election-portal',              0.5, 'weekly'],
+  ['/results',                      0.5, 'weekly'],
+];
+
+export default async function sitemap() {
+  const now = new Date();
+
+  const routes = STATIC_ROUTES.map(([path, priority, changeFrequency]) => ({
+    url: `${BASE}${path}`,
+    lastModified: now,
+    changeFrequency,
+    priority,
+  }));
+
+  const sb = supabaseAdmin();
+
+  /* Leadership profiles — /council/[slug].
+   *
+   * There are two routes rendering the same person: /council/[slug] and
+   * /about/{advisory-council,executive-committee}/[slug]. Only the first is
+   * listed. Submitting both would be duplicate content, and Google would pick
+   * a canonical itself — better to state which one matters. */
+  try {
+    const { data } = await sb.from('leadership_profiles')
+      .select('slug, updated_at')
+      .eq('active', true)
+      .not('slug', 'is', null);
+
+    for (const p of data || []) {
+      if (!p.slug) continue;
+      routes.push({
+        url: `${BASE}/council/${encodeURIComponent(p.slug)}`,
+        lastModified: p.updated_at ? new Date(p.updated_at) : now,
+        changeFrequency: 'monthly',
+        priority: 0.7,
+      });
+    }
+  } catch { /* static routes still ship */ }
+
+  /* Member profiles — /members/[membership_id].
+   *
+   * Three filters, and none of them is optional:
+   *   status         approved or active only — never pending or rejected
+   *   deleted_at     soft-deleted members are gone, not merely hidden
+   *   public_visible a member an admin has withheld from the public directory
+   *                  must not be handed to a search engine instead. That
+   *                  setting exists for safety and family reasons, and a
+   *                  sitemap that ignored it would quietly undo it.
+   */
+  try {
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await sb.from('membership_members')
+        .select('membership_id, updated_at')
+        .in('status', ['approved', 'active'])
+        .is('deleted_at', null)
+        .not('public_visible', 'is', false)
+        .not('membership_id', 'is', null)
+        .range(from, from + PAGE - 1);
+
+      if (error || !data?.length) break;
+
+      for (const m of data) {
+        if (!m.membership_id) continue;
+        routes.push({
+          url: `${BASE}/members/${encodeURIComponent(m.membership_id)}`,
+          lastModified: m.updated_at ? new Date(m.updated_at) : now,
+          changeFrequency: 'monthly',
+          priority: 0.5,
+        });
+      }
+      // Paginated rather than a single read: Supabase caps a request at 1000
+      // rows, so a flat select would silently stop listing members past the
+      // thousandth — the same trap the dashboard counters had.
+      if (data.length < PAGE) break;
+    }
+  } catch { /* static and leadership routes still ship */ }
+
+  return routes;
+}
