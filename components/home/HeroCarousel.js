@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import Hero from './Hero';
 import { COLORS, FONT, MOTION } from '@/lib/design/tokens';
+import { cldSrc, cldSrcSet } from '@/lib/cloudinaryUrl';
 
 const DURATION = 6500;   // ms a slide stays before advancing
 
@@ -16,20 +17,28 @@ const DURATION = 6500;   // ms a slide stays before advancing
  * If there are no slides (migration not run, or every slide switched off) the
  * built-in <Hero /> renders instead, so the front page can never end up blank.
  */
-export default function HeroCarousel() {
-  const [slides, setSlides] = useState(null);   // null = still loading
+export default function HeroCarousel({ initialSlides = null }) {
+  /* `initialSlides` comes from the server (app/page.js), so the first slide is
+   * already in the HTML and the browser can start downloading the image while
+   * it is still parsing — instead of after React has hydrated and a fetch has
+   * come back. That ordering was most of the LCP.
+   *
+   * The fetch is kept for any caller that renders this without slides, so the
+   * component still works standalone. */
+  const [slides, setSlides] = useState(initialSlides);   // null = still loading
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
   const reduce = useReducedMotion();
 
   useEffect(() => {
+    if (initialSlides) return;                 // already rendered on the server
     let off = false;
-    fetch('/api/public/hero', { cache: 'no-store' })
+    fetch('/api/public/hero')
       .then(r => r.json())
       .then(j => { if (!off) setSlides(j?.ok ? (j.slides || []) : []); })
       .catch(() => { if (!off) setSlides([]); });
     return () => { off = true; };
-  }, []);
+  }, [initialSlides]);
 
   const n = slides?.length || 0;
   // Wraps in both directions, so "previous" from the first slide lands on the last.
@@ -95,8 +104,27 @@ export default function HeroCarousel() {
                 still feels alive. Disabled for reduced-motion users. */}
             {s.image_url && (
               <motion.img
-                src={s.image_url} alt=""
+                src={cldSrc(s.image_url)}
+                srcSet={cldSrcSet(s.image_url)}
+                // The hero spans the full viewport at every breakpoint, so the
+                // browser should pick by viewport width. Without this it
+                // assumes 100vw only after layout and can fetch the wrong size.
+                sizes="100vw"
+                alt=""
                 aria-hidden="true"
+                /* Only one slide is mounted at a time, so this image is always
+                 * the visible one and must never be lazy — a lazy LCP element
+                 * is the commonest cause of a slow LCP.
+                 *
+                 * The priority hints are scoped to the first slide, which is
+                 * the actual LCP candidate: it tells the browser to fetch this
+                 * ahead of the scripts it discovers at the same moment.
+                 * Applying them to later slides would be claiming urgency for
+                 * an image the visitor asked for by clicking, competing with
+                 * whatever else is still loading. */
+                loading="eager"
+                fetchPriority={i === 0 ? 'high' : 'auto'}
+                decoding={i === 0 ? 'sync' : 'async'}
                 className="absolute inset-0 h-full w-full object-cover select-none"
                 draggable="false"
                 initial={reduce ? false : { scale: 1.06 }}

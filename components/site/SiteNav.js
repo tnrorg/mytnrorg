@@ -9,12 +9,16 @@ const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' }
 /* A dropdown entry. Planned pages render as a non-clickable row with a "Soon"
    chip rather than a link to a 404 — the roadmap stays visible and honest. */
 function NavLink({ item, onNavigate, className }) {
+  /* "Soon" items are greyed to read as unavailable, but grey-on-grey was
+   * taking that to 2.3:1 — the label was decorative rather than legible, and
+   * anyone with low vision simply could not read which features are coming.
+   * gray-600 on gray-100 is 6.9:1 and still clearly muted beside a live link. */
   if (item.soon) return (
-    <span className={`${className} flex items-center justify-between cursor-default text-gray-400`}
+    <span className={`${className} flex items-center justify-between cursor-default text-gray-600`}
       aria-disabled="true">
       {item.label}
       <span className="ml-2 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide
-        bg-gray-100 text-gray-400">Soon</span>
+        bg-gray-100 text-gray-600">Soon</span>
     </span>
   );
   return <a href={item.href} onClick={onNavigate} className={className}>{item.label}</a>;

@@ -1,12 +1,8 @@
-'use client';
 import SiteNav from '@/components/site/SiteNav';
 import SiteFooter from '@/components/site/SiteFooter';
 import AiFab from '@/components/site/AiFab';
-import ExecutiveCard from '@/components/site/ExecutiveCard';
-import { CEC_INTRO } from '@/content/executiveCommittee';
-import { useLeadership } from '@/components/site/useLeadership';
-import { Reveal, RevealGroup, RevealItem } from '@/components/ui';
 import HeroCarousel from '@/components/home/HeroCarousel';
+import ExecutiveCommittee from '@/components/home/ExecutiveCommittee';
 import Ticker from '@/components/home/Ticker';
 import CommunityStats from '@/components/home/CommunityStats';
 import LeadershipMessages from '@/components/home/LeadershipMessages';
@@ -15,18 +11,32 @@ import JoinCta from '@/components/home/JoinCta';
 import MembersPreview from '@/components/home/MembersPreview';
 import MembershipReach from '@/components/home/MembershipReach';
 import CouncilSection from '@/components/home/CouncilSection';
+import { getHeroSlides } from '@/lib/heroSlidesServer';
 
-const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#D4A72C', soft: '#F3E4B3', ink: '#15231D', bg: '#FDFDFD' };
-const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
+const C = { ink: '#15231D', bg: '#FDFDFD' };
 
-// NOTE: the hardcoded STATS array that used to live here ("10K+ Registered
-// Members", "25+ Countries", ...) was invented. Community figures now come from
-// /api/public/community-stats — see components/home/CommunityStats.js.
+/* Home page — a SERVER component.
+ *
+ * It used to carry 'use client', which meant the browser had to download and
+ * hydrate React before anything on the page could ask for the hero image. The
+ * chain was: HTML → JS → hydrate → fetch /api/public/hero → render <img> →
+ * request the image. Five round trips before the largest element on the page
+ * even started downloading, which is most of a 3.7s LCP on a phone.
+ *
+ * Now the slides are read here, on the server, and the first slide's <img> is
+ * in the HTML the browser receives. The preload scanner finds it while the
+ * page is still parsing. Every child below is still an ordinary client
+ * component and behaves exactly as before.
+ */
 
+// The hero is admin-managed and changes rarely. Sixty seconds keeps the HTML
+// cacheable — the whole point of moving this to the server — while an edit
+// still appears within a minute rather than needing a redeploy.
+export const revalidate = 60;
 
+export default async function Home() {
+  const slides = await getHeroSlides();
 
-
-export default function Home() {
   // tnr-ambient lays two very faint radial gradients behind everything. Glass
   // panels need something underneath to refract — on a flat white page a
   // frosted panel just looks grey.
@@ -34,8 +44,9 @@ export default function Home() {
     <main style={{ background: C.bg, color: C.ink, fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' }}
       className="light-page tnr-ambient min-h-screen flex flex-col">
       <SiteNav />
-      {/* Admin-managed slides; falls back to the built-in hero when none exist. */}
-      <HeroCarousel />
+      {/* Admin-managed slides, read on the server; falls back to the built-in
+          hero when none exist. */}
+      <HeroCarousel initialSlides={slides} />
       {/* Admin-managed scrolling notices (Admin → Announcements).
           Renders nothing when the list is empty. */}
       <Ticker />
@@ -61,58 +72,3 @@ export default function Home() {
     </main>
   );
 }
-
-
-
-
-
-/* ─────────────────── Central Executive Committee ─────────────────── */
-function ExecutiveCommittee() {
-  const { executive, loading } = useLeadership();
-  return (
-    <section className="max-w-[1400px] mx-auto px-4 py-14 w-full">
-      <Reveal className="flex items-center justify-center gap-3">
-        <span className="h-px w-10 sm:w-20" style={{ background: `${C.gold}66` }} />
-        <h2 style={{ ...mont, color: C.deep }} className="text-lg sm:text-xl font-black uppercase tracking-wide text-center">Central Executive Committee</h2>
-        <span className="h-px w-10 sm:w-20" style={{ background: `${C.gold}66` }} />
-      </Reveal>
-      <Reveal delay={0.06}>
-        <p className="mt-3 text-center text-sm text-gray-500 max-w-3xl mx-auto leading-relaxed">{CEC_INTRO}</p>
-      </Reveal>
-
-      {/* One per row on mobile, three per row from desktop up. RevealGroup
-          staggers the cards so the grid builds rather than snapping in.
-
-          `key` on the count is load-bearing, not cosmetic. Leadership arrives
-          asynchronously, so the viewport observer can fire while this grid is
-          still empty. RevealGroup only animates once — cards mounting after
-          that would stay at the variant's opacity: 0 and the whole section
-          would render as blank space. Re-keying remounts the group when the
-          data lands, so the reveal runs against the real cards. */}
-      {/* While the roster is in flight, show placeholder panels rather than the
-          built-in "To Be Announced" cards. Rendering those and swapping them
-          for real names a moment later reads as the page glitching — and if
-          the request is slow, a visitor can screenshot office bearers who look
-          unfilled when they are not. */}
-      {loading ? (
-        <div className="mt-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" aria-hidden="true">
-          {[0, 1, 2].map(i => (
-            <div key={i} className="h-[340px] rounded-tnr-lg border border-gray-100 bg-white/60 animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <RevealGroup key={executive.length}
-          className="mt-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {executive.map(m => (
-            // h-full on the wrapper AND the card: the extra div would otherwise
-            // absorb the grid stretch and leave cards of unequal height.
-            <RevealItem key={m.slug} className="h-full"><ExecutiveCard member={m} /></RevealItem>
-          ))}
-        </RevealGroup>
-      )}
-    </section>
-  );
-}
-
-
-

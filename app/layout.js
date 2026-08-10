@@ -40,10 +40,31 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={mulish.variable}>
       <head>
+        {/* Every photograph on the site is served from Cloudinary, including
+            the hero — the largest element on the home page. Opening that
+            connection costs a DNS lookup, a TCP handshake and a TLS
+            negotiation, and without this hint none of it starts until the
+            browser has parsed far enough to find the <img>. Preconnect gets
+            it under way while the HTML is still arriving.
+
+            crossOrigin is required: images are fetched anonymously, and a
+            preconnect opened in the wrong mode is not reused — the browser
+            simply opens a second connection and the hint achieves nothing. */}
+        <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+
         {/* Urdu script uses Noto Nastaliq (different alphabet, not the body font) */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
+        {/* The stylesheet is served from googleapis, but the font FILES it
+            references come from gstatic — a second origin, and a second round
+            of connection setup that would otherwise not begin until the CSS
+            had downloaded and been parsed. */}
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        {/* maximum-scale=1 was blocking pinch-zoom, which fails WCAG 1.4.4:
+            anyone who needs to magnify text could not. Nothing on the site
+            depends on the viewport being unscalable. */}
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body>
         {/* Keyboard and screen-reader users can jump past the navigation.

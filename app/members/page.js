@@ -8,7 +8,11 @@ import SiteNav from '@/components/site/SiteNav';
 import SiteFooter from '@/components/site/SiteFooter';
 import MembersAnalytics from '@/components/members/MembersAnalytics';
 
-const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#D4A72C' };
+// `gold` here is used for TEXT on a white card, so it is the readable gold
+// (6.18:1) rather than the brand surface gold (2.24:1 — a WCAG AA failure).
+// The gold ring and hairline on the card are shapes, not words, and keep the
+// brighter brand colour.
+const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#7A5D10' };
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
 const EMPTY = { search: '', union_council: '', village: '', profession: '', education: '', category: '', contribution: '' };
 
@@ -73,7 +77,8 @@ function MemberCard({ m }) {
           {m.current_country}
         </div>
       )}
-      {home && <div className="text-[11px] text-gray-400 mt-1">{home}</div>}
+      {/* gray-500, not gray-400: 4.75:1 against the card instead of 2.5:1. */}
+      {home && <div className="text-[11px] text-gray-500 mt-1">{home}</div>}
 
       {/* Card footer — badge, category and button travel together.
 
@@ -91,8 +96,10 @@ function MemberCard({ m }) {
             reading "General Member" on three quarters of the grid is noise. */}
         {LEADERSHIP_ROLES.includes(m.role) && (
           <div className="mb-2.5">
+            {/* #8A6A12 measured 4.41:1 on this wash — just under AA, and at
+                9.5px uppercase that is exactly the size where it matters. */}
             <span className="inline-block rounded-full px-2.5 py-0.5 text-[9.5px] font-black uppercase tracking-[.12em]"
-              style={{ background: 'rgba(200,154,43,.16)', color: '#8A6A12', border: '1px solid rgba(200,154,43,.4)' }}>
+              style={{ background: 'rgba(200,154,43,.16)', color: '#7A5D10', border: '1px solid rgba(200,154,43,.4)' }}>
               {roleLabel(m.role)}
             </span>
           </div>

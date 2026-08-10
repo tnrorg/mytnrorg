@@ -4,7 +4,9 @@ import { initials } from '@/content/advisoryCouncil';
 import { COLORS, FONT } from '@/lib/design/tokens';
 
 // One of the 29 duplicated palettes the audit found — now sourced from tokens.
-const C = { deep: COLORS.green900, green: COLORS.green700, gold: COLORS.gold500 };
+// goldInk, not gold500: this card is white, and gold500 on white is 2.2:1 —
+// unreadable for anyone with low vision and a WCAG AA failure.
+const C = { deep: COLORS.green900, green: COLORS.green700, gold: COLORS.goldInk };
 
 // Photo with an initials fallback: a member without a photo file still gets a
 // complete-looking card instead of a broken image icon.
@@ -65,8 +67,10 @@ export default function CouncilCard({ member }) {
               <span>{e}</span>
             </li>
           ))}
+          {/* gray-500, not gray-400: 4.75:1 against the white card rather than
+              2.5:1, and still clearly secondary to the text above. */}
           {(member.expertise || []).length > 3 && (
-            <li className="text-[11px] text-gray-400 pl-3">+{(member.expertise || []).length - 3} more</li>
+            <li className="text-[11px] text-gray-500 pl-3">+{(member.expertise || []).length - 3} more</li>
           )}
         </ul>
       </div>
