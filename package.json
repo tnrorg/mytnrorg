@@ -2,7 +2,7 @@
   "name": "tnr-election-portal",
   "version": "1.0.0",
   "private": true,
-  "description": "Tehreek-e-Nojawanan Roundu (TNR) \u2014 Digital Community Platform",
+  "description": "Tehreek-e-Nojawanan Roundu (TNR) — Digital Community Platform",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -24,6 +24,7 @@
     "next": "14.2.35",
     "nodemailer": "^6.9.14",
     "papaparse": "^5.4.1",
+    "qrcode-generator": "^2.0.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.12.7",

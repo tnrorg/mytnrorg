@@ -21,5 +21,10 @@ node_modules_REMOVE_ME_run_npm_install
 *.7z
 *.iso
 
+# Scratch copies made while testing a module in isolation. They are duplicates
+# of a real file in lib/, so committing one means two versions of the same
+# logic and no way to tell which is live.
+*.test.mjs
+
 .vercel
 .env*

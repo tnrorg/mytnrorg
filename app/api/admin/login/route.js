@@ -4,6 +4,7 @@ import { logAudit, clientIp } from '@/lib/audit';
 import { ok, fail, readJson } from '@/lib/api';
 import { checkLoginAllowed, recordLoginFailure, clearLoginFailures, lockoutMessage } from '@/lib/loginGuard';
 import { verifyTurnstile } from '@/lib/turnstile';
+import { createChallenge, twoFactorRequired, mustEnrol } from '@/lib/admin2fa';
 export const dynamic = 'force-dynamic';
 export async function POST(req) {
   const { username, password, turnstileToken } = await readJson(req);
@@ -31,6 +32,45 @@ export async function POST(req) {
 
   await clearLoginFailures('admin', { username, ip });
 
+  /* ── second factor ────────────────────────────────────────────────────────
+   * The password is correct, and on an account with 2FA enabled that is
+   * deliberately not enough to be signed in. No session token is minted here.
+   * What comes back instead is a challenge: a random value that is accepted by
+   * one endpoint, expires in ten minutes, and is destroyed the moment it is
+   * used. Someone holding a stolen or guessed password reaches exactly this
+   * point and no further.
+   *
+   * `mustEnrol` is separate: a super admin who has never set up 2FA is still
+   * signed in, but the response says the account is not compliant and the UI
+   * routes them into setup. Locking them out of their own dashboard to enforce
+   * a control they cannot yet satisfy would be a lockout, not a safeguard. */
+  if (twoFactorRequired(admin)) {
+    let challengeToken;
+    try {
+      challengeToken = await createChallenge(admin.id, {
+        ip, userAgent: req.headers.get('user-agent') || '',
+      });
+    } catch (e) {
+      // Almost always the migration has not been run. Say so rather than
+      // failing open — an unexplained error here must never become a sign-in.
+      console.error('[admin login] challenge create failed:', e.message);
+      return fail('SERVER_MISCONFIGURED', 500, {
+        message: 'Two-factor sign-in is unavailable. An administrator needs to run ' +
+          'supabase/migration_admin_2fa.sql.',
+      });
+    }
+    await logAudit({ action: 'ADMIN_LOGIN_2FA_PENDING', actor: admin.username, ip });
+    return ok({
+      twoFactorRequired: true,
+      challengeToken,
+      // Told to the client only so the UI knows whether to offer the fallback
+      // link. It reveals nothing an attacker at this point does not already
+      // have, and hiding it produces a dead-end for a locked-out admin.
+      emailFallbackAvailable: !!admin.email,
+      hint: admin.email ? maskEmail(admin.email) : null,
+    });
+  }
+
   /* Signing can fail for exactly one reason: JWT_SECRET is missing or too
    * short, and jwtSecret() refuses to mint a token rather than fall back to a
    * weak key. Left unhandled that surfaced as a bare "server returned 500" on
@@ -49,5 +89,19 @@ export async function POST(req) {
   }
   await logAudit({ action: 'ADMIN_LOGIN', actor: admin.username, ip });
   // The role stays out of the response body — the client asks /api/admin/me instead.
-  return ok({ token, admin: { id: admin.id, username: admin.username, full_name: admin.full_name } });
+  return ok({
+    token,
+    admin: { id: admin.id, username: admin.username, full_name: admin.full_name },
+    // Signals the UI to open the setup wizard. Not a permission — the real
+    // enforcement is in requireAdmin2FA on the server.
+    enrolRequired: mustEnrol(admin),
+  });
+}
+
+/** j***@gmail.com — enough for the admin to recognise, not enough to harvest. */
+function maskEmail(email) {
+  const [user, domain] = String(email).split('@');
+  if (!domain) return null;
+  const head = user.slice(0, 1);
+  return `${head}${'*'.repeat(Math.max(3, user.length - 1))}@${domain}`;
 }

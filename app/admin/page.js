@@ -28,6 +28,8 @@ import CecTab from '@/components/admin/CecTab';
 import CardTemplateTab from '@/components/admin/CardTemplateTab';
 import CertificateTemplateTab from '@/components/admin/CertificateTemplateTab';
 import AreasTab from '@/components/admin/AreasTab';
+import SecurityTab from '@/components/admin/SecurityTab';
+import TwoFactorSetup from '@/components/admin/TwoFactorSetup';
 // Loaded on demand, only after the SERVER confirms Super Admin.
 const CommitteeVoteTab = dynamicImport(() => import('@/components/admin/CommitteeVoteTab'), { ssr: false });
 const AdminsTab = dynamicImport(() => import('@/components/admin/AdminsTab'), { ssr: false });
@@ -46,6 +48,9 @@ const TOP_TABS = [
   ['cec', 'CEC Recruitment', '📋'],
   ['announcements', 'Announcements', '📢'],
   ['branding', 'Branding', '✉️'],
+  // Every admin's own account security, not a super-admin tool — a control
+  // only some people can reach is one most people never turn on.
+  ['security', 'My Security', '🔐'],
 ];
 const ELECTION_TABS = [
   ['elections', 'Elections', '🗳️'], ['candidates', 'Candidates', '🎖️'], ['members', 'Members', '👥'],
@@ -60,6 +65,7 @@ const MEMBERSHIP_TABS = [['mapplications', 'Applications', '📝'], ['mmembers',
 export default function Admin() {
   const [authed, setAuthed] = useState(false);
   const [admin, setAdmin] = useState(null);
+  const [enrolRequired, setEnrolRequired] = useState(false);
   const [extraTabs, setExtraTabs] = useState([]);   // supplied by the server, empty for normal admins
   const [roleLabel, setRoleLabel] = useState('Control Panel');
   const [tab, setTab] = useState('dashboard');
@@ -72,6 +78,10 @@ export default function Admin() {
     setAdmin(a => a || { username: r.username, full_name: r.full_name });
     setExtraTabs(r.extra_tabs || []);
     setRoleLabel(r.label || 'Control Panel');
+    // Also checked on a restored session, not just at sign-in: a token from
+    // before 2FA was required would otherwise sail past the gate for its full
+    // twelve hours.
+    setEnrolRequired(!!r.enrol_required);
   }
   const hasTab = (k) => extraTabs.some(t => t[0] === k);
 
@@ -89,7 +99,28 @@ export default function Admin() {
   }, []);
   useEffect(() => { if (authed) reloadElections(); }, [authed, reloadElections]);
 
-  if (!authed) return <Login onIn={a => { setAdmin(a); setAuthed(true); loadMe(); }} />;
+  if (!authed) return <Login onIn={(a, meta) => {
+    setAdmin(a); setAuthed(true); setEnrolRequired(!!meta?.enrolRequired); loadMe();
+    if (meta?.usedBackupCode)
+      toast(`Signed in with a backup code — ${meta.backupCodesLeft ?? 0} left.`, 'warn');
+  }} />;
+
+  /* A super admin who has not enrolled sees the wizard instead of the panel.
+   *
+   * This is a prompt, not the enforcement. The real check is on the server in
+   * requireSuperAdmin — a client-side gate is a suggestion, and anyone who can
+   * open dev tools can decline a suggestion. */
+  if (enrolRequired) return (
+    <div className="admin-light min-h-screen grid place-items-center p-4">
+      <div className="w-full max-w-lg">
+        <TwoFactorSetup forced onDone={() => setEnrolRequired(false)} />
+        <button onClick={() => { clearToken(); setAuthed(false); setEnrolRequired(false); }}
+          className="mt-3 text-xs text-tnr-cream/40 hover:text-tnr-cream/70 mx-auto block">
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
 
   // Super-admin election tools join the group; anything else stays platform-level.
   const electionExtra = extraTabs.filter(t => ELECTION_SUPER.includes(t[0]));
@@ -161,6 +192,7 @@ export default function Admin() {
       {tab === 'messages' && <MessagesTab toast={toast} />}
       {tab === 'announcements' && <AnnouncementsTab toast={toast} />}
       {tab === 'branding' && <BrandingTab toast={toast} />}
+      {tab === 'security' && <SecurityTab />}
       {tab === 'projects' && <ProjectsTab toast={toast} />}
       {tab === 'institutions' && <InstitutionsTab toast={toast} />}
       {tab === 'cec' && <CecTab toast={toast} />}
