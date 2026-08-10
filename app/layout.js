@@ -41,6 +41,18 @@ export const metadata = {
   description:
     'Official digital community platform of Tehreek-e-Nojawanan Roundu — membership, leadership, projects and elections for the youth of Roundu.',
   icons: { icon: '/tnr-logo.png' },
+  /* Google Search Console ownership.
+   *
+   * Next emits this as <meta name="google-site-verification"> in <head> on
+   * every page. Declared here rather than hand-written into the markup so a
+   * future edit to the layout cannot quietly drop it — losing the tag
+   * un-verifies the property and Search Console stops reporting.
+   *
+   * Not a secret: it is designed to be readable by anyone who views the page
+   * source. It proves control of this site, and grants nothing on its own. */
+  verification: {
+    google: 'a3DEZCOZ9cGeayKFdIv-upXWRJOqijt0_6CLThDjvUU',
+  },
   openGraph: {
     title: 'Tehreek-e-Nojawanan Roundu — Digital Community Platform',
     description:
