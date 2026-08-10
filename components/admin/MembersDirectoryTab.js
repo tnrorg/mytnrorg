@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { aGet, aPatch, aPost, aDel } from './adminApi';
 import { ROLES, LEADERSHIP_ROLES, roleLabel } from '@/lib/membership/roles';
 import { displayGender } from '@/lib/membership/options';
+import Avatar from '@/components/ui/Avatar';
 import { exportExcel } from './exporters';
 
 const TONE = {
@@ -46,6 +47,50 @@ export default function MembersDirectoryTab({ toast }) {
     const r = await aPatch('/api/admin/membership/members/' + m.id, patch);
     if (!r.ok) return toast?.(r.message || 'Failed', 'err');
     toast?.('Member updated', 'ok'); load();
+  }
+
+  /* Set or clear a member's directory photo.
+   *
+   * This is the only route to `membership_members.photo_url` an admin has.
+   * The Leadership tab's photo field writes a different table entirely, so
+   * updating there leaves the member's card showing whatever they originally
+   * applied with — which is exactly the confusion this closes.
+   *
+   * Checked here as well as on the server so the person gets an instant answer
+   * instead of waiting for a 4 MB upload to be rejected. */
+  async function uploadPhoto(m, file) {
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/i.test(file.type))
+      return toast?.('Photo must be a JPG, PNG or WEBP image.', 'err');
+    if (file.size > 4 * 1024 * 1024)
+      return toast?.('Photo must be smaller than 4 MB.', 'err');
+
+    let dataUrl;
+    try {
+      dataUrl = await new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(fr.result);
+        fr.onerror = () => rej(new Error('read failed'));
+        fr.readAsDataURL(file);
+      });
+    } catch {
+      return toast?.('Could not read that file.', 'err');
+    }
+
+    toast?.('Uploading…', 'ok');
+    const r = await aPatch('/api/admin/membership/members/' + m.id, { photo_data: dataUrl });
+    if (!r.ok) return toast?.(r.message || 'Upload failed.', 'err');
+    toast?.(`Photo updated for ${m.full_name}`, 'ok');
+    load();
+  }
+
+  async function removePhoto(m) {
+    if (!confirm(`Remove ${m.full_name}'s photo?\n\n` +
+      `Their directory card and membership card will show the placeholder icon instead.`)) return;
+    const r = await aPatch('/api/admin/membership/members/' + m.id, { photo_url: null });
+    if (!r.ok) return toast?.(r.message || 'Could not remove the photo.', 'err');
+    toast?.('Photo removed', 'ok');
+    load();
   }
 
   /** Change a member's type.
@@ -137,6 +182,7 @@ export default function MembersDirectoryTab({ toast }) {
             <tr className="text-left text-[11px] uppercase tracking-wider text-tnr-cream/50 border-b border-tnr-line">
               <th className="px-3 py-2.5">Membership ID</th><th className="px-3 py-2.5">Name</th>
               <th className="px-3 py-2.5">Email</th><th className="px-3 py-2.5">Village</th>
+              <th className="px-3 py-2.5">Photo</th>
               <th className="px-3 py-2.5">Membership Type</th>
               <th className="px-3 py-2.5">Status</th><th className="px-3 py-2.5">Public</th>
               <th className="px-3 py-2.5">Actions</th>
@@ -149,6 +195,27 @@ export default function MembersDirectoryTab({ toast }) {
                 <td className="px-3 py-2 font-medium text-tnr-cream">{m.full_name}</td>
                 <td className="px-3 py-2 text-tnr-cream/70">{m.email}</td>
                 <td className="px-3 py-2 text-tnr-cream/70">{m.village || '—'}</td>
+
+                {/* Photo. Shows what the PUBLIC directory shows, so an admin
+                    can see at a glance which members are on a placeholder. */}
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <Avatar src={m.photo_url} gender={m.gender} name={m.full_name}
+                      className="w-9 h-9 shrink-0" />
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-[11px] text-tnr-goldLight hover:underline cursor-pointer">
+                        {m.photo_url ? 'Replace' : 'Upload'}
+                        <input type="file" accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          onChange={e => { uploadPhoto(m, e.target.files?.[0]); e.target.value = ''; }} />
+                      </label>
+                      {m.photo_url && (
+                        <button onClick={() => removePhoto(m)}
+                          className="text-[11px] text-red-400 hover:underline text-left">Remove</button>
+                      )}
+                    </div>
+                  </div>
+                </td>
 
                 {/* Membership type, editable in place.
                     Advisory and CEC publish a public leadership profile, so
@@ -187,7 +254,7 @@ export default function MembersDirectoryTab({ toast }) {
                 </td>
               </tr>
             ))}
-            {!rows.length && !err && <tr><td colSpan={8} className="px-3 py-10 text-center text-tnr-cream/40">
+            {!rows.length && !err && <tr><td colSpan={9} className="px-3 py-10 text-center text-tnr-cream/40">
               {loading ? 'Loading members…'
                 : status || search
                   ? 'No members match this filter.'

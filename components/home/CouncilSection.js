@@ -25,8 +25,13 @@ export default function CouncilSection() {
       {/* Slight delay so the heading settles before the cards arrive, rather
           than the whole block appearing at once. */}
       <Reveal className="mt-10" delay={0.08}>
-        {/* Two full rows at desktop width (4 per row). */}
-        <CouncilDirectory limit={8} showFilters={false} />
+        {/* Every advisory member, not a preview.
+            This was capped at 8 — two desktop rows — which quietly hid anyone
+            beyond the eighth. On a page whose purpose is to show who guides
+            TNR, a member being invisible because of their sort order is the
+            wrong trade for a shorter page. The endpoint returns the advisory
+            body only, so there is no risk of other roles appearing here. */}
+        <CouncilDirectory showFilters={false} />
       </Reveal>
     </section>
   );

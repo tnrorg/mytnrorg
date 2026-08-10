@@ -4,6 +4,7 @@ import { ok, fail, readJson } from '@/lib/api';
 import { clientIp } from '@/lib/audit';
 import { logMembershipAudit } from '@/lib/membership/core';
 import { ROLE_KEYS } from '@/lib/membership/roles';
+import { uploadDataUrl } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 const STATUSES = ['approved', 'active', 'suspended', 'inactive', 'expired'];
@@ -58,6 +59,43 @@ export async function PATCH(req, { params }) {
     patch.role = b.role;
     notes.push(`membership type ${m.role || 'general'} → ${b.role}`);
   }
+
+  /* Profile photo.
+   *
+   * There was previously no way for an admin to set this at all. `photo_url`
+   * was written once at approval, copied from the application, and after that
+   * only the member could change it from their own portal — so a member who
+   * applied without a photo, or with a bad one, could not be corrected. The
+   * Leadership tab has its own photo field on `leadership_profiles`, which
+   * looks like the same thing and is not: editing there never touches the
+   * member's directory card, which is exactly how two members ended up
+   * "updated" while the directory kept showing the original.
+   *
+   * Same validation as the member's own upload in /api/member/profile —
+   * an admin path should not be the lenient one. */
+  if (b.photo_data) {
+    const head = String(b.photo_data).slice(0, 40);
+    if (!/^data:image\/(png|jpe?g|webp);base64,/i.test(head))
+      return fail('BAD_PHOTO', 400, { message: 'Photo must be a JPG, PNG or WEBP image.' });
+    // Base64 inflates by about a third; Vercel rejects request bodies over
+    // 4.5 MB before this code ever runs, so the check has to sit under that.
+    if (String(b.photo_data).length * 0.75 > 4 * 1024 * 1024)
+      return fail('PHOTO_TOO_BIG', 400, { message: 'Photo must be smaller than 4 MB.' });
+    try {
+      const url = await uploadDataUrl(b.photo_data, 'members');
+      if (url) {
+        patch.photo_url = url;
+        notes.push('photo replaced');
+      }
+    } catch {
+      return fail('UPLOAD_FAILED', 502, { message: 'Could not upload the photo. Please try again.' });
+    }
+  } else if (b.photo_url === null && m.photo_url) {
+    // Explicit removal — the member reverts to the placeholder icon.
+    patch.photo_url = null;
+    notes.push('photo removed');
+  }
+
   if (!notes.length) return ok({ updated: false });
 
   const { error } = await sb.from('membership_members').update(patch).eq('id', m.id);
