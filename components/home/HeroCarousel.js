@@ -270,21 +270,32 @@ export default function HeroCarousel({ initialSlides = null }) {
                 <button key={sl.id} onClick={() => go(k)}
                   aria-label={`Go to slide ${k + 1}${sl.title ? `: ${sl.title}` : ''}`}
                   aria-current={k === i}
-                  className="group relative h-2.5 rounded-full transition-all duration-300 overflow-hidden"
-                  style={{
-                    width: k === i ? 40 : 10,
-                    background: k === i ? 'rgba(255,255,255,.30)' : 'rgba(255,255,255,.45)',
-                  }}>
-                  {/* The active dot fills as the slide's time runs out. While
-                      paused it simply sits full, rather than animating with a
-                      timer that is no longer running. */}
-                  {k === i && (paused || reduce
-                    ? <span className="absolute inset-0 rounded-full" style={{ background: COLORS.gold400 }} />
-                    : <motion.span key={`bar-${sl.id}-${i}`} className="absolute inset-y-0 left-0 rounded-full"
-                        style={{ background: COLORS.gold400 }}
-                        initial={{ width: '0%' }} animate={{ width: '100%' }}
-                        transition={{ duration: DURATION / 1000, ease: 'linear' }} />
-                  )}
+                  /* The dot you see is 10px; the button you press is 24px tall
+                   * with 4px of padding either side. A 10px target is below
+                   * every published minimum and is genuinely hard to hit with
+                   * a thumb — the padding is transparent, so the design is
+                   * unchanged and only the hit area grows.
+                   *
+                   * The pill moved into an inner span so the button itself can
+                   * be the larger, invisible target. */
+                  className="group relative flex h-6 min-w-6 items-center justify-center transition-all duration-300"
+                  style={{ width: Math.max(24, k === i ? 40 : 10) }}>
+                  <span className="relative block h-2.5 overflow-hidden rounded-full transition-all duration-300"
+                    style={{
+                      width: k === i ? 40 : 10,
+                      background: k === i ? 'rgba(255,255,255,.30)' : 'rgba(255,255,255,.45)',
+                    }}>
+                    {/* The active dot fills as the slide's time runs out. While
+                        paused it simply sits full, rather than animating with a
+                        timer that is no longer running. */}
+                    {k === i && (paused || reduce
+                      ? <span className="absolute inset-0 rounded-full" style={{ background: COLORS.gold400 }} />
+                      : <motion.span key={`bar-${sl.id}-${i}`} className="absolute inset-y-0 left-0 rounded-full"
+                          style={{ background: COLORS.gold400 }}
+                          initial={{ width: '0%' }} animate={{ width: '100%' }}
+                          transition={{ duration: DURATION / 1000, ease: 'linear' }} />
+                    )}
+                  </span>
                 </button>
               ))}
             </div>

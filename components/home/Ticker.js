@@ -36,7 +36,17 @@ export default function Ticker() {
 
   if (!items?.length) return null;
 
-  const Line = ({ i, copy }) => {
+  /* `hidden` marks the duplicated copy that exists only to make the marquee
+   * loop seamlessly.
+   *
+   * aria-hidden alone was not enough. It removes the copy from the screen
+   * reader's account of the page, but it does NOT remove its links from the
+   * tab order — so a keyboard user would tab onto a link that, as far as their
+   * screen reader is concerned, does not exist. Nothing would be announced.
+   *
+   * tabIndex={-1} takes those duplicates out of the tab order, so the visible
+   * copy's links are the only ones reachable. */
+  const Line = ({ i, copy, hidden }) => {
     const body = (
       <>
         <span className="mx-3 opacity-45" aria-hidden="true">◆</span>
@@ -46,7 +56,8 @@ export default function Ticker() {
     return (
       <span key={`${copy}-${i.id}`} className="inline-flex items-center whitespace-nowrap">
         {i.href
-          ? <a href={i.href} className="inline-flex items-center hover:underline">{body}</a>
+          ? <a href={i.href} tabIndex={hidden ? -1 : undefined}
+              className="inline-flex items-center hover:underline">{body}</a>
           : body}
       </span>
     );
@@ -83,7 +94,9 @@ export default function Ticker() {
             {/* aria-hidden on the duplicate: a screen reader should hear the
                 announcements once, not twice. */}
             <div className="inline-flex">{items.map(i => <Line key={i.id} i={i} copy="a" />)}</div>
-            <div className="inline-flex" aria-hidden="true">{items.map(i => <Line key={i.id} i={i} copy="b" />)}</div>
+            <div className="inline-flex" aria-hidden="true">
+              {items.map(i => <Line key={i.id} i={i} copy="b" hidden />)}
+            </div>
           </div>
         </div>
       </div>
