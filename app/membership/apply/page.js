@@ -5,6 +5,7 @@ import SiteFooter from '@/components/site/SiteFooter';
 import {
   GENDERS, EDUCATION_LEVELS, POSITIONS, PROFESSIONS, CONTRIBUTION_AREAS,
   LEADERSHIP_OPTIONS, DECLARATION_TEXT, DECLARATION_VERSION, photoOptionalFor,
+  GENDER_SELF_DESCRIBE, displayGender,
 } from '@/lib/membership/options';
 import {
   validateApplication, STEPS, stepErrors, isStepComplete, REQUIRED_LABELS, ageFrom,
@@ -23,7 +24,8 @@ const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' }
 const BLANK = {
   applied_role: '',
   photo_data: '',
-  first_name: '', last_name: '', gender: '', date_of_birth: '', village: '', union_council: '',
+  first_name: '', last_name: '', gender: '', gender_self_described: '',
+  date_of_birth: '', village: '', union_council: '',
   mobile: '', email: '',
   current_country: '', current_country_code: '',
   current_state_province: '', current_state_code: '', current_city: '',
@@ -45,7 +47,10 @@ function reviewRows(f, key) {
   if (key === 'R') return [['Membership type', ROLE_LABEL(f.applied_role)]];
   if (key === 'A') return [
     ['Full name', [f.first_name, f.last_name].filter(Boolean).join(' ')],
-    ['Gender', f.gender],
+    // The review page shows their own words back to them, not the option they
+    // clicked — otherwise the last thing they see before submitting is a
+    // generic label instead of what they actually wrote.
+    ['Gender', displayGender(f)],
     ['Date of birth', f.date_of_birth ? `${f.date_of_birth} (age ${ageFrom(f.date_of_birth) ?? '—'})` : ''],
     ['Mobile / WhatsApp', f.mobile], ['Email', f.email],
     ['Current address', [f.current_city, f.current_state_province, f.current_country]
@@ -386,7 +391,26 @@ export default function ApplyPage() {
             <Grid>
               <Field label="First Name" req error={showErr('first_name')}><Input value={f.first_name} onChange={v => set('first_name', v)} onBlur={() => blur('first_name')} bad={!!showErr('first_name')} /></Field>
               <Field label="Last Name" req error={showErr('last_name')}><Input value={f.last_name} onChange={v => set('last_name', v)} onBlur={() => blur('last_name')} bad={!!showErr('last_name')} /></Field>
-              <Field label="Gender" req error={showErr('gender')}><Select value={f.gender} onChange={v => set('gender', v)} options={GENDERS} onBlur={() => blur('gender')} bad={!!showErr('gender')} /></Field>
+              <Field label="Gender" req error={showErr('gender')}>
+                <Select value={f.gender} options={GENDERS}
+                  onChange={v => set('__gender', {
+                    gender: v,
+                    // Moving off the self-describe option drops the typed text,
+                    // so a stale answer cannot be submitted alongside a
+                    // different choice. Mirrors the profession field.
+                    ...(v === GENDER_SELF_DESCRIBE ? {} : { gender_self_described: '' }),
+                  })}
+                  onBlur={() => blur('gender')} bad={!!showErr('gender')} /></Field>
+              {f.gender === GENDER_SELF_DESCRIBE && (
+                <Field label="Describe your gender" req error={showErr('gender_self_described')}>
+                  <Input value={f.gender_self_described}
+                    onChange={v => set('gender_self_described', v)}
+                    placeholder="In your own words"
+                    maxLength={60}
+                    onBlur={() => blur('gender_self_described')}
+                    bad={!!showErr('gender_self_described')} />
+                </Field>
+              )}
               {/* min/max bound the picker itself, so an out-of-range date
                   cannot be chosen — the validator still checks, since these
                   attributes are trivially bypassed. */}

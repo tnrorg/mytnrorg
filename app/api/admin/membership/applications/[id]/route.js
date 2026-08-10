@@ -61,6 +61,10 @@ export async function PATCH(req, { params }) {
     const { data: member, error: insErr } = await sb.from('membership_members').insert({
       membership_id, application_id: app.id,
       first_name: app.first_name, last_name: app.last_name, gender: app.gender,
+      // Carried across at approval. Without this the typed words are left
+      // behind on the application row and the approved member shows the bare
+      // option label instead of what they wrote.
+      gender_self_described: app.gender_self_described ?? null,
       photo_url: app.photo_url, email: app.email, email_normalized: app.email_normalized,
       date_of_birth: app.date_of_birth,
       mobile: app.mobile, mobile_normalized: app.mobile_normalized,

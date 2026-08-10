@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { aGet, aPatch } from './adminApi';
 import CnicViewer from './CnicViewer';
 import { ROLES, roleLabel as ROLE_LABEL } from '@/lib/membership/roles';
+import { displayGender } from '@/lib/membership/options';
 
 const STATUSES = [
   ['', 'All'], ['pending_review', 'Pending'], ['under_review', 'Under Review'],
@@ -181,7 +182,9 @@ function ReviewModal({ app, busy, onClose, onAct, toast }) {
 
         <div className="mt-4">
           <R k="Email" v={app.email} /><R k="Mobile" v={app.mobile} />
-          <R k="Gender" v={app.gender} /><R k="Age" v={app.age} />
+          {/* Their own words, not the option label — the committee reviewing
+              this should see what the applicant actually wrote. */}
+          <R k="Gender" v={displayGender(app)} /><R k="Age" v={app.age} />
           <R k="Union Council" v={app.union_council} /><R k="Village" v={app.village} />
           {/* Older applications predate these questions, so R renders a dash
               rather than the row disappearing — a blank is information too. */}

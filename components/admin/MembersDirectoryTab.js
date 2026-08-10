@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { aGet, aPatch, aPost, aDel } from './adminApi';
 import { ROLES, LEADERSHIP_ROLES, roleLabel } from '@/lib/membership/roles';
+import { displayGender } from '@/lib/membership/options';
 import { exportExcel } from './exporters';
 
 const TONE = {
@@ -100,7 +101,7 @@ export default function MembersDirectoryTab({ toast }) {
         <button className="btn-ghost !py-2 text-sm"
           onClick={() => exportExcel(rows.map(m => ({
             'Membership ID': m.membership_id, Name: m.full_name, Email: m.email, Mobile: m.mobile,
-            Gender: m.gender, Village: m.village, 'Union Council': m.union_council,
+            Gender: displayGender(m), Village: m.village, 'Union Council': m.union_council,
             City: m.current_city, 'State / Province': m.current_state_province,
             Country: m.current_country, Organisation: m.organization_name,
             Profession: m.profession === 'Other' ? (m.profession_other || 'Other') : m.profession,
