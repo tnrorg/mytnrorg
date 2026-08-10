@@ -53,6 +53,24 @@ const nextConfig = {
       { protocol: 'https', hostname: 'www.mytnr.org' },
       { protocol: 'https', hostname: 'mytnrorg.vercel.app' },
     ],
+
+    /* AVIF first, WebP second, original as the fallback.
+       AVIF is typically 30-50% smaller than the JPEGs currently being served
+       straight from Supabase Storage. */
+    formats: ['image/avif', 'image/webp'],
+
+    /* Supabase Storage sends Cache-Control: max-age=3600, so every returning
+       visitor was re-downloading more than a megabyte of photographs after an
+       hour — the "efficient cache lifetimes, est. savings 975 KiB" finding.
+
+       Optimised images are addressed by a URL containing the source, width and
+       quality, so the content at a given URL cannot change; caching it for a
+       year is safe. Replacing a photo produces a different URL. */
+    minimumCacheTTL: 31536000,   // one year
+
+    /* Only the widths actually used. Each entry is a variant the optimiser may
+       be asked to generate, and a shorter list means more cache hits. */
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
   },
 
   async headers() {

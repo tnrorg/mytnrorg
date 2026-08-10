@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import Image from 'next/image';
 import { initials } from '@/content/advisoryCouncil';
 import { COLORS, FONT } from '@/lib/design/tokens';
 
@@ -26,9 +27,38 @@ export function CouncilPhoto({ member, size = 'card' }) {
   }
   // Admin-uploaded photo wins; otherwise fall back to the /public file convention.
   const src = member.photo_url || `/advisory/${member.slug}.jpg`;
+
+  /* next/image rather than a raw <img>, for two reasons.
+   *
+   * Size: these are Supabase Storage originals, 120–160 KB each. Optimised
+   * and resized to the ~200px box they are actually drawn in, they cost a
+   * fraction of that.
+   *
+   * Timing: a plain <img> loads eagerly. The home page now lists the WHOLE
+   * advisory council, so a dozen portraits were competing with the hero for
+   * bandwidth while it was still the thing being measured. next/image defers
+   * off-screen images until they are near the viewport, which leaves the
+   * connection to the one picture the visitor can currently see.
+   */
+  const sizeProps = size === 'large'
+    ? { width: 320, height: 320, sizes: '160px' }
+    // Card portraits sit in a 4-column grid at desktop, 1-up on a phone.
+    : { fill: true, sizes: '(max-width: 640px) 90vw, (max-width: 1280px) 45vw, 23vw' };
+
   return (
-    <img src={src} alt={member.name} onError={() => setFailed(true)}
-      className={`${box} ${radius} object-cover object-top shrink-0 bg-gray-100`} />
+    <div className={`${box} ${radius} relative overflow-hidden shrink-0 bg-gray-100`}>
+      <Image
+        src={src}
+        alt={member.name}
+        onError={() => setFailed(true)}
+        quality={70}
+        // h-full w-full matters for the `large` variant, which passes explicit
+        // width/height: without it the image would render at its intrinsic
+        // 320px rather than filling the 160px box the card allots it.
+        className="h-full w-full object-cover object-top"
+        {...sizeProps}
+      />
+    </div>
   );
 }
 

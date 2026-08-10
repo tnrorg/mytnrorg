@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import Hero from './Hero';
+import Image from 'next/image';
 import { COLORS, FONT, MOTION } from '@/lib/design/tokens';
-import { cldSrc, cldSrcSet } from '@/lib/cloudinaryUrl';
 
 const DURATION = 6500;   // ms a slide stays before advancing
 
@@ -102,34 +102,47 @@ export default function HeroCarousel({ initialSlides = null }) {
 
             {/* Background image, drifting slowly (Ken Burns) so a static photo
                 still feels alive. Disabled for reduced-motion users. */}
+            {/* next/image, not a raw <img>.
+              *
+              * These photographs are Supabase Storage files that predate the
+              * Cloudinary migration, so the Cloudinary srcset helper is a
+              * deliberate no-op on them and every "optimisation" it applied
+              * was doing nothing: a phone was downloading a 216 KB full-size
+              * JPEG with a one-hour cache.
+              *
+              * Next's optimiser handles ANY host listed in remotePatterns,
+              * and *.supabase.co is already there — so this converts to
+              * AVIF/WebP, resizes to the device, and caches for a year,
+              * without re-uploading a single file.
+              *
+              * The Ken Burns drift moved to this wrapper because `fill` needs
+              * to control the image's own positioning.
+              */}
             {s.image_url && (
-              <motion.img
-                src={cldSrc(s.image_url)}
-                srcSet={cldSrcSet(s.image_url)}
-                // The hero spans the full viewport at every breakpoint, so the
-                // browser should pick by viewport width. Without this it
-                // assumes 100vw only after layout and can fetch the wrong size.
-                sizes="100vw"
-                alt=""
-                aria-hidden="true"
-                /* Only one slide is mounted at a time, so this image is always
-                 * the visible one and must never be lazy — a lazy LCP element
-                 * is the commonest cause of a slow LCP.
-                 *
-                 * The priority hints are scoped to the first slide, which is
-                 * the actual LCP candidate: it tells the browser to fetch this
-                 * ahead of the scripts it discovers at the same moment.
-                 * Applying them to later slides would be claiming urgency for
-                 * an image the visitor asked for by clicking, competing with
-                 * whatever else is still loading. */
-                loading="eager"
-                fetchPriority={i === 0 ? 'high' : 'auto'}
-                decoding={i === 0 ? 'sync' : 'async'}
-                className="absolute inset-0 h-full w-full object-cover select-none"
-                draggable="false"
+              <motion.div
+                className="absolute inset-0"
                 initial={reduce ? false : { scale: 1.06 }}
                 animate={reduce ? {} : { scale: 1 }}
-                transition={{ duration: DURATION / 1000 + 2, ease: 'linear' }} />
+                transition={{ duration: DURATION / 1000 + 2, ease: 'linear' }}>
+                <Image
+                  src={s.image_url}
+                  alt=""
+                  aria-hidden="true"
+                  fill
+                  // The hero spans the viewport at every breakpoint, so the
+                  // browser picks by viewport width rather than guessing.
+                  sizes="100vw"
+                  /* `priority` on the first slide is what emits the preload
+                   * link and fetchpriority="high" — the one LCP check still
+                   * failing in the audit. Later slides are reached by a click,
+                   * and claiming urgency for those would have them compete
+                   * with whatever the visitor is actually reading. */
+                  priority={i === 0}
+                  quality={70}
+                  className="object-cover select-none"
+                  draggable="false"
+                />
+              </motion.div>
             )}
 
             {/* Readability wash. Strength is the admin's `overlay` value. */}
