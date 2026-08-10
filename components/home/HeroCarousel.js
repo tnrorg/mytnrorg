@@ -44,14 +44,34 @@ export default function HeroCarousel({ initialSlides = null }) {
   // Wraps in both directions, so "previous" from the first slide lands on the last.
   const go = useCallback((next) => setI(((next % n) + n) % n), [n]);
 
-  // Autoplay. Stops on hover, on keyboard focus, and while the tab is in the
-  // background — a carousel that silently advances off-screen just wastes
-  // battery and loses the reader's place.
+  /* Autoplay waits for the page to finish loading.
+   *
+   * Advancing pulls in the next slide's photograph, and on a slow connection
+   * the first advance was landing while the rest of the page was still
+   * arriving — a second large image competing for bandwidth with content the
+   * visitor is trying to read. Waiting costs nothing: someone who has been on
+   * the page for six seconds has loaded it.
+   *
+   * `document.readyState` is checked as well as the event, because the load
+   * event may already have fired before this effect runs — in which case
+   * listening for it would mean waiting forever.
+   */
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
-    if (n < 2 || paused) return;
+    if (document.readyState === 'complete') { setLoaded(true); return; }
+    const done = () => setLoaded(true);
+    window.addEventListener('load', done);
+    return () => window.removeEventListener('load', done);
+  }, []);
+
+  // Stops on hover, on keyboard focus, and while the tab is in the background
+  // — a carousel that silently advances off-screen just wastes battery and
+  // loses the reader's place.
+  useEffect(() => {
+    if (n < 2 || paused || !loaded) return;
     const t = setTimeout(() => setI(p => (p + 1) % n), DURATION);
     return () => clearTimeout(t);
-  }, [i, n, paused]);
+  }, [i, n, paused, loaded]);
 
   useEffect(() => {
     const onVis = () => setPaused(document.hidden);

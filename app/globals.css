@@ -23,7 +23,15 @@ body {
 button, input, textarea, select, option { font-family: inherit; }
 
 /* Urdu text helper */
-.urdu { font-family: '"Noto Nastaliq Urdu"', serif; direction: rtl; line-height: 2.2; }
+/* The value here used to be '"Noto Nastaliq Urdu"' — quotes inside quotes,
+   which CSS reads as one string containing quote characters. No font is named
+   that, so the rule never matched and Urdu text has been falling back to the
+   generic serif all along. Now it points at the self-hosted next/font family. */
+.urdu {
+  font-family: var(--font-nastaliq), 'Noto Nastaliq Urdu', serif;
+  direction: rtl;
+  line-height: 2.2;
+}
 
 /* Reusable component layer */
 @layer components {

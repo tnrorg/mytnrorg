@@ -1,5 +1,5 @@
 import './globals.css';
-import { Mulish } from 'next/font/google';
+import { Mulish, Noto_Nastaliq_Urdu } from 'next/font/google';
 import BackToTop from '@/components/site/BackToTop';
 import VisitTracker from '@/components/site/VisitTracker';
 import SmoothScroll from '@/components/site/SmoothScroll';
@@ -9,6 +9,30 @@ const mulish = Mulish({
   display: 'swap',
   variable: '--font-mulish',
   weight: ['300', '400', '500', '600', '700', '800', '900'],
+});
+
+/* Urdu, self-hosted.
+ *
+ * This was a <link> to fonts.googleapis.com. A stylesheet in <head> is
+ * render-blocking, so every page — including the home page, which has no Urdu
+ * on it at all — waited on a third-party round trip before painting anything.
+ * It measured 750ms for 1.4 KB: almost entirely connection setup.
+ *
+ * next/font serves the CSS from our own origin at build time, so there is no
+ * third-party request and nothing to block on.
+ *
+ * preload: false is deliberate. The font is used on /about, /dashboard,
+ * /results and /vote, not on the pages most visitors land on. Preloading would
+ * fetch a large Nastaliq file on every page in case it were needed; without
+ * it, the file is fetched only when something actually applies the .urdu
+ * class, which is the honest description of when it is needed.
+ */
+const nastaliq = Noto_Nastaliq_Urdu({
+  subsets: ['arabic'],
+  display: 'swap',
+  variable: '--font-nastaliq',
+  weight: ['400', '600', '700'],
+  preload: false,
 });
 
 export const metadata = {
@@ -38,7 +62,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={mulish.variable}>
+    <html lang="en" className={`${mulish.variable} ${nastaliq.variable}`}>
       <head>
         {/* Every photograph on the site is served from Cloudinary, including
             the hero — the largest element on the home page. Opening that
@@ -53,14 +77,10 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
 
-        {/* Urdu script uses Noto Nastaliq (different alphabet, not the body font) */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        {/* The stylesheet is served from googleapis, but the font FILES it
-            references come from gstatic — a second origin, and a second round
-            of connection setup that would otherwise not begin until the CSS
-            had downloaded and been parsed. */}
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet" />
+        {/* The Google Fonts <link> and its two preconnects used to sit here.
+            Both fonts are self-hosted by next/font now, so there is no
+            third-party font origin left to connect to — and a preconnect to a
+            host nothing requests is itself a small waste. */}
         {/* maximum-scale=1 was blocking pinch-zoom, which fails WCAG 1.4.4:
             anyone who needs to magnify text could not. Nothing on the site
             depends on the viewport being unscalable. */}

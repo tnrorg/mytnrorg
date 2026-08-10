@@ -25,7 +25,10 @@ export default function AboutPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {CORE_VALUES.map(([ur, en]) => (
             <div key={en} className="rounded-2xl p-5 text-center text-white" style={{ background: C.deep }}>
-              <div className="text-2xl mb-1" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", lineHeight: 1.8 }}>{ur}</div>
+              {/* The font is self-hosted by next/font, so it is reached
+                  through its CSS variable rather than by name. */}
+              <div className="text-2xl mb-1"
+                style={{ fontFamily: 'var(--font-nastaliq), serif', lineHeight: 1.8 }}>{ur}</div>
               <div className="text-[11px] font-bold uppercase tracking-[.2em]" style={{ color: C.gold }}>{en}</div>
             </div>
           ))}
