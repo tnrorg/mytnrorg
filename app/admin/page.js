@@ -93,7 +93,15 @@ export default function Admin() {
 
   useEffect(() => {
     if (getToken()) { setAuthed(true); loadMe(); }
-    const onLogout = () => { setAuthed(false); setAdmin(null); setExtraTabs([]); setRoleLabel('Control Panel'); };
+    // enrolRequired MUST be cleared here too. It is set to true at a sign-in
+    // that happens before enrolment, and the wizard signs the admin out on
+    // purpose once they finish. Leaving the flag set meant coming back to the
+    // setup screen after enrolling — the server was correctly reporting
+    // "not required" while the client still believed its own stale answer.
+    const onLogout = () => {
+      setAuthed(false); setAdmin(null); setExtraTabs([]);
+      setRoleLabel('Control Panel'); setEnrolRequired(false);
+    };
     window.addEventListener('tnr-logout', onLogout);
     return () => window.removeEventListener('tnr-logout', onLogout);
   }, []);

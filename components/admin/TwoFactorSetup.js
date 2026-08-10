@@ -1,6 +1,6 @@
 'use client';
-import { useState } from 'react';
-import { aPost, clearToken } from './adminApi';
+import { useState, useEffect } from 'react';
+import { aGet, aPost, clearToken } from './adminApi';
 import { ShieldCheck, Smartphone, KeyRound, Copy, Check, AlertTriangle } from 'lucide-react';
 
 /* Enrolment wizard: scan → confirm → write down backup codes.
@@ -20,6 +20,33 @@ export default function TwoFactorSetup({ onDone, onCancel, forced = false }) {
   const [copied, setCopied] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(forced);
+
+  /* When this screen is shown as a gate rather than by choice, ask the server
+   * whether it is actually needed before drawing it.
+   *
+   * The caller decides to show this from a flag that can be out of date — it
+   * is set at a sign-in that happened before enrolment, and enrolment then
+   * signs the admin out, so the value outlives the situation that produced it.
+   * An admin who has already enrolled was being asked to enrol again, with no
+   * way past it. The database is the authority on this, so ask it. */
+  useEffect(() => {
+    if (!forced) return;
+    let alive = true;
+    aGet('/api/admin/2fa/status')
+      .then((r) => {
+        if (!alive) return;
+        if (r?.ok && r.enabled) { onDone?.(); return; }   // already done — let them through
+        setChecking(false);
+      })
+      .catch(() => alive && setChecking(false));
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forced]);
+
+  if (checking) {
+    return <div className="card p-6 max-w-lg text-sm text-tnr-cream/50">Checking your security settings…</div>;
+  }
 
   async function begin() {
     setBusy(true); setErr('');
