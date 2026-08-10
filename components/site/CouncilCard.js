@@ -32,8 +32,13 @@ export function CouncilPhoto({ member, size = 'card' }) {
 
 export default function CouncilCard({ member }) {
   return (
+    /* h-full so the card fills its grid row, and the button below carries
+       mt-auto so every card in a row ends on one baseline. Members list
+       different numbers of interests, so without this the buttons stepped up
+       and down across the row — barely noticeable on a capped preview of
+       eight, obvious now the homepage shows the whole council. */
     <article style={FONT}
-      className="rounded-tnr-lg bg-white border border-gray-100 p-4 flex flex-col shadow-tnr-flat
+      className="rounded-tnr-lg bg-white border border-gray-100 p-4 flex h-full flex-col shadow-tnr-flat
         transition-all duration-standard hover:-translate-y-[3px] hover:shadow-tnr-raise
         hover:border-[rgba(23,107,73,.22)]">
       <CouncilPhoto member={member} />
@@ -66,11 +71,17 @@ export default function CouncilCard({ member }) {
         </ul>
       </div>
 
-      <a href={`/council/${member.slug}`}
-        className="tnr-btn-profile mt-4 block text-center text-[12px] font-bold py-2.5 rounded-tnr"
-        style={{ background: 'rgba(23,107,73,.08)', color: C.green }}>
-        View Profile
-      </a>
+      {/* Wrapper carries the mt-auto, not the button. A margin cannot be both
+          "as large as possible" and "at least this much", so pinning via the
+          wrapper and spacing via its padding keeps a guaranteed gap above the
+          button even on the tallest card in the row. */}
+      <div className="mt-auto pt-4">
+        <a href={`/council/${member.slug}`}
+          className="tnr-btn-profile block text-center text-[12px] font-bold py-2.5 rounded-tnr"
+          style={{ background: 'rgba(23,107,73,.08)', color: C.green }}>
+          View Profile
+        </a>
+      </div>
     </article>
   );
 }

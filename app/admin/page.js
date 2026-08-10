@@ -216,7 +216,8 @@ export default function Admin() {
       {tab === 'admins' && hasTab('admins') && <AdminsTab toast={toast} me={admin} />}
       {tab === 'voterdata' && hasTab('voterdata') && <VoterDataTab toast={toast} />}
       {tab === 'visitors' && hasTab('visitors') && <VisitorsTab toast={toast} />}
-      {tab === 'mapplications' && <MembershipTab toast={toast} />}
+      {/* goTab lets the stat cards jump to the tab that holds what they count. */}
+      {tab === 'mapplications' && <MembershipTab toast={toast} goTab={setTab} />}
       {tab === 'mrequests' && <ProfileRequestsTab toast={toast} />}
       {tab === 'mmembers' && <MembersDirectoryTab toast={toast} />}
       {tab === 'mcard' && <CardTemplateTab toast={toast} />}

@@ -17,7 +17,7 @@ const TONE = {
   rejected: 'bg-red-500/15 text-red-300 border-red-500/30',
 };
 
-export default function MembershipTab({ toast }) {
+export default function MembershipTab({ toast, goTab }) {
   const [apps, setApps] = useState([]);
   const [stats, setStats] = useState(null);
   // Defaults to All rather than Pending: if an application ever carries an
@@ -59,12 +59,45 @@ export default function MembershipTab({ toast }) {
     setOpen(null); load();
   }
 
-  const S = ({ label, value, gold }) => (
-    <div className="stat items-center text-center">
-      <div className={`text-2xl font-black ${gold ? 'text-tnr-gold' : 'text-tnr-cream'}`}>{value ?? '—'}</div>
-      <div className="text-[10px] uppercase tracking-wider text-tnr-cream/50">{label}</div>
-    </div>
-  );
+  /* A stat card.
+   *
+   * These were plain <div>s: an admin reading "4 Pending" then had to find the
+   * matching button in the filter row below and press that instead. The number
+   * and the way to act on it were two different controls, so the obvious click
+   * did nothing.
+   *
+   * `filter` applies a status to the list in place. `go` sends you to another
+   * tab, for the two figures that count MEMBERS rather than applications and
+   * so cannot be shown by filtering this list at all. A card with neither
+   * stays a plain div — nothing invites a click that has no effect.
+   */
+  const S = ({ label, value, gold, filter, go, title }) => {
+    const isFilter = filter !== undefined;
+    const active = isFilter && status === filter;
+
+    if (!isFilter && !go) {
+      return (
+        <div className="stat items-center text-center">
+          <div className={`text-2xl font-black ${gold ? 'text-tnr-gold' : 'text-tnr-cream'}`}>{value ?? '—'}</div>
+          <div className="text-[10px] uppercase tracking-wider text-tnr-cream/50">{label}</div>
+        </div>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        title={title}
+        aria-pressed={isFilter ? active : undefined}
+        onClick={() => (isFilter ? setStatus(filter) : goTab?.(go))}
+        className={`stat items-center text-center w-full transition
+          hover:border-tnr-gold/70 hover:bg-white/5 cursor-pointer
+          ${active ? 'border-tnr-gold ring-1 ring-tnr-gold/60' : ''}`}>
+        <div className={`text-2xl font-black ${gold ? 'text-tnr-gold' : 'text-tnr-cream'}`}>{value ?? '—'}</div>
+        <div className="text-[10px] uppercase tracking-wider text-tnr-cream/50">{label}</div>
+      </button>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -87,12 +120,22 @@ export default function MembershipTab({ toast }) {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-        <S label="Total" value={stats?.total_applications} />
-        <S label="Pending" value={stats?.pending_review} gold />
-        <S label="Approved" value={stats?.approved_apps} />
-        <S label="Rejected" value={stats?.rejected} />
-        <S label="Active Members" value={stats?.active_members} gold />
-        <S label="Public Profiles" value={stats?.public_profiles} />
+        <S label="Total" value={stats?.total_applications} filter=""
+           title="Show all applications" />
+        <S label="Pending" value={stats?.pending_review} gold filter="pending_review"
+           title="Show applications waiting for review" />
+        <S label="Approved" value={stats?.approved_apps} filter="approved"
+           title="Show approved applications" />
+        <S label="Rejected" value={stats?.rejected} filter="rejected"
+           title="Show rejected applications" />
+        {/* These two count rows in membership_members, not applications, so
+            there is no filter of THIS list that would show them. They open the
+            Members tab instead — clicking a number should always take you to
+            the thing it counted. */}
+        <S label="Active Members" value={stats?.active_members} gold go="mmembers"
+           title="Open the Members directory" />
+        <S label="Public Profiles" value={stats?.public_profiles} go="mmembers"
+           title="Open the Members directory" />
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">

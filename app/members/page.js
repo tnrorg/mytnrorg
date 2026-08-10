@@ -75,34 +75,42 @@ function MemberCard({ m }) {
       )}
       {home && <div className="text-[11px] text-gray-400 mt-1">{home}</div>}
 
-      {/* Leadership badge.
-          The directory now lists Advisory and CEC members first, so without a
-          label the ordering looks arbitrary — the reader has no way to tell
-          why those cards come first. General members get no badge; a chip
-          saying "General Member" on three quarters of the grid is noise. */}
-      {LEADERSHIP_ROLES.includes(m.role) && (
-        <div className="mt-2">
-          <span className="inline-block rounded-full px-2.5 py-0.5 text-[9.5px] font-black uppercase tracking-[.12em]"
-            style={{ background: 'rgba(200,154,43,.16)', color: '#8A6A12', border: '1px solid rgba(200,154,43,.4)' }}>
-            {roleLabel(m.role)}
-          </span>
-        </div>
-      )}
+      {/* Card footer — badge, category and button travel together.
 
-      {m.category && (
-        <div className="mt-2 text-[10px] font-bold tracking-wide uppercase" style={{ color: C.gold }}>
-          {m.category}
-        </div>
-      )}
+          One mt-auto on this wrapper, not on the button. Previously the button
+          carried it alone, so the flexible space opened BETWEEN the badge and
+          the button: the badge floated to wherever that card's text happened
+          to end, sitting high on a sparse card and jammed against the button
+          on a full one. Nothing lined up across a row.
 
-      {/* mt-auto pins the button to the bottom of whatever height the row
-          settles on, so every card in a row shares one baseline. */}
-      <a href={`/members/${m.membership_id}`}
-        className="tnr-btn-profile mt-auto pt-0 block rounded-xl py-2 text-xs font-bold text-white"
-        style={{ background: `linear-gradient(180deg,${C.green},${C.deep})`,
-                 border: '1px solid rgba(200,154,43,.4)', marginTop: 'auto' }}>
-        View Profile
-      </a>
+          Pinning the group means the button keeps its shared baseline AND the
+          badge sits the same distance above it on every card. */}
+      <div className="mt-auto pt-4">
+        {/* The directory lists Advisory and CEC first, so without a label the
+            ordering looks arbitrary. General members get no badge — a chip
+            reading "General Member" on three quarters of the grid is noise. */}
+        {LEADERSHIP_ROLES.includes(m.role) && (
+          <div className="mb-2.5">
+            <span className="inline-block rounded-full px-2.5 py-0.5 text-[9.5px] font-black uppercase tracking-[.12em]"
+              style={{ background: 'rgba(200,154,43,.16)', color: '#8A6A12', border: '1px solid rgba(200,154,43,.4)' }}>
+              {roleLabel(m.role)}
+            </span>
+          </div>
+        )}
+
+        {m.category && (
+          <div className="mb-2 text-[10px] font-bold tracking-wide uppercase" style={{ color: C.gold }}>
+            {m.category}
+          </div>
+        )}
+
+        <a href={`/members/${m.membership_id}`}
+          className="tnr-btn-profile block rounded-xl py-2 text-xs font-bold text-white"
+          style={{ background: `linear-gradient(180deg,${C.green},${C.deep})`,
+                   border: '1px solid rgba(200,154,43,.4)' }}>
+          View Profile
+        </a>
+      </div>
     </div>
   );
 }
