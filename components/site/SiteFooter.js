@@ -40,8 +40,12 @@ export default function SiteFooter() {
 
         <div className="border-t border-white/10">
           <div className="max-w-[1400px] mx-auto px-4 py-4 flex flex-wrap gap-x-4 gap-y-2 justify-center">
+            {/* white/70, not white/50: the latter measured 4.26:1 on this
+                green, under the 4.5:1 WCAG AA requires — and these are the
+                legal and policy links, exactly the ones someone struggling to
+                read should not have to hunt for. 6.83:1, still secondary. */}
             {FOOTER_LINKS.filter(i => !i.soon).map(i => (
-              <a key={i.label} href={i.href} className="text-xs text-white/50 hover:text-white transition-colors duration-micro">{i.label}</a>
+              <a key={i.label} href={i.href} className="text-xs text-white/70 hover:text-white transition-colors duration-micro">{i.label}</a>
             ))}
           </div>
         </div>

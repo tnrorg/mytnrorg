@@ -57,7 +57,12 @@ export default function Ticker() {
       className="w-full overflow-hidden border-y"
       style={{
         ...FONT,
-        background: `linear-gradient(90deg,${COLORS.green950},${COLORS.green800},${COLORS.green950})`,
+        /* green900 in the middle, not green800.
+           The announcement text is gold400, which measures 4.45:1 against
+           green800 — just under AA, and precisely in the middle of the bar
+           where the messages actually scroll. green900 takes it to 5.85:1
+           and the gradient still reads as a gradient. */
+        background: `linear-gradient(90deg,${COLORS.green950},${COLORS.green900},${COLORS.green950})`,
         borderColor: 'rgba(200,154,43,.28)',
       }}>
       <div className="relative flex items-center">
