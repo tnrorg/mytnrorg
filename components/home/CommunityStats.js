@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Users, MapPin, Landmark, Briefcase, GraduationCap, HeartHandshake, Eye } from 'lucide-react';
+import { Users, MapPin, Landmark, Briefcase, GraduationCap, Eye } from 'lucide-react';
 import { RevealGroup, RevealItem } from '@/components/ui';
 import CountUp from '@/components/ui/CountUp';
 import { COLORS, FONT } from '@/lib/design/tokens';
@@ -8,14 +8,19 @@ import { COLORS, FONT } from '@/lib/design/tokens';
 // Live community figures. The previous version of this bar shipped invented
 // numbers ("10K+ Registered Members", "25+ Countries"); everything here is
 // read from the membership database instead, and shows a dash until it loads.
+/* Order tells a story: who we are, how many people we reach, then what they
+ * do, then where they are. People before places.
+ *
+ * "Skilled Contributors" was removed — it counted much the same members as
+ * Professionals (101 against 101 was not a coincidence), so the bar was
+ * reporting one figure twice under two names. */
 const CARDS = [
-  ['members',       'Active Members',      Users],
-  ['areas',         'Villages / Areas',    MapPin],
-  ['unionCouncils', 'Union Councils',      Landmark],
-  ['professionals', 'Professionals',       Briefcase],
-  ['students',      'Students',            GraduationCap],
-  ['qualified',     'Skilled Contributors', HeartHandshake],
-  ['visits',        'Website Visitors',    Eye],
+  ['members',       'Active Members',   Users],
+  ['visits',        'Website Visitors', Eye],
+  ['professionals', 'Professionals',    Briefcase],
+  ['students',      'Students',         GraduationCap],
+  ['unionCouncils', 'Union Councils',   Landmark],
+  ['areas',         'Villages / Areas', MapPin],
 ];
 
 export default function CommunityStats() {
@@ -51,8 +56,13 @@ export default function CommunityStats() {
           the visitor tile appears only after the stats request resolves, and a
           RevealGroup that already fired would leave the late tile invisible. */}
       <RevealGroup key={cards.length}
+        /* Six tiles normally, five when the visitor counter is unavailable.
+           Written as a lookup rather than a ternary because Tailwind only
+           emits classes it can see written out in full — a computed
+           `lg:grid-cols-${n}` would produce no CSS at all and the row would
+           silently collapse to one column. */
         className={`tnr-ring-gold rounded-tnr-xl grid grid-cols-2 sm:grid-cols-3 gap-px overflow-hidden
-          ${cards.length === 7 ? 'lg:grid-cols-7' : 'lg:grid-cols-6'}`}
+          ${cards.length === 5 ? 'lg:grid-cols-5' : 'lg:grid-cols-6'}`}
         style={{
           background: 'rgba(255,255,255,.08)',
           boxShadow: '0 2px 4px rgba(6,45,33,.06), 0 22px 50px -14px rgba(6,45,33,.35)',
