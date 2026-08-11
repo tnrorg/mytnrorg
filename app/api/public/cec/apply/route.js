@@ -50,6 +50,25 @@ export async function POST(req) {
     catch (e) { return fail('UPLOAD_FAILED', 500, { message: 'CV upload failed: ' + e.message }); }
   }
 
+  /* Passport photograph.
+   *
+   * Type and size are checked HERE, not only in the browser: this endpoint is
+   * public and anyone can post to it directly. Without the check, the format
+   * restriction on the form would be a suggestion — and an unbounded upload is
+   * how a public endpoint becomes someone else's file host.
+   *
+   * Base64 inflates by roughly a third, and Vercel rejects bodies over 4.5 MB
+   * before this code runs at all, so the limit has to sit under that. */
+  if (b.photo_data) {
+    const head = String(b.photo_data).slice(0, 40);
+    if (!/^data:image\/(png|jpe?g|webp);base64,/i.test(head))
+      return fail('BAD_PHOTO', 400, { message: 'Photo must be a JPG, PNG or WEBP image.' });
+    if (String(b.photo_data).length * 0.75 > 4 * 1024 * 1024)
+      return fail('PHOTO_TOO_BIG', 400, { message: 'Photo must be smaller than 4 MB.' });
+    try { row.photo_url = await uploadDataUrl(b.photo_data, 'cec'); }
+    catch (e) { return fail('UPLOAD_FAILED', 500, { message: 'Photo upload failed: ' + e.message }); }
+  }
+
   const { data, error } = await sb.from('cec_applications').insert(row).select('id').maybeSingle();
   if (error) {
     // 23505 is the one-per-email-per-position index. Saying so plainly beats

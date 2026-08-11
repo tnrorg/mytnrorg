@@ -146,6 +146,13 @@ function ApplicationRow({ a, toast, onDone, open, onToggle, isSuper }) {
 
   return <Card>
     <div className="flex flex-wrap items-center gap-2">
+      {/* Photograph, where one was supplied. Applications predating this field
+          have none, so the space simply is not drawn rather than showing a
+          placeholder that implies something is missing. */}
+      {a.photo_url && (
+        <img src={a.photo_url} alt=""
+          className="w-9 h-11 rounded-lg object-cover object-top shrink-0 bg-black/20" />
+      )}
       <button className="font-bold text-tnr-cream text-left" onClick={onToggle}>
         {a.full_name || '(no name)'}
       </button>

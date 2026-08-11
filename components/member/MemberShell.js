@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { mGet, mPost, clearToken, getToken } from './memberApi';
+import { canReviewCecApplications } from '@/lib/membership/roles';
 
 const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#D4A72C', soft: '#F3E4B3', ink: '#15231D' };
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
@@ -51,8 +52,25 @@ export const ROLE_NAV = {
   ],
 };
 
-export const navFor = (role) => {
-  const extra = ROLE_NAV[role] || [];
+/* Takes the whole member, not just the role.
+ *
+ * Access to Executive Applications is no longer decided by role alone — the
+ * founder reviews them without holding the `cec` role — and the check needs
+ * the membership ID to say so. Passing the role by itself meant the API would
+ * let him in while the portal showed him no way to get there.
+ *
+ * This only draws the link. The endpoint enforces the same rule server-side,
+ * so hiding or showing a nav item grants nothing either way. */
+export const navFor = (member) => {
+  const role = typeof member === 'string' ? member : member?.role;
+  const extra = [...(ROLE_NAV[role] || [])];
+
+  const CEC_APPS = ['Executive Applications', '/member/cec-applications', '📋'];
+  if (typeof member === 'object' && canReviewCecApplications(member)
+      && !extra.some(([, href]) => href === CEC_APPS[1])) {
+    extra.push(CEC_APPS);
+  }
+
   if (!extra.length) return NAV;
   // Slot the role items straight after My Profile, where they belong.
   const i = NAV.findIndex(([, href]) => href === '/member/profile') + 1;
@@ -107,7 +125,7 @@ export default function MemberShell({ active, children }) {
         </div>
 
         <nav className={`${open ? 'block' : 'hidden'} lg:block p-2 space-y-0.5`}>
-          {navFor(member?.role).map(([label, href, icon]) => (
+          {navFor(member).map(([label, href, icon]) => (
             <a key={href} href={href}
               className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition ${active === href
                 ? 'text-white font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}

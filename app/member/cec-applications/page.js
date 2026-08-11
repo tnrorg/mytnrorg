@@ -81,6 +81,13 @@ export default function MemberCecApplicationsPage() {
           return (
             <div key={a.id} className="rounded-2xl border border-gray-100 bg-white p-5">
               <div className="flex flex-wrap items-center gap-2">
+                {/* Photograph, where the applicant supplied one. Applications
+                    submitted before this field existed have none, and the space
+                    is simply not drawn rather than showing an empty frame. */}
+                {a.photo_url && (
+                  <img src={a.photo_url} alt=""
+                    className="w-9 h-11 rounded-lg object-cover object-top shrink-0 bg-gray-100" />
+                )}
                 <button className="font-bold text-[15px] text-left" style={{ color: C.deep }}
                   onClick={() => setOpenId(open ? null : a.id)}>
                   {a.full_name}

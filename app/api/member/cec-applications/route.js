@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabaseServer';
 import { requireMember } from '@/lib/membership/auth';
+import { canReviewCecApplications } from '@/lib/membership/roles';
 import { ok, fail } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -21,7 +22,11 @@ export const fetchCache = 'force-no-store';
 export async function GET(req) {
   const { member, res } = await requireMember(req); if (res) return res;
 
-  if (member.role !== 'cec') {
+  /* Sitting CEC members, plus the named reviewers in lib/membership/roles.js
+   * — currently the founder, who reviews these but does not hold the `cec`
+   * role. The rule lives there so this endpoint and the portal's navigation
+   * cannot disagree about who is allowed in. */
+  if (!canReviewCecApplications(member)) {
     return fail('FORBIDDEN', 403, {
       message: 'Only Central Executive Committee members can view these applications.',
     });
@@ -29,7 +34,10 @@ export async function GET(req) {
 
   const sb = supabaseAdmin();
   const { data, error } = await sb.from('cec_applications')
-    .select('id, reference_no, vacancy_id, full_name, education_level, current_position, ' +
+    // photo_url is included, contact details are still not. A reviewer needs
+    // to know which application belongs to whom; they do not need everyone's
+    // mobile number.
+    .select('id, reference_no, vacancy_id, full_name, photo_url, education_level, current_position, ' +
             'organisation, union_council, village, relevant_experience, scenario_answer, ' +
             'challenge_answer, leadership_answer, vision_answer, status, created_at')
     .order('created_at', { ascending: false });

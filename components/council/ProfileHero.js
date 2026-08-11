@@ -54,15 +54,24 @@ export default function ProfileHero({ p, onRequestGuidance }) {
           )}
           <h1 className="mt-2 text-3xl sm:text-4xl font-extrabold tracking-tight text-white flex flex-wrap items-center gap-2.5">
             {p.name}
-            {/* Published profiles are admin-approved, so the badge is unconditional.
-                Height is set in `em`, so it inherits the heading's font size and
-                the pill matches the name's line box at every breakpoint —
-                fixed padding left it noticeably short beside a 36px name. */}
-            <span className="inline-flex items-center gap-1.5 rounded-full px-3 h-[1.1em] shrink-0
-              text-[11px] font-bold leading-none"
-              style={{ background: 'rgba(200,154,43,.18)', color: COLORS.gold400 }}>
-              <VerifiedBadge size={14} fill={COLORS.gold400} decorative />Verified
-            </span>
+            {/* Published profiles are admin-approved, so the badge is
+                unconditional.
+
+                Just the mark — no pill, no label. The word "Verified" beside a
+                gold tick was saying the same thing twice, and the tinted pill
+                boxed it off from the name it belongs to. The mark alone is the
+                convention people already read on every other platform.
+
+                Sized in `em` so it tracks the heading: it scales with the name
+                from mobile to desktop instead of staying a fixed 14px next to
+                a 36px name. Not `decorative` any more — with the word gone,
+                this icon carries the meaning on its own and must be announced. */}
+            <VerifiedBadge
+              size="0.85em"
+              fill={COLORS.gold400}
+              title="Verified member"
+              className="translate-y-[0.06em]"
+            />
           </h1>
 
           {(p.profession || academicTitle(p.qualification, p.field)) && (

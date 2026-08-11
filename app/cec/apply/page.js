@@ -21,6 +21,30 @@ export default function CecApplyPage() {
   const [vacancies, setVacancies] = useState(null);
   const [f, setF] = useState({ vacancy_id: '' });
   const [errors, setErrors] = useState({});
+  const [photoErr, setPhotoErr] = useState('');
+
+  /* Read the chosen file into a data URL so it travels with the rest of the
+   * form in one request — the same approach the membership application uses.
+   *
+   * Checked here for an instant answer, and again on the server, which is
+   * where it actually matters: this endpoint is public and does not have to
+   * be reached through this form. */
+  const pickPhoto = (file) => {
+    setPhotoErr('');
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
+      setPhotoErr('Photo must be a JPG, PNG or WEBP image.');
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      setPhotoErr('Photo must be smaller than 4 MB.');
+      return;
+    }
+    const fr = new FileReader();
+    fr.onload = () => setF(p => ({ ...p, photo_data: fr.result }));
+    fr.onerror = () => setPhotoErr('Could not read that file. Try another.');
+    fr.readAsDataURL(file);
+  };
   const [showErr, setShowErr] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
@@ -173,6 +197,33 @@ export default function CecApplyPage() {
             <Block title="Section 1 — Personal Information">
               <Field label="Full name" required error={err('full_name')}>
                 <input className={input} style={inputStyle} value={f.full_name || ''} onChange={set('full_name')} />
+              </Field>
+
+              {/* Passport photograph.
+                  Sits at the top of the section, beside the name it belongs
+                  to, so the panel reviewing a shortlist sees a face against
+                  each set of answers. */}
+              <Field label="Passport-size photograph" required error={err('photo_data')}>
+                <div className="flex items-start gap-4">
+                  <div className="w-20 h-24 shrink-0 rounded-xl overflow-hidden border-2 border-dashed
+                    border-gray-200 bg-gray-50 grid place-items-center">
+                    {f.photo_data
+                      ? <img src={f.photo_data} alt="Selected photograph" className="w-full h-full object-cover" />
+                      : <span className="text-[10px] text-gray-400 text-center px-1">No photo</span>}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <input type="file" accept="image/png,image/jpeg,image/webp"
+                      onChange={e => pickPhoto(e.target.files?.[0])}
+                      className="block w-full text-xs text-gray-600
+                        file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0
+                        file:text-xs file:font-bold file:text-white file:cursor-pointer
+                        file:bg-[#0B6B4F] hover:file:bg-[#063D2B]" />
+                    <p className="mt-1.5 text-[11px] text-gray-500">
+                      A clear, recent head-and-shoulders photo. JPG, PNG or WEBP, under 4 MB.
+                    </p>
+                    {photoErr && <p className="mt-1 text-[11px] text-red-600">{photoErr}</p>}
+                  </div>
+                </div>
               </Field>
 
               <Field label="Position applying for" required error={err('vacancy_id')}>
