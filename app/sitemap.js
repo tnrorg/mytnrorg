@@ -60,7 +60,17 @@ export default async function sitemap() {
     priority,
   }));
 
-  const sb = supabaseAdmin();
+  /* supabaseAdmin() THROWS when the environment is not configured, and this
+   * function runs during the build. Called outside a try — as it was — a
+   * missing variable would not degrade the sitemap, it would fail the whole
+   * deploy and leave the previous version of the site live. Returning the
+   * static routes is the right failure: an incomplete sitemap beats no site. */
+  let sb;
+  try {
+    sb = supabaseAdmin();
+  } catch {
+    return routes;
+  }
 
   /* Leadership profiles — /council/[slug].
    *
