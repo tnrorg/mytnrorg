@@ -18,16 +18,32 @@ export default function DashboardTab() {
   // explicitly: two sets of member numbers on one screen is a trap.
   const ended = d.election && String(d.election.status).toLowerCase() === 'ended';
 
+  /* Sections follow the admin's permission areas.
+   *
+   * The server decides — it simply does not send figures for an area this
+   * account cannot open, and these flags describe what it sent. An admin
+   * restricted to one area gets a dashboard about that area rather than a
+   * screen of zeros that looks like the organisation has no members. */
+  const showMembership = d.show_membership !== false;
+  const showElection = d.show_election !== false && !!d.members;
+
   return <div className="space-y-6">
 
+    {!showMembership && !showElection && (
+      <p className="text-tnr-cream/50 text-sm">
+        Your account covers areas that don&rsquo;t have dashboard figures.
+        Pick a section from the menu to get started.
+      </p>
+    )}
+
     {/* ── Membership ─────────────────────────────────────────────────────── */}
-    <div>
+    {showMembership && <div>
       <h2 className="text-lg font-black text-tnr-cream mb-3">Membership Overview</h2>
       <MembershipOverview />
-    </div>
+    </div>}
 
     {/* ── Election Portal (concluded) ────────────────────────────────────── */}
-    <div className="pt-2">
+    {showElection && <div className="pt-2">
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <h2 className="text-lg font-black text-tnr-cream/70">Election Portal</h2>
         {d.election && <Badge>{d.election.status}</Badge>}
@@ -77,7 +93,7 @@ export default function DashboardTab() {
           </> : <p className="text-tnr-cream/50 text-sm">No active election.</p>}
         </Card>
       </div>
-    </div>
+    </div>}
 
     {/* Recent Activity is visible to Super Admins only. */}
     {d.show_activity && <Card>

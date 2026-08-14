@@ -40,39 +40,55 @@ const VisitorsTab = dynamicImport(() => import('@/components/admin/VisitorsTab')
 
 // Sidebar structure. All election functions live INSIDE the Election Portal group,
 // leaving room for future platform modules (Membership, Community, Welfare…).
+/* Every tab carries the permission area it belongs to.
+ *
+ * `null` means any signed-in admin: the dashboard, and their own security
+ * settings. Hiding My Security from restricted admins would mean the people
+ * most likely to share a device are the ones who cannot turn on 2FA.
+ *
+ * This only shapes the sidebar. The server refuses the underlying routes on
+ * its own, so a hidden tab is a tidy panel, not the security control. */
 const TOP_TABS = [
-  ['dashboard', 'Dashboard', '📊'],
-  ['leadership', 'Leadership', '🏅'],
-  ['hero', 'Hero Slides', '🖼️'],
-  ['messages', 'Home Messages', '💬'],
-  ['projects', 'Projects', '🏗️'],
-  ['institutions', 'Schools & Colleges', '🏫'],
-  ['cec', 'CEC Recruitment', '📋'],
-  ['announcements', 'Announcements', '📢'],
-  ['branding', 'Branding', '✉️'],
+  ['dashboard', 'Dashboard', '📊', null],
+  ['leadership', 'Leadership', '🏅', 'content'],
+  ['hero', 'Hero Slides', '🖼️', 'content'],
+  ['messages', 'Home Messages', '💬', 'content'],
+  ['projects', 'Projects', '🏗️', 'content'],
+  ['institutions', 'Schools & Colleges', '🏫', 'content'],
+  ['cec', 'CEC Recruitment', '📋', 'cec'],
+  ['announcements', 'Announcements', '📢', 'content'],
+  ['branding', 'Branding', '✉️', 'content'],
   // Member-written pieces awaiting review.
-  ['opinions', 'Opinions', '✍️'],
+  ['opinions', 'Opinions', '✍️', 'opinions'],
   // Messages from the four public contact forms.
-  ['inbox', 'Contact Inbox', '📨'],
+  ['inbox', 'Contact Inbox', '📨', 'inbox'],
   // Every admin's own account security, not a super-admin tool — a control
   // only some people can reach is one most people never turn on.
-  ['security', 'My Security', '🔐'],
+  ['security', 'My Security', '🔐', null],
 ];
 const ELECTION_TABS = [
-  ['elections', 'Elections', '🗳️'], ['candidates', 'Candidates', '🎖️'], ['members', 'Members', '👥'],
-  ['ecommittee', 'Committee', '🤝'], ['reminders', 'Reminders', '📧'],
-  ['records', 'Voting Records', '📋'], ['results', 'Results', '🏆'], ['logs', 'Audit Logs', '🧾'],
+  ['elections', 'Elections', '🗳️', 'election'], ['candidates', 'Candidates', '🎖️', 'election'],
+  ['members', 'Members', '👥', 'election'],
+  ['ecommittee', 'Committee', '🤝', 'election'], ['reminders', 'Reminders', '📧', 'election'],
+  ['records', 'Voting Records', '📋', 'election'], ['results', 'Results', '🏆', 'election'],
+  ['logs', 'Audit Logs', '🧾', 'election'],
 ];
 // Super-admin election tools that also belong inside the group.
 const ELECTION_SUPER = ['committee', 'voterdata'];
 // Membership module (separate from the election system).
-const MEMBERSHIP_TABS = [['mapplications', 'Applications', '📝'], ['mmembers', 'Members', '🪪'], ['mrequests', 'Profile Requests', '✏️'], ['mcard', 'Card Template', '🎫'], ['mcert', 'Certificate Template', '📜'], ['mareas', 'Areas', '📍']];
+const MEMBERSHIP_TABS = [
+  ['mapplications', 'Applications', '📝', 'membership'], ['mmembers', 'Members', '🪪', 'membership'],
+  ['mrequests', 'Profile Requests', '✏️', 'membership'], ['mcard', 'Card Template', '🎫', 'membership'],
+  ['mcert', 'Certificate Template', '📜', 'membership'], ['mareas', 'Areas', '📍', 'membership'],
+];
 
 export default function Admin() {
   const [authed, setAuthed] = useState(false);
   const [admin, setAdmin] = useState(null);
   const [enrolRequired, setEnrolRequired] = useState(false);
   const [extraTabs, setExtraTabs] = useState([]);   // supplied by the server, empty for normal admins
+  const [scopes, setScopes] = useState(null);       // null until the server answers
+  const [scopesStale, setScopesStale] = useState(false);
   const [roleLabel, setRoleLabel] = useState('Control Panel');
   const [tab, setTab] = useState('dashboard');
   const [portalOpen, setPortalOpen] = useState(true);   // Election Portal group
@@ -83,6 +99,8 @@ export default function Admin() {
     if (!r?.ok) { setExtraTabs([]); setRoleLabel('Control Panel'); return; }
     setAdmin(a => a || { username: r.username, full_name: r.full_name });
     setExtraTabs(r.extra_tabs || []);
+    setScopes(Array.isArray(r.scopes) ? r.scopes : []);
+    setScopesStale(!!r.scopes_stale);
     setRoleLabel(r.label || 'Control Panel');
     // Also checked on a restored session, not just at sign-in: a token from
     // before 2FA was required would otherwise sail past the gate for its full
@@ -106,6 +124,7 @@ export default function Admin() {
     // "not required" while the client still believed its own stale answer.
     const onLogout = () => {
       setAuthed(false); setAdmin(null); setExtraTabs([]);
+      setScopes(null); setScopesStale(false);
       setRoleLabel('Control Panel'); setEnrolRequired(false);
     };
     window.addEventListener('tnr-logout', onLogout);
@@ -136,18 +155,32 @@ export default function Admin() {
     </div>
   );
 
+  /* Keep only the tabs this account's permission areas cover.
+   *
+   * While `scopes` is still null the server has not answered yet, so nothing
+   * is filtered — a sidebar that flickers from full to restricted on every
+   * load looks like a bug and invites people to reload until it "works". */
+  const can = (scope) => scope === null || scopes === null || scopes.includes(scope);
+  const allow = (list) => list.filter(t => can(t[3]));
+
   // Super-admin election tools join the group; anything else stays platform-level.
   const electionExtra = extraTabs.filter(t => ELECTION_SUPER.includes(t[0]));
   const platformExtra = extraTabs.filter(t => !ELECTION_SUPER.includes(t[0]));
-  const electionTabs = [...ELECTION_TABS, ...electionExtra];
-  const TABS = [...TOP_TABS, ...electionTabs, ...MEMBERSHIP_TABS, ...platformExtra];
+  const topTabs = allow(TOP_TABS);
+  const membershipTabs = allow(MEMBERSHIP_TABS);
+  const electionTabs = [...allow(ELECTION_TABS), ...electionExtra];
+  const TABS = [...topTabs, ...electionTabs, ...membershipTabs, ...platformExtra];
+  // An admin whose access is narrowed mid-session can be sitting on a tab they
+  // no longer hold. Fall back to the first tab they do — which is always the
+  // Dashboard — rather than rendering a panel the server will refuse.
   const activeTab = TABS.find(t => t[0] === tab) || TABS[0];
-  const inElection = electionTabs.some(t => t[0] === tab);
+  const view = activeTab?.[0] || 'dashboard';
+  const inElection = electionTabs.some(t => t[0] === view);
 
   const NavBtn = ([k, label, icon], indent = false) => (
     <button key={k} onClick={() => setTab(k)}
       className={`flex items-center gap-2 ${indent ? 'md:pl-6' : ''} px-3 py-2.5 rounded-xl text-sm whitespace-nowrap transition
-        ${tab === k ? 'bg-tnr-gold text-tnr-black font-semibold' : 'text-tnr-cream/70 hover:bg-white/5'}`}>
+        ${view === k ? 'bg-tnr-gold text-tnr-black font-semibold' : 'text-tnr-cream/70 hover:bg-white/5'}`}>
       <span>{icon}</span>{label}
     </button>
   );
@@ -158,9 +191,12 @@ export default function Admin() {
         <div><div className="font-bold text-sm text-tnr-cream">TNR Admin</div>
           <div className="text-[10px] text-tnr-gold uppercase tracking-widest">{roleLabel}</div></div></div>
       <nav className="p-2 flex md:flex-col gap-1 overflow-x-auto">
-        {TOP_TABS.map(t => NavBtn(t))}
+        {topTabs.map(t => NavBtn(t))}
 
-        {/* ── Election Portal group ── */}
+        {/* ── Election Portal group ──
+            The whole group disappears for an admin without election access,
+            rather than showing a heading that opens onto nothing. */}
+        {!!electionTabs.length && <>
         <button onClick={() => setPortalOpen(o => !o)}
           className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm whitespace-nowrap transition
             ${inElection && !portalOpen ? 'bg-tnr-gold/20 text-tnr-goldLight' : 'text-tnr-cream/90 hover:bg-white/5'} font-semibold`}>
@@ -171,8 +207,10 @@ export default function Admin() {
           </svg>
         </button>
         {portalOpen && electionTabs.map(t => NavBtn(t, true))}
+        </>}
 
         {/* ── Membership group ── */}
+        {!!membershipTabs.length && <>
         <button onClick={() => setMemOpen(o => !o)}
           className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm whitespace-nowrap transition text-tnr-cream/90 hover:bg-white/5 font-semibold">
           <span>🪪</span>Membership
@@ -181,7 +219,8 @@ export default function Admin() {
             <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        {memOpen && MEMBERSHIP_TABS.map(t => NavBtn(t, true))}
+        {memOpen && membershipTabs.map(t => NavBtn(t, true))}
+        </>}
 
         {/* Platform-level tools (e.g. Admin Accounts) */}
         {!!platformExtra.length && <div className="hidden md:block h-px bg-tnr-line my-1" />}
@@ -200,37 +239,50 @@ export default function Admin() {
         </div>
         <a href="/" className="text-sm text-tnr-cream/50 hover:text-tnr-gold">View site →</a>
       </div>
-      {tab === 'dashboard' && <DashboardTab />}
-      {tab === 'leadership' && <LeadershipTab toast={toast} />}
-      {tab === 'hero' && <HeroTab toast={toast} />}
-      {tab === 'messages' && <MessagesTab toast={toast} />}
-      {tab === 'announcements' && <AnnouncementsTab toast={toast} />}
-      {tab === 'branding' && <BrandingTab toast={toast} />}
-      {tab === 'opinions' && <OpinionsTab toast={toast} />}
-      {tab === 'inbox' && <ContactInboxTab toast={toast} />}
-      {tab === 'security' && <SecurityTab />}
-      {tab === 'projects' && <ProjectsTab toast={toast} />}
-      {tab === 'institutions' && <InstitutionsTab toast={toast} />}
-      {tab === 'cec' && <CecTab toast={toast} />}
-      {tab === 'members' && <MembersTab toast={toast} />}
-      {tab === 'candidates' && <CandidatesTab toast={toast} elections={elections} />}
-      {tab === 'elections' && <ElectionsTab toast={toast} admin={admin} reloadElections={reloadElections} />}
-      {tab === 'records' && <RecordsTab />}
-      {tab === 'results' && <ResultsTab elections={elections} />}
-      {tab === 'logs' && <LogsTab />}
-      {tab === 'ecommittee' && <CommitteeTab toast={toast} />}
-      {tab === 'reminders' && <RemindersTab toast={toast} />}
-      {tab === 'committee' && hasTab('committee') && <CommitteeVoteTab toast={toast} />}
-      {tab === 'admins' && hasTab('admins') && <AdminsTab toast={toast} me={admin} />}
-      {tab === 'voterdata' && hasTab('voterdata') && <VoterDataTab toast={toast} />}
-      {tab === 'visitors' && hasTab('visitors') && <VisitorsTab toast={toast} />}
+
+      {/* Permissions changed while this session was open. The sidebar already
+          shows the new set; the signed token still carries the old one, so
+          some requests would be judged against it until the next sign-in.
+          Saying so beats letting someone hit a refusal with no explanation. */}
+      {scopesStale && (
+        <div className="mb-5 rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+          Your access has been updated by a Super Admin.
+          <button onClick={() => { clearToken(); setAuthed(false); }}
+            className="ml-2 underline font-semibold hover:text-white">Sign in again</button> to apply it.
+        </div>
+      )}
+
+      {view === 'dashboard' && <DashboardTab />}
+      {view === 'leadership' && <LeadershipTab toast={toast} />}
+      {view === 'hero' && <HeroTab toast={toast} />}
+      {view === 'messages' && <MessagesTab toast={toast} />}
+      {view === 'announcements' && <AnnouncementsTab toast={toast} />}
+      {view === 'branding' && <BrandingTab toast={toast} />}
+      {view === 'opinions' && <OpinionsTab toast={toast} />}
+      {view === 'inbox' && <ContactInboxTab toast={toast} />}
+      {view === 'security' && <SecurityTab />}
+      {view === 'projects' && <ProjectsTab toast={toast} />}
+      {view === 'institutions' && <InstitutionsTab toast={toast} />}
+      {view === 'cec' && <CecTab toast={toast} />}
+      {view === 'members' && <MembersTab toast={toast} />}
+      {view === 'candidates' && <CandidatesTab toast={toast} elections={elections} />}
+      {view === 'elections' && <ElectionsTab toast={toast} admin={admin} reloadElections={reloadElections} />}
+      {view === 'records' && <RecordsTab />}
+      {view === 'results' && <ResultsTab elections={elections} />}
+      {view === 'logs' && <LogsTab />}
+      {view === 'ecommittee' && <CommitteeTab toast={toast} />}
+      {view === 'reminders' && <RemindersTab toast={toast} />}
+      {view === 'committee' && hasTab('committee') && <CommitteeVoteTab toast={toast} />}
+      {view === 'admins' && hasTab('admins') && <AdminsTab toast={toast} me={admin} />}
+      {view === 'voterdata' && hasTab('voterdata') && <VoterDataTab toast={toast} />}
+      {view === 'visitors' && hasTab('visitors') && <VisitorsTab toast={toast} />}
       {/* goTab lets the stat cards jump to the tab that holds what they count. */}
-      {tab === 'mapplications' && <MembershipTab toast={toast} goTab={setTab} />}
-      {tab === 'mrequests' && <ProfileRequestsTab toast={toast} />}
-      {tab === 'mmembers' && <MembersDirectoryTab toast={toast} />}
-      {tab === 'mcard' && <CardTemplateTab toast={toast} />}
-      {tab === 'mcert' && <CertificateTemplateTab toast={toast} />}
-      {tab === 'mareas' && <AreasTab toast={toast} />}
+      {view === 'mapplications' && <MembershipTab toast={toast} goTab={setTab} />}
+      {view === 'mrequests' && <ProfileRequestsTab toast={toast} />}
+      {view === 'mmembers' && <MembersDirectoryTab toast={toast} />}
+      {view === 'mcard' && <CardTemplateTab toast={toast} />}
+      {view === 'mcert' && <CertificateTemplateTab toast={toast} />}
+      {view === 'mareas' && <AreasTab toast={toast} />}
     </main>
     <Toast msg={toastMsg} tone={toastTone} />
   </div>;

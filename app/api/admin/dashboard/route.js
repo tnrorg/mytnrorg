@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseServer';
-import { requireAdmin, isSuperAdmin } from '@/lib/guard';
+import { requireAdmin, isSuperAdmin, hasScope } from '@/lib/guard';
 import { superAdminActors, filterForNormalAdmin } from '@/lib/auditVisibility';
 import { getActiveElection } from '@/lib/election';
 import { ok } from '@/lib/api';
@@ -12,6 +12,26 @@ async function c(sb, table, filter) {
 export async function GET(req) {
   const { admin, res } = requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
+
+  /* The dashboard shows only the areas this admin works in.
+   *
+   * Filtered on the SERVER, not by hiding cards in the browser: an admin with
+   * no election permission should not receive turnout figures at all, whether
+   * or not a card is rendered for them. Sending the numbers and then choosing
+   * not to draw them is not a restriction.
+   *
+   * `show_*` tells the client which sections exist, so it can render an
+   * honest panel instead of blank cards reading zero. */
+  const showElection  = hasScope(admin, 'election');
+  const showMembership = hasScope(admin, 'membership');
+
+  if (!showElection) {
+    return ok({
+      show_election: false, show_membership: showMembership,
+      show_activity: false, recent_logs: [],
+    });
+  }
+
   const total     = await c(sb, 'members');
   const approved  = await c(sb, 'members', { status: 'Approved' });
   const pending   = await c(sb, 'members', { status: 'Pending' });
@@ -31,6 +51,7 @@ export async function GET(req) {
     logs = data || [];
   }
   return ok({
+    show_election: true, show_membership: showMembership,
     members: { total, approved, pending, blocked },
     election: e ? { id: e.id, title: e.title, status: e.status, result_published: e.result_published } : null,
     votes_cast, total_voters, remaining: Math.max(0, total_voters - votes_cast),
