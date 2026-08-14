@@ -46,10 +46,21 @@ export default function MemberOpinionsPage() {
   function pickCover(file) {
     if (!file) return;
     if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) return setErr('Cover must be a JPG, PNG or WEBP.');
-    if (file.size > 4 * 1024 * 1024) return setErr('Cover must be smaller than 4 MB.');
+    /* 3 MB, not 4.
+     *
+     * Base64 inflates a file by about a third, and Vercel rejects a request
+     * body over roughly 4.5 MB before any of our code runs — so a 4 MB image
+     * became a ~5.4 MB request and was refused by the platform, which the
+     * member saw as an unexplained failure to save. */
+    if (file.size > 3 * 1024 * 1024) {
+      return setErr('Cover image must be smaller than 3 MB. Please resize it and try again.');
+    }
     setErr('');
     const fr = new FileReader();
-    fr.onload = () => setEditing(p => ({ ...p, cover_data: fr.result, cover_url: fr.result }));
+    // `cover_preview` is for the thumbnail only and is never sent. It used to
+    // be written to `cover_url` as well, which meant the whole base64 image
+    // travelled in the request TWICE and doubled its size for no reason.
+    fr.onload = () => setEditing(p => ({ ...p, cover_data: fr.result, cover_preview: fr.result }));
     fr.readAsDataURL(file);
   }
 
@@ -61,7 +72,23 @@ export default function MemberOpinionsPage() {
       if (Object.keys(found).length) return;
     }
     setBusy(true); setErr('');
-    const r = await mPost('/api/member/opinions', { ...editing, action });
+    /* Send only the fields the server actually reads.
+     *
+     * Spreading the whole editing object also shipped `status`, `slug`,
+     * `review_note`, timestamps and — worst — the base64 preview, none of
+     * which the API uses. On a piece with a cover image that roughly doubled
+     * the request for nothing. */
+    const r = await mPost('/api/member/opinions', {
+      action,
+      id: editing.id,
+      title: editing.title,
+      summary: editing.summary,
+      body: editing.body,
+      // Only when a NEW file was chosen. `cover_url: null` is the explicit
+      // "remove the existing image" signal and must survive.
+      ...(editing.cover_data ? { cover_data: editing.cover_data } : {}),
+      ...(editing.cover_url === null && !editing.cover_data ? { cover_url: null } : {}),
+    });
     setBusy(false);
     if (!r?.ok) {
       if (r?.errors) setErrors(r.errors);
@@ -145,9 +172,11 @@ export default function MemberOpinionsPage() {
             <label className="block">
               <span className="block text-xs font-bold text-gray-600 mb-1.5">Cover image (optional)</span>
               <div className="flex items-start gap-4">
+                {/* The just-chosen file if there is one, otherwise whatever is
+                    already saved on the record. */}
                 <div className="w-28 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-dashed border-gray-200 bg-gray-50 grid place-items-center">
-                  {editing.cover_url
-                    ? <img src={editing.cover_url} alt="" className="w-full h-full object-cover" />
+                  {(editing.cover_preview || editing.cover_url)
+                    ? <img src={editing.cover_preview || editing.cover_url} alt="" className="w-full h-full object-cover" />
                     : <span className="text-[10px] text-gray-400">None</span>}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -157,8 +186,12 @@ export default function MemberOpinionsPage() {
                       file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0
                       file:text-xs file:font-bold file:text-white file:cursor-pointer
                       file:bg-[#0B6B4F]" />
-                  {editing.cover_url && (
-                    <button onClick={() => setEditing(p => ({ ...p, cover_url: null, cover_data: null }))}
+                  {/* Offered whenever there is something to remove — a
+                      just-chosen file or an already-saved one. Clearing sets
+                      all three, or the thumbnail would keep showing an image
+                      the member has just removed. */}
+                  {(editing.cover_preview || editing.cover_url) && (
+                    <button onClick={() => setEditing(p => ({ ...p, cover_url: null, cover_data: null, cover_preview: null }))}
                       className="mt-2 text-[11px] text-red-500 hover:underline">Remove image</button>
                   )}
                 </div>
