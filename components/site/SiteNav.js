@@ -2,8 +2,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { NAV } from './navConfig';
 import { HEADER_DEFAULTS, SOCIALS, normaliseUrl } from '@/lib/siteHeader';
+import AccountMenu from './AccountMenu';
 
-const G = '#063D2B', GOLD = '#D4A72C';
+// The brand colours moved into AccountMenu with the sign-in buttons; nothing
+// left in this file styles by them.
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
 
 /* A dropdown entry. Planned pages render as a non-clickable row with a "Soon"
@@ -142,12 +144,10 @@ export default function SiteNav() {
               on the hero's "Join TNR" call to action; the hamburger menu still
               carries Register and Member Login, so no route was lost — mobile
               visitors would otherwise have had no way to sign in. */}
-          <a href="/member/login" className="hidden xl:inline-block px-3 py-2 rounded-xl text-[13px] font-semibold text-[#063D2B] border border-[#063D2B]/15 hover:bg-[#063D2B]/5">LOGIN</a>
-          <a href="/membership/apply"
-            className="hidden xl:inline-block px-4 py-2 rounded-xl text-[13px] font-bold text-white"
-            style={{ background: 'linear-gradient(180deg,#0B6B4F,#063D2B)', border: '1px solid rgba(200,154,43,.4)' }}>
-            REGISTER
-          </a>
+          {/* LOGIN + REGISTER for a visitor; the member's own avatar and menu
+              once they are signed in. Which one is decided by the server, from
+              the token — not by the token's mere presence. */}
+          <AccountMenu />
           <button className="xl:hidden p-2 -mr-1 text-gray-600" onClick={() => setMobile(!mobile)} aria-label="menu">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
           </button>
@@ -194,23 +194,11 @@ export default function SiteNav() {
               )}
             </div>
           ))}
-          {/* Both routes at the foot of the drawer, so someone who scrolls the
-              whole menu still finds a way in without going back to the top. */}
+          {/* At the foot of the drawer, so someone who scrolls the whole menu
+              still finds a way in without going back to the top. Shows the
+              member's own links once they are signed in. */}
           <div className="p-4 space-y-2.5">
-            <a href="/membership/apply" onClick={() => setMobile(false)}
-              className="block text-center px-4 py-3 rounded-xl text-sm font-bold text-white"
-              style={{ background: 'linear-gradient(180deg,#0B6B4F,#063D2B)' }}>
-              Register as a Member
-            </a>
-            <a href="/member/login" onClick={() => setMobile(false)}
-              className="block text-center px-4 py-3 rounded-xl text-sm font-bold border"
-              style={{ borderColor: 'rgba(6,61,43,.18)', color: G }}>
-              Member Login
-            </a>
-            <a href="/membership/status" onClick={() => setMobile(false)}
-              className="block text-center px-4 py-2 text-[12px] font-semibold text-gray-500">
-              Check application status
-            </a>
+            <AccountMenu variant="mobile" onNavigate={() => setMobile(false)} />
           </div>
         </div>
       )}
