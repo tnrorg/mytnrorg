@@ -140,9 +140,48 @@ export default function MemberDashboard() {
             ))}
           </div>
 
+          {/* ── Announcements ── */}
+          <h2 style={{ ...mont, color: C.deep }} className="mt-8 text-sm font-black uppercase tracking-wide">
+            Announcements
+          </h2>
+          {notices === null ? (
+            <div className="mt-3 h-24 rounded-2xl bg-gray-50 border border-gray-100 animate-pulse" />
+          ) : notices.length === 0 ? (
+            <div className="mt-3 rounded-2xl bg-white border border-gray-100 shadow-sm p-6 text-center">
+              <div className="text-3xl">📢</div>
+              <h3 style={{ ...mont, color: C.deep }} className="mt-2 font-extrabold">No announcements yet</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                TNR announcements, jobs, scholarships and events will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {notices.map(n => {
+                // A notice with a link becomes one; without, it stays plain
+                // text rather than pretending to lead somewhere.
+                const Row = n.href ? 'a' : 'div';
+                return (
+                  <Row key={n.id} {...(n.href ? { href: n.href } : {})}
+                    className={`block rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-4
+                      ${n.href ? 'hover:border-[rgba(23,107,73,.3)] transition-colors' : ''}`}>
+                    <div className="flex items-start gap-3">
+                      <span className="text-lg shrink-0" aria-hidden="true">📢</span>
+                      <p className="text-sm leading-relaxed" style={{ color: C.deep }}>{n.text}</p>
+                      {n.href && (
+                        <span className="ml-auto shrink-0 text-xs font-bold" style={{ color: C.green }}>→</span>
+                      )}
+                    </div>
+                  </Row>
+                );
+              })}
+            </div>
+          )}
+
           {/* ── Open Executive Committee positions ──
-              Shown above announcements because it is time-limited: a closing
-              date passes whether or not anyone noticed the advert. */}
+              Sits below announcements: general notices are what a member comes
+              to the dashboard for, and a vacancy card is only relevant to the
+              few considering it. Rendered at all only while something is
+              genuinely open. */}
           {vacancies.length > 0 && (
             <div className="mt-8 rounded-2xl border p-6"
               style={{ borderColor: 'rgba(212,167,44,.45)', background: 'rgba(212,167,44,.07)' }}>
@@ -191,42 +230,6 @@ export default function MemberDashboard() {
             </div>
           )}
 
-          {/* ── Announcements ── */}
-          <h2 style={{ ...mont, color: C.deep }} className="mt-8 text-sm font-black uppercase tracking-wide">
-            Announcements
-          </h2>
-          {notices === null ? (
-            <div className="mt-3 h-24 rounded-2xl bg-gray-50 border border-gray-100 animate-pulse" />
-          ) : notices.length === 0 ? (
-            <div className="mt-3 rounded-2xl bg-white border border-gray-100 shadow-sm p-6 text-center">
-              <div className="text-3xl">📢</div>
-              <h3 style={{ ...mont, color: C.deep }} className="mt-2 font-extrabold">No announcements yet</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                TNR announcements, jobs, scholarships and events will appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {notices.map(n => {
-                // A notice with a link becomes one; without, it stays plain
-                // text rather than pretending to lead somewhere.
-                const Row = n.href ? 'a' : 'div';
-                return (
-                  <Row key={n.id} {...(n.href ? { href: n.href } : {})}
-                    className={`block rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-4
-                      ${n.href ? 'hover:border-[rgba(23,107,73,.3)] transition-colors' : ''}`}>
-                    <div className="flex items-start gap-3">
-                      <span className="text-lg shrink-0" aria-hidden="true">📢</span>
-                      <p className="text-sm leading-relaxed" style={{ color: C.deep }}>{n.text}</p>
-                      {n.href && (
-                        <span className="ml-auto shrink-0 text-xs font-bold" style={{ color: C.green }}>→</span>
-                      )}
-                    </div>
-                  </Row>
-                );
-              })}
-            </div>
-          )}
         </>
       )}
     </MemberShell>
