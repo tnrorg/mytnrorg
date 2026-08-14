@@ -1,8 +1,11 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+// ArrowRight moved to HeroCtaMenu along with the call-to-action buttons.
+// The 'ArrowRight' further down is a keyboard key name, not this icon.
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Hero from './Hero';
+import HeroCtaMenu from './HeroCtaMenu';
 import Image from 'next/image';
 import { COLORS, FONT, MOTION } from '@/lib/design/tokens';
 
@@ -232,27 +235,16 @@ export default function HeroCarousel({ initialSlides = null }) {
                 </p>
               )}
 
+              {/* One button, not two. Where a slide defines both a joining and
+                  a signing-in link, they now live inside a menu behind a single
+                  call to action — see HeroCtaMenu for why. */}
               {(s.cta1_label || s.cta2_label) && (
                 <div className={`mt-8 flex flex-wrap gap-3 ${s.align === 'center' ? 'justify-center' : ''}`}>
-                  {s.cta1_label && (
-                    <a href={s.cta1_href || '#'}
-                      className="group inline-flex items-center gap-2 rounded-tnr px-6 py-3.5 font-bold text-white
-                        shadow-tnr-raise transition-transform duration-micro hover:-translate-y-[2px]"
-                      style={{ background: `linear-gradient(180deg,${COLORS.green700},${COLORS.green900})`,
-                               border: `1px solid ${COLORS.gold500}66` }}>
-                      {s.cta1_label}
-                      <ArrowRight size={17} strokeWidth={2.5} aria-hidden="true"
-                        className="transition-transform duration-micro group-hover:translate-x-0.5" />
-                    </a>
-                  )}
-                  {s.cta2_label && (
-                    <a href={s.cta2_href || '#'}
-                      className="inline-flex items-center rounded-tnr px-6 py-3.5 font-bold text-white
-                        backdrop-blur transition-colors duration-micro hover:bg-white/20"
-                      style={{ background: 'rgba(255,255,255,.10)', border: '1px solid rgba(255,255,255,.35)' }}>
-                      {s.cta2_label}
-                    </a>
-                  )}
+                  <HeroCtaMenu
+                    cta1={{ label: s.cta1_label, href: s.cta1_href }}
+                    cta2={{ label: s.cta2_label, href: s.cta2_href }}
+                    align={s.align}
+                  />
                 </div>
               )}
             </motion.div>
