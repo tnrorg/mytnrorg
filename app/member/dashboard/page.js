@@ -21,8 +21,34 @@ const QUICK = [
 export default function MemberDashboard() {
   // Completion needs the CV sections, not just the member row.
   const [profile, setProfile] = useState(null);
+  const [notices, setNotices] = useState(null);     // announcements
+  const [vacancies, setVacancies] = useState([]);   // open CEC positions
+
   useEffect(() => {
     mGet('/api/member/profile').then(r => r?.ok && setProfile(r));
+
+    /* The announcements panel used to be a hardcoded "No announcements yet".
+     * It never asked for anything, so an admin could publish a notice and it
+     * would appear in the site ticker while the portal kept insisting there
+     * was nothing — the one place members actually look. */
+    fetch('/api/public/announcements', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => setNotices(j?.ok ? (j.items || []) : []))
+      .catch(() => setNotices([]));
+
+    /* Open Executive Committee positions, shown to EVERY member.
+     *
+     * Sitting CEC members already have a review queue; ordinary members had no
+     * way to learn a position was open other than the public site. A vacancy
+     * nobody hears about gets the applications it deserves. */
+    fetch('/api/public/cec', { cache: 'no-store' })
+      .then(r => r.json())
+      /* `accepting`, not `status`. The API works out whether a position is
+       * genuinely still open — a vacancy whose closing date has passed keeps
+       * status 'open' until someone remembers to change it, and advertising
+       * "Apply here" for a closed position wastes the member's time. */
+      .then(j => setVacancies((j?.vacancies || []).filter(v => v.accepting)))
+      .catch(() => setVacancies([]));
   }, []);
 
   return (
@@ -114,13 +140,93 @@ export default function MemberDashboard() {
             ))}
           </div>
 
-          <div className="mt-8 rounded-2xl bg-white border border-gray-100 shadow-sm p-6 text-center">
-            <div className="text-3xl">📢</div>
-            <h3 style={{ ...mont, color: C.deep }} className="mt-2 font-extrabold">No announcements yet</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              TNR announcements, jobs, scholarships and events will appear here.
-            </p>
-          </div>
+          {/* ── Open Executive Committee positions ──
+              Shown above announcements because it is time-limited: a closing
+              date passes whether or not anyone noticed the advert. */}
+          {vacancies.length > 0 && (
+            <div className="mt-8 rounded-2xl border p-6"
+              style={{ borderColor: 'rgba(212,167,44,.45)', background: 'rgba(212,167,44,.07)' }}>
+              <div className="flex items-start gap-3">
+                <div className="text-2xl" aria-hidden="true">📋</div>
+                <div className="flex-1 min-w-0">
+                  <h3 style={{ ...mont, color: C.deep }} className="font-extrabold">
+                    {vacancies.length === 1
+                      ? 'An Executive Committee position is open'
+                      : `${vacancies.length} Executive Committee positions are open`}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600 leading-relaxed">
+                    TNR is looking for members to serve on the Central Executive Committee.
+                  </p>
+
+                  <ul className="mt-3 space-y-2">
+                    {vacancies.map(v => (
+                      <li key={v.id}
+                        className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-white
+                          border border-gray-100 px-3.5 py-2.5">
+                        <span className="font-bold text-sm" style={{ color: C.deep }}>{v.title}</span>
+                        {v.seats > 1 && (
+                          <span className="text-[11px] text-gray-500">{v.seats} seats</span>
+                        )}
+                        {v.closes_on && (
+                          <span className="text-[11px] text-gray-500">
+                            Closes {new Date(v.closes_on).toLocaleDateString('en-GB',
+                              { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        )}
+                        <a href="/cec/apply"
+                          className="ml-auto text-xs font-bold hover:underline" style={{ color: C.green }}>
+                          Apply here →
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <a href="/cec/apply"
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white"
+                    style={{ background: `linear-gradient(180deg,${C.green},${C.deep})` }}>
+                    Apply for a position →
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Announcements ── */}
+          <h2 style={{ ...mont, color: C.deep }} className="mt-8 text-sm font-black uppercase tracking-wide">
+            Announcements
+          </h2>
+          {notices === null ? (
+            <div className="mt-3 h-24 rounded-2xl bg-gray-50 border border-gray-100 animate-pulse" />
+          ) : notices.length === 0 ? (
+            <div className="mt-3 rounded-2xl bg-white border border-gray-100 shadow-sm p-6 text-center">
+              <div className="text-3xl">📢</div>
+              <h3 style={{ ...mont, color: C.deep }} className="mt-2 font-extrabold">No announcements yet</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                TNR announcements, jobs, scholarships and events will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {notices.map(n => {
+                // A notice with a link becomes one; without, it stays plain
+                // text rather than pretending to lead somewhere.
+                const Row = n.href ? 'a' : 'div';
+                return (
+                  <Row key={n.id} {...(n.href ? { href: n.href } : {})}
+                    className={`block rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-4
+                      ${n.href ? 'hover:border-[rgba(23,107,73,.3)] transition-colors' : ''}`}>
+                    <div className="flex items-start gap-3">
+                      <span className="text-lg shrink-0" aria-hidden="true">📢</span>
+                      <p className="text-sm leading-relaxed" style={{ color: C.deep }}>{n.text}</p>
+                      {n.href && (
+                        <span className="ml-auto shrink-0 text-xs font-bold" style={{ color: C.green }}>→</span>
+                      )}
+                    </div>
+                  </Row>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
     </MemberShell>
