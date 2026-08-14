@@ -117,7 +117,14 @@ export async function POST(req) {
     }
 
     const { error } = await sb.from('opinions').update(patch).eq('id', b.id).eq('member_id', member.id);
-    if (error) return fail('SAVE_FAILED', 500, { message: 'Could not save.' });
+    if (error) {
+      // Logged in full server-side; the member gets the actionable part only.
+      console.error('[opinions] update failed:', error.message);
+      return fail('SAVE_FAILED', 500, {
+        message: 'Could not save your changes.',
+        hint: 'If this keeps happening, tell the committee — the Opinions table may not be set up yet.',
+      });
+    }
     return ok({ id: b.id, status: patch.status || existing.status, submitted: submitting });
   }
 
@@ -128,9 +135,16 @@ export async function POST(req) {
 
   const { data, error } = await sb.from('opinions').insert(patch).select('id').maybeSingle();
   if (error) {
+    console.error('[opinions] insert failed:', error.message);
+    /* 42P01 is "relation does not exist" — the migration has not been run.
+     * Naming that precisely turns a dead end into a one-line instruction for
+     * whoever the member reports it to. Every other error stays generic. */
+    const missingTable = error.code === '42P01' || /does not exist/i.test(error.message || '');
     return fail('SAVE_FAILED', 500, {
-      message: 'Could not save.',
-      hint: 'Administrator: run supabase/migration_opinions.sql.',
+      message: 'Your opinion could not be saved.',
+      hint: missingTable
+        ? 'The Opinions feature is not finished being set up. Ask an administrator to run supabase/migration_opinions.sql — your text is still on screen, so nothing is lost.'
+        : 'Please try again. If it keeps failing, contact the committee.',
     });
   }
   return ok({ id: data?.id, status: patch.status, submitted: submitting });

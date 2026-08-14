@@ -65,7 +65,13 @@ export default function MemberOpinionsPage() {
     setBusy(false);
     if (!r?.ok) {
       if (r?.errors) setErrors(r.errors);
-      setErr(r?.message || 'Could not save.');
+      /* Show the hint, not just the headline.
+       *
+       * "Could not save." on its own tells someone who has written 700 words
+       * nothing about whether to try again, shorten it, or fetch an admin. The
+       * server sends a `hint` naming the actual cause — an un-run migration,
+       * most often — and hiding it made a fixable problem look like a dead end. */
+      setErr([r?.message || 'Could not save.', r?.hint].filter(Boolean).join(' '));
       return;
     }
     setMsg(action === 'submit'
