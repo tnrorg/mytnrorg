@@ -29,6 +29,7 @@ import CardTemplateTab from '@/components/admin/CardTemplateTab';
 import CertificateTemplateTab from '@/components/admin/CertificateTemplateTab';
 import AreasTab from '@/components/admin/AreasTab';
 import SecurityTab from '@/components/admin/SecurityTab';
+import ContactInboxTab from '@/components/admin/ContactInboxTab';
 import TwoFactorSetup from '@/components/admin/TwoFactorSetup';
 // Loaded on demand, only after the SERVER confirms Super Admin.
 const CommitteeVoteTab = dynamicImport(() => import('@/components/admin/CommitteeVoteTab'), { ssr: false });
@@ -48,6 +49,8 @@ const TOP_TABS = [
   ['cec', 'CEC Recruitment', '📋'],
   ['announcements', 'Announcements', '📢'],
   ['branding', 'Branding', '✉️'],
+  // Messages from the four public contact forms.
+  ['inbox', 'Contact Inbox', '📨'],
   // Every admin's own account security, not a super-admin tool — a control
   // only some people can reach is one most people never turn on.
   ['security', 'My Security', '🔐'],
@@ -200,6 +203,7 @@ export default function Admin() {
       {tab === 'messages' && <MessagesTab toast={toast} />}
       {tab === 'announcements' && <AnnouncementsTab toast={toast} />}
       {tab === 'branding' && <BrandingTab toast={toast} />}
+      {tab === 'inbox' && <ContactInboxTab toast={toast} />}
       {tab === 'security' && <SecurityTab />}
       {tab === 'projects' && <ProjectsTab toast={toast} />}
       {tab === 'institutions' && <InstitutionsTab toast={toast} />}

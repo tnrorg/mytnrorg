@@ -97,10 +97,13 @@ export const NAV = [
   ]},
 
   { label: 'Contact', items: [
-    soon('Contact Us', '/contact'),
-    soon('Feedback', '/contact/feedback'),
-    soon('Complaints', '/contact/complaints'),
-    soon('Technical Support', '/contact/support'),
+    // All four are built and reach the same inbox; only the FAQ page is still
+    // to come. A "Soon" chip on a page that exists is worse than no chip —
+    // it tells people not to bother clicking.
+    live('Contact Us', '/contact'),
+    live('Feedback', '/contact/feedback'),
+    live('Complaints', '/contact/complaints'),
+    live('Technical Support', '/contact/support'),
     soon('Help Centre & FAQs', '/help'),
   ]},
 ];

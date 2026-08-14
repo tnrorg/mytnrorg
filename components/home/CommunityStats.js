@@ -14,13 +14,22 @@ import { COLORS, FONT } from '@/lib/design/tokens';
  * "Skilled Contributors" was removed — it counted much the same members as
  * Professionals (101 against 101 was not a coincidence), so the bar was
  * reporting one figure twice under two names. */
+/* Fourth entry is where the figure takes you.
+ *
+ * A number a visitor cannot act on is a dead end — someone reading "174 Active
+ * Members" wants to see them. Each card links to the page that shows the
+ * detail behind it, deep-linking to the right section where one exists.
+ *
+ * Website Visitors has no link on purpose: there is no public page behind it,
+ * and making a tile look clickable when nothing happens is worse than leaving
+ * it plain. */
 const CARDS = [
-  ['members',       'Active Members',   Users],
-  ['visits',        'Website Visitors', Eye],
-  ['professionals', 'Professionals',    Briefcase],
-  ['students',      'Students',         GraduationCap],
-  ['unionCouncils', 'Union Councils',   Landmark],
-  ['areas',         'Villages / Areas', MapPin],
+  ['members',       'Active Members',   Users,         '/members'],
+  ['visits',        'Website Visitors', Eye,           null],
+  ['professionals', 'Professionals',    Briefcase,     '/statistics/employment'],
+  ['students',      'Students',         GraduationCap, '/statistics/education'],
+  ['unionCouncils', 'Union Councils',   Landmark,      '/statistics#unionCouncils'],
+  ['areas',         'Villages / Areas', MapPin,        '/statistics#villages'],
 ];
 
 export default function CommunityStats() {
@@ -67,9 +76,23 @@ export default function CommunityStats() {
           background: 'rgba(255,255,255,.08)',
           boxShadow: '0 2px 4px rgba(6,45,33,.06), 0 22px 50px -14px rgba(6,45,33,.35)',
         }}>
-        {cards.map(([key, label, Icon]) => (
+        {cards.map(([key, label, Icon, href]) => {
+          /* A linked tile is an <a>, an unlinked one stays a <div>.
+           *
+           * Not an <a href="#"> for the unlinked case: that announces itself
+           * as a link to a screen reader and jumps the page to the top when
+           * pressed. A tile with nowhere to go should not claim to be a link
+           * at all. */
+          const Tile = href ? 'a' : 'div';
+          const tileProps = href
+            ? { href, 'aria-label': `${label} — view details` }
+            : {};
+
+          return (
           <RevealItem key={key}>
-            <div className="group relative h-full px-4 py-7 text-center overflow-hidden transition-colors duration-500"
+            <Tile {...tileProps}
+              className={`group relative block h-full px-4 py-7 text-center overflow-hidden transition-colors duration-500
+                ${href ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#D7AE4A]' : ''}`}
               style={{ background: `linear-gradient(165deg,${COLORS.green900},${COLORS.green950})` }}>
               {/* Gold wash that fades in under the cursor. Sits behind the
                   content and is inert, so it cannot swallow a tap. */}
@@ -86,9 +109,10 @@ export default function CommunityStats() {
                 <div className="text-[11px] mt-1.5 leading-tight tracking-wide"
                   style={{ color: 'rgba(255,255,255,.66)' }}>{label}</div>
               </div>
-            </div>
+            </Tile>
           </RevealItem>
-        ))}
+          );
+        })}
       </RevealGroup>
     </section>
   );

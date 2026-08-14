@@ -46,9 +46,14 @@ export default function StatisticsPage() {
           <MembershipGeography />
 
           <div className="grid lg:grid-cols-2 gap-5">
+            {/* `id` and scroll-mt: the home page's figures link straight to the
+                section they summarise (/statistics#unionCouncils), and the
+                margin stops the sticky header covering the heading on arrival. */}
             {SECTIONS.map(([k, title, Icon, note], i) => (
-              <BreakdownCard key={k} icon={Icon} title={title} note={note}
-                rows={d[k]} colorFrom={i * 4} />
+              <div key={k} id={k} className="scroll-mt-24">
+                <BreakdownCard icon={Icon} title={title} note={note}
+                  rows={d[k]} colorFrom={i * 4} />
+              </div>
             ))}
           </div>
         </>
