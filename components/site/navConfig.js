@@ -80,6 +80,8 @@ export const NAV = [
   ]},
 
   { label: 'Media', items: [
+    // Member-written pieces, published after committee review.
+    live('Opinions', '/media/opinions'),
     soon('News & Announcements', '/media/news'),
     soon('Press Releases', '/media/press'),
     soon('Photo Gallery', '/media/photos'),

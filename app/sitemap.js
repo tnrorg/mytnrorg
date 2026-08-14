@@ -46,6 +46,8 @@ const STATIC_ROUTES = [
   ['/statistics/employment',        0.6, 'weekly'],
   ['/statistics/projects',          0.6, 'weekly'],
   ['/cec/apply',                    0.6, 'monthly'],
+  ['/media/opinions',               0.8, 'weekly'],
+  ['/contact',                      0.5, 'yearly'],
   ['/election-portal',              0.5, 'weekly'],
   ['/results',                      0.5, 'weekly'],
 ];
@@ -133,6 +135,29 @@ export default async function sitemap() {
       if (data.length < PAGE) break;
     }
   } catch { /* static and leadership routes still ship */ }
+
+  /* Published opinions — /media/opinions/[slug].
+   *
+   * Only `published`, and only rows that actually have a slug. A piece that is
+   * pending, withdrawn or rejected has no public page, and listing it would
+   * send Google to a "not found". */
+  try {
+    const { data } = await sb.from('opinions')
+      .select('slug, published_at')
+      .eq('status', 'published')
+      .not('slug', 'is', null)
+      .limit(1000);
+
+    for (const o of data || []) {
+      if (!o.slug) continue;
+      routes.push({
+        url: `${BASE}/media/opinions/${encodeURIComponent(o.slug)}`,
+        lastModified: o.published_at ? new Date(o.published_at) : now,
+        changeFrequency: 'monthly',
+        priority: 0.6,
+      });
+    }
+  } catch { /* the table may not exist yet */ }
 
   return routes;
 }

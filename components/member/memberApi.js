@@ -23,3 +23,4 @@ async function req(method, url, body) {
 export const mGet   = (u) => req('GET', u);
 export const mPost  = (u, b) => req('POST', u, b);
 export const mPatch = (u, b) => req('PATCH', u, b);
+export const mDel   = (u) => req('DELETE', u);

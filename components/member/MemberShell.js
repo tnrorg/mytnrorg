@@ -26,6 +26,8 @@ export const NAV = [
   ['Jobs & Scholarships', '/member/opportunities', '💼'],
   ['Events & Programs', '/member/events', '📅'],
   ['Volunteer Activities', '/member/volunteer', '🤝'],
+  // Open to every member — the point of the section is that anyone can write.
+  ['Opinions', '/member/opinions', '✍️'],
   ['Applications History', '/member/applications', '📋'],
   ['Notifications', '/member/notifications', '🔔'],
   ['Help & Support', '/member/support', '💬'],
