@@ -558,3 +558,53 @@ html {
   }
   .tnr-glass-dark { background: rgba(6, 45, 33, 0.72); }
 }
+
+/* ── Member portal form fields ──────────────────────────────────────────────
+ *
+ * The portal is a LIGHT surface, but `.input` and the browser's own defaults
+ * were built for the dark admin panel — so a field with no explicit colours
+ * rendered as dark-on-dark or dark-on-white depending on the page, and each
+ * member page had to remember to set both. Several did not: the profile and
+ * council-profile forms set a white background but no text colour, and the
+ * opinions editor set neither.
+ *
+ * Setting it once here means a field is legible by default and a new page
+ * cannot reintroduce the problem by forgetting.
+ *
+ * Checkboxes, radios and file inputs are excluded — they draw their own
+ * controls, and forcing a background on them makes the native widget look
+ * broken.
+ */
+/* color-scheme is the important half. The app root declares `dark`, which
+   makes the browser paint its OWN widgets dark — the date picker, the select
+   arrow, the spinner on a number field — regardless of any background we set.
+   Declaring light here is what fixes those. */
+.member-portal { color-scheme: light; }
+
+.member-portal input:not([type='checkbox']):not([type='radio']):not([type='file']),
+.member-portal textarea,
+.member-portal select {
+  background-color: #FFFFFF;
+  color: #15231D;
+  -webkit-text-fill-color: #15231D;   /* iOS Safari ignores `color` on some inputs */
+}
+
+/* A dropdown's options are drawn by the OS and do not inherit from the select. */
+.member-portal option { background-color: #FFFFFF; color: #15231D; }
+
+/* A disabled field should read as unavailable, not as unreadable. */
+.member-portal input:disabled,
+.member-portal textarea:disabled,
+.member-portal select:disabled {
+  background-color: #F3F4F6;
+  color: #4B5563;
+  -webkit-text-fill-color: #4B5563;
+}
+
+/* gray-500 rather than a lighter grey: a placeholder is often the only
+   instruction a field carries, and 4.8:1 keeps it readable. */
+.member-portal input::placeholder,
+.member-portal textarea::placeholder {
+  color: #6B7280;
+  opacity: 1;                          /* Firefox dims placeholders by default */
+}

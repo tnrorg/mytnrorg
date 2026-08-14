@@ -8,7 +8,7 @@ import Combobox from '@/components/ui/Combobox';
 
 const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#D4A72C' };
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
-const base = 'w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#0B6B4F] bg-white';
+const base = 'w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#0B6B4F] bg-white text-[#15231D]';
 
 // [key, label, fields:[name,label,type,width]]
 const SECTIONS = [

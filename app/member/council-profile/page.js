@@ -5,7 +5,7 @@ import { mGet, mPatch } from '@/components/member/memberApi';
 import { COLORS, FONT } from '@/lib/design/tokens';
 
 const asText = (v) => (Array.isArray(v) ? v.join('\n') : v || '');
-const input = 'w-full rounded-tnr border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#176B49] bg-white';
+const input = 'w-full rounded-tnr border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#176B49] bg-white text-[#15231D]';
 
 function Field({ label, hint, children }) {
   return <label className="block">

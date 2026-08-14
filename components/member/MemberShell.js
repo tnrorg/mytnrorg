@@ -107,7 +107,11 @@ export default function MemberShell({ active, children }) {
   const signOut = () => { clearToken(); window.location.href = '/member/login'; };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-[#F7F9F8]" style={{ color: C.ink, ...mont }}>
+    // `member-portal` is what globals.css hooks the light form styling onto.
+    // Without it every page had to remember to set bg-white and a text colour
+    // on each field, and several did not — see the rule in globals.css.
+    <div className="member-portal min-h-screen flex flex-col lg:flex-row bg-[#F7F9F8]"
+      style={{ color: C.ink, ...mont }}>
       {/* Sidebar */}
       <aside className="lg:w-64 lg:min-h-screen bg-white border-b lg:border-b-0 lg:border-r border-gray-100">
         <div className="p-4 flex items-center gap-3 border-b border-gray-100">

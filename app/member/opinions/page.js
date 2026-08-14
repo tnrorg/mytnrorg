@@ -83,7 +83,7 @@ export default function MemberOpinionsPage() {
     load();
   }
 
-  const input = 'w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#0B6B4F]';
+  const input = 'w-full rounded-xl border border-gray-200 bg-white text-[#15231D] px-3.5 py-2.5 text-sm outline-none focus:border-[#0B6B4F]';
   const showErr = (k) => (tried ? errors[k] : '');
 
   return (
