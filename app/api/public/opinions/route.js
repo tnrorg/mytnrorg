@@ -15,7 +15,7 @@ export const fetchCache = 'force-no-store';
  */
 const PUBLIC_FIELDS =
   'id, slug, published_title, published_summary, published_body, published_cover, ' +
-  'published_at, member_id';
+  'published_at, views, member_id';
 
 export async function GET(req) {
   const p = new URL(req.url).searchParams;

@@ -19,7 +19,7 @@ export const fetchCache = 'force-no-store';
 const FIELDS =
   'id, title, summary, body, cover_url, slug, status, review_note, ' +
   'reviewed_at, submitted_at, published_at, created_at, updated_at, ' +
-  'published_title, published_summary';
+  'published_title, published_summary, views';
 
 export async function GET(req) {
   const { member, res } = await requireMember(req); if (res) return res;

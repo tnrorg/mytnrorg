@@ -2,10 +2,11 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowLeft, Clock } from 'lucide-react';
+import { ArrowLeft, Clock, Eye } from 'lucide-react';
 import SiteNav from '@/components/site/SiteNav';
 import SiteFooter from '@/components/site/SiteFooter';
 import Avatar from '@/components/ui/Avatar';
+import OpinionViewTracker from '@/components/site/OpinionViewTracker';
 import { COLORS, FONT } from '@/lib/design/tokens';
 import { paragraphs, readingMinutes } from '@/lib/opinions';
 
@@ -59,6 +60,8 @@ export default function OpinionArticle() {
 
   return shell(
     <>
+      {/* Renders nothing. Counts one read per browser session. */}
+      <OpinionViewTracker slug={o.slug} />
       <header className="relative overflow-hidden" style={{ background: '#063D2B' }}>
         <div aria-hidden="true" className="absolute inset-0 opacity-[.07]"
           style={{
@@ -90,6 +93,12 @@ export default function OpinionArticle() {
                   <Clock size={11} aria-hidden="true" />
                   {readingMinutes(o.published_body)} min read
                 </span>
+                {o.views > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <Eye size={11} aria-hidden="true" />
+                    {o.views.toLocaleString()} {o.views === 1 ? 'read' : 'reads'}
+                  </span>
+                )}
               </div>
             </div>
           </div>

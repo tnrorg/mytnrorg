@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { PenLine, Send, Trash2, ExternalLink, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { PenLine, Send, Trash2, ExternalLink, AlertCircle, CheckCircle2, Eye } from 'lucide-react';
 import MemberShell from '@/components/member/MemberShell';
 import { mGet, mPost, mDel } from '@/components/member/memberApi';
 import { validateOpinion, wordCount, LIMITS, MIN_BODY_WORDS, STATUS_LABEL, STATUS_HELP } from '@/lib/opinions';
@@ -286,6 +286,12 @@ export default function MemberOpinionsPage() {
                       className="inline-flex items-center gap-1 font-bold hover:underline" style={{ color: C.green }}>
                       View live <ExternalLink size={11} aria-hidden="true" />
                     </a>
+                  )}
+                  {o.status === 'published' && o.views > 0 && (
+                    <span className="inline-flex items-center gap-1 text-gray-500">
+                      <Eye size={12} aria-hidden="true" />
+                      {o.views.toLocaleString()} {o.views === 1 ? 'read' : 'reads'}
+                    </span>
                   )}
                   {o.status !== 'published' && (
                     <button onClick={() => remove(o)}
