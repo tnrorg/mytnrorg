@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { PenLine, Clock, Eye } from 'lucide-react';
+import { PenLine, Clock, Eye, Heart } from 'lucide-react';
 import SiteNav from '@/components/site/SiteNav';
 import SiteFooter from '@/components/site/SiteFooter';
 import Avatar from '@/components/ui/Avatar';
@@ -117,12 +117,18 @@ export default function OpinionsIndex() {
                           <Clock size={10} aria-hidden="true" />
                           {readingMinutes(o.published_body)} min
                         </span>
-                        {/* Only once someone has actually read it. "0 views"
-                            under a new piece reads as a verdict on it. */}
+                        {/* Totals only. Who read or liked a piece is shown
+                            nowhere but the author's own portal. */}
                         {o.views > 0 && (
                           <span className="inline-flex items-center gap-1">
                             <Eye size={10} aria-hidden="true" />
                             {o.views.toLocaleString()}
+                          </span>
+                        )}
+                        {o.likes > 0 && (
+                          <span className="inline-flex items-center gap-1">
+                            <Heart size={10} aria-hidden="true" fill="currentColor" className="text-rose-400" />
+                            {o.likes.toLocaleString()}
                           </span>
                         )}
                       </div>

@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { PenLine, Send, Trash2, ExternalLink, AlertCircle, CheckCircle2, Eye } from 'lucide-react';
+import { PenLine, Send, Trash2, ExternalLink, AlertCircle, CheckCircle2, Eye, Heart } from 'lucide-react';
 import MemberShell from '@/components/member/MemberShell';
+import Avatar from '@/components/ui/Avatar';
 import { mGet, mPost, mDel } from '@/components/member/memberApi';
 import { validateOpinion, wordCount, LIMITS, MIN_BODY_WORDS, STATUS_LABEL, STATUS_HELP } from '@/lib/opinions';
 
@@ -25,6 +26,76 @@ const fmt = (d) => (d ? new Date(d).toLocaleDateString('en-GB', {
  * has submitted something wants to know where it stands, and what to do if the
  * committee has asked for changes.
  */
+/* How a published piece was received. Only its author ever sees this.
+ *
+ * Reads and likes sit together because one without the other misleads: fifty
+ * reads and no likes says something quite different from five reads and five
+ * likes, and either number alone invites the wrong conclusion.
+ *
+ * Readers are counted, never named. Liking is a choice someone made; reading
+ * is not, and a member who quietly opens an article has not volunteered to be
+ * listed anywhere.
+ */
+function Reception({ o }) {
+  const [open, setOpen] = useState(false);
+  const likes = o.likes || { count: 0, anonymous: 0, people: [] };
+  const views = Number(o.views || 0);
+
+  if (!views && !likes.count) {
+    return (
+      <p className="mt-3 pt-3 border-t border-gray-100 text-[12px] text-gray-400">
+        No reads yet. Newly published pieces take a little while to be found.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100">
+      <div className="flex flex-wrap items-center gap-4 text-[12.5px]">
+        <span className="inline-flex items-center gap-1.5 text-gray-500">
+          <Eye size={13} aria-hidden="true" />
+          <b className="text-gray-700">{views.toLocaleString()}</b>
+          {views === 1 ? 'read' : 'reads'}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-gray-500">
+          <Heart size={13} aria-hidden="true" fill={likes.count ? 'currentColor' : 'none'}
+            className={likes.count ? 'text-rose-500' : ''} />
+          <b className="text-gray-700">{likes.count.toLocaleString()}</b>
+          {likes.count === 1 ? 'like' : 'likes'}
+        </span>
+        {likes.people.length > 0 && (
+          <button onClick={() => setOpen(v => !v)}
+            className="font-bold hover:underline" style={{ color: C.green }}>
+            {open ? 'Hide' : 'See who liked'}
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="mt-3 space-y-2">
+          {likes.people.map(p => (
+            <a key={p.membership_id || p.full_name}
+              href={p.membership_id ? `/members/${p.membership_id}` : undefined}
+              className="flex items-center gap-2.5 group">
+              <Avatar src={p.photo_url} gender={p.gender} name={p.full_name || 'Member'}
+                className="w-7 h-7 shrink-0" />
+              <span className="text-[13px] font-semibold text-gray-700 group-hover:underline">
+                {p.full_name}
+              </span>
+            </a>
+          ))}
+          {likes.anonymous > 0 && (
+            <p className="text-[12px] text-gray-400 pt-1">
+              and {likes.anonymous} {likes.anonymous === 1 ? 'reader' : 'readers'} who
+              {likes.anonymous === 1 ? ' was' : ' were'} not signed in
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MemberOpinionsPage() {
   const [rows, setRows] = useState(null);
   const [editing, setEditing] = useState(null);   // the opinion being written
@@ -287,12 +358,6 @@ export default function MemberOpinionsPage() {
                       View live <ExternalLink size={11} aria-hidden="true" />
                     </a>
                   )}
-                  {o.status === 'published' && o.views > 0 && (
-                    <span className="inline-flex items-center gap-1 text-gray-500">
-                      <Eye size={12} aria-hidden="true" />
-                      {o.views.toLocaleString()} {o.views === 1 ? 'read' : 'reads'}
-                    </span>
-                  )}
                   {o.status !== 'published' && (
                     <button onClick={() => remove(o)}
                       className="inline-flex items-center gap-1 text-red-500 hover:underline ml-auto">
@@ -300,6 +365,8 @@ export default function MemberOpinionsPage() {
                     </button>
                   )}
                 </div>
+
+                {o.status === 'published' && <Reception o={o} />}
               </div>
             );
           })}

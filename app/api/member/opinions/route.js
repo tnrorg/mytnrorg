@@ -35,7 +35,62 @@ export async function GET(req) {
       hint: 'Administrator: run supabase/migration_opinions.sql.',
     });
   }
-  return ok({ opinions: data || [] });
+
+  const rows = data || [];
+
+  /* Likes, attached only to pieces this member wrote.
+   *
+   * The ids come from `rows`, which the query above already restricted to this
+   * member — so there is no separate ownership check to get wrong here. It is
+   * not possible to widen this to another author's article without first
+   * widening the query that produced the ids, which is scoped by the token.
+   *
+   * Anonymous likes are counted but not named: a signed-out visitor has no
+   * name to give. The author sees "4 likes · 2 named", not four blanks.
+   *
+   * A missing table means the likes migration has not been run. That degrades
+   * to zero likes rather than failing the whole page — someone's drafts should
+   * not disappear because a counter is unavailable. */
+  const likes = {};
+  if (rows.length) {
+    const { data: rawLikes } = await supabaseAdmin().from('opinion_likes')
+      .select('opinion_id, member_id, created_at')
+      .in('opinion_id', rows.map(r => r.id))
+      .order('created_at', { ascending: false });
+
+    const namedIds = [...new Set((rawLikes || []).map(l => l.member_id).filter(Boolean))];
+    let people = {};
+    if (namedIds.length) {
+      const { data: mem } = await supabaseAdmin().from('membership_members')
+        .select('id, full_name, membership_id, photo_url, photo_public, gender')
+        .in('id', namedIds).is('deleted_at', null);
+      people = Object.fromEntries((mem || []).map(m => [m.id, {
+        full_name: m.full_name,
+        membership_id: m.membership_id,
+        // photo_public is honoured here exactly as in the public directory.
+        // Liking an article is not consent to show your face somewhere new.
+        photo_url: m.photo_public === false ? null : (m.photo_url || null),
+        gender: m.gender,
+      }]));
+    }
+
+    for (const r of rows) likes[r.id] = { count: 0, anonymous: 0, people: [] };
+    for (const l of (rawLikes || [])) {
+      const bucket = likes[l.opinion_id];
+      if (!bucket) continue;
+      bucket.count += 1;
+      if (l.member_id && people[l.member_id])
+        bucket.people.push({ ...people[l.member_id], at: l.created_at });
+      else bucket.anonymous += 1;
+    }
+  }
+
+  return ok({
+    opinions: rows.map(r => ({
+      ...r,
+      likes: likes[r.id] || { count: 0, anonymous: 0, people: [] },
+    })),
+  });
 }
 
 /** Create a new opinion, or update one the member already owns. */

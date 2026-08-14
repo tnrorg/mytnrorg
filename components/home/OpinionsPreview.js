@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { ArrowRight, PenLine, Clock } from 'lucide-react';
+import { ArrowRight, PenLine, Clock, Eye, Heart } from 'lucide-react';
 import { SectionHeading, Reveal, RevealGroup, RevealItem } from '@/components/ui';
 import Avatar from '@/components/ui/Avatar';
 import { COLORS, FONT } from '@/lib/design/tokens';
@@ -84,12 +84,25 @@ export default function OpinionsPreview() {
                     <div className="text-[12.5px] font-bold truncate" style={{ color: COLORS.green900 }}>
                       {o.author?.full_name || 'TNR Member'}
                     </div>
-                    <div className="text-[11px] text-gray-500 flex items-center gap-2">
+                    <div className="text-[11px] text-gray-500 flex flex-wrap items-center gap-2">
                       <span>{fmt(o.published_at)}</span>
                       <span className="inline-flex items-center gap-1">
                         <Clock size={10} aria-hidden="true" />
                         {readingMinutes(o.published_body)} min
                       </span>
+                      {/* Counts only — never who. */}
+                      {o.views > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <Eye size={10} aria-hidden="true" />
+                          {o.views.toLocaleString()}
+                        </span>
+                      )}
+                      {o.likes > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <Heart size={10} aria-hidden="true" fill="currentColor" className="text-rose-400" />
+                          {o.likes.toLocaleString()}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

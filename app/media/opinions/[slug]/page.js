@@ -7,6 +7,8 @@ import SiteNav from '@/components/site/SiteNav';
 import SiteFooter from '@/components/site/SiteFooter';
 import Avatar from '@/components/ui/Avatar';
 import OpinionViewTracker from '@/components/site/OpinionViewTracker';
+import OpinionLike from '@/components/site/OpinionLike';
+import ShareButtons from '@/components/site/ShareButtons';
 import { COLORS, FONT } from '@/lib/design/tokens';
 import { paragraphs, readingMinutes } from '@/lib/opinions';
 
@@ -93,6 +95,8 @@ export default function OpinionArticle() {
                   <Clock size={11} aria-hidden="true" />
                   {readingMinutes(o.published_body)} min read
                 </span>
+                {/* Shown once someone has actually read it. "0 reads" under a
+                    newly published piece reads as a verdict on it. */}
                 {o.views > 0 && (
                   <span className="inline-flex items-center gap-1">
                     <Eye size={11} aria-hidden="true" />
@@ -129,7 +133,14 @@ export default function OpinionArticle() {
           ))}
         </div>
 
-        <div className="mt-12 rounded-2xl border border-gray-200 bg-gray-50 p-5 text-[13px] text-gray-600 leading-relaxed">
+        {/* Offered at the END of the article, not the top: a like should mean
+            "I read this", and a button above the text invites the other thing. */}
+        <div className="mt-10 pt-6 border-t border-gray-200 space-y-5">
+          <OpinionLike slug={o.slug} initial={o.likes || 0} />
+          <ShareButtons title={o.published_title} summary={o.published_summary} />
+        </div>
+
+        <div className="mt-8 rounded-2xl border border-gray-200 bg-gray-50 p-5 text-[13px] text-gray-600 leading-relaxed">
           <span className="font-bold" style={{ color: COLORS.green900 }}>A member&rsquo;s view. </span>
           Opinions are written by individual TNR members and published after review.
           They express the writer&rsquo;s own views, not a position of Tehreek-e-Nojawanan Roundu.

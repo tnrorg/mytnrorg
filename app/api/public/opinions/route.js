@@ -13,6 +13,15 @@ export const fetchCache = 'force-no-store';
  *
  * `status = 'published'` is applied to every request and is not optional.
  */
+/* Totals are public. IDENTITIES ARE NOT.
+ *
+ * `views` and the like count ship with every piece. What never leaves this
+ * endpoint is WHO — no viewer list, and no liker names. Those are attached
+ * only in /api/member/opinions, behind a check that the caller wrote the
+ * piece.
+ *
+ * The distinction is the whole design: a number tells a reader how a piece
+ * landed, a name tells them what a particular person read and endorsed. */
 const PUBLIC_FIELDS =
   'id, slug, published_title, published_summary, published_body, published_cover, ' +
   'published_at, views, member_id';
@@ -57,8 +66,26 @@ export async function GET(req) {
     }]));
   }
 
+  /* Like TOTALS, counted here. No member_id leaves this function.
+   *
+   * One query for the whole page rather than one per article — a list of
+   * twenty pieces would otherwise be twenty round trips.
+   *
+   * `member_id` is selected because grouping needs the rows, but it is only
+   * ever turned into a number below. If the likes migration has not been run
+   * the query fails and every piece shows zero, which is honest and does not
+   * take the page down with it. */
+  const likeCount = {};
+  if (data?.length) {
+    const { data: likeRows } = await sb.from('opinion_likes')
+      .select('opinion_id').in('opinion_id', data.map(o => o.id));
+    for (const l of (likeRows || []))
+      likeCount[l.opinion_id] = (likeCount[l.opinion_id] || 0) + 1;
+  }
+
   const opinions = (data || []).map(({ member_id, ...o }) => ({
     ...o,
+    likes: likeCount[o.id] || 0,
     author: authors[member_id] || null,
   }));
 
