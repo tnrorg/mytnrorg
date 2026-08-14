@@ -55,6 +55,15 @@ export default function MemberDashboard() {
                   style={{ background: 'rgba(212,167,44,0.18)', color: C.soft }}>
                   {String(m?.status || '').toUpperCase()} MEMBER
                 </span>
+                {/* Back to the public site. Sits with the badges because this
+                    is where the eye already is on arriving, and because the
+                    only other way out of the portal was signing out. */}
+                <a href="/"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
+                    transition-colors hover:bg-white/20"
+                  style={{ background: 'rgba(255,255,255,0.14)', color: '#fff' }}>
+                  🌐 View Website
+                </a>
               </div>
             </div>
           </div>
