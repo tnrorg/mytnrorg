@@ -38,15 +38,28 @@ function authHeader() {
   } catch { return {}; }
 }
 
-export default function OpinionLike({ slug, initial = 0 }) {
-  const [liked, setLiked] = useState(false);
+/**
+ * @param {string}  slug
+ * @param {number}  initial       like total, already in the list payload
+ * @param {boolean} [initialLiked] when supplied, this component does NOT ask
+ *                  the server for its own state — a list page fetches every
+ *                  card's state in one request and passes the answer down.
+ * @param {boolean} [compact]     icon and number only, for a card footer
+ */
+export default function OpinionLike({ slug, initial = 0, initialLiked, compact = false }) {
+  const known = typeof initialLiked === 'boolean';
+  const [liked, setLiked] = useState(!!initialLiked);
   const [count, setCount] = useState(initial);
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(known);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
 
+  // Keep in step when a list resolves its batch after the cards have mounted.
+  useEffect(() => { if (known) { setLiked(!!initialLiked); setReady(true); } }, [known, initialLiked]);
+  useEffect(() => { setCount(initial); }, [initial]);
+
   useEffect(() => {
-    if (!slug) return;
+    if (!slug || known) return;          // the parent already told us
     let off = false;
     const k = browserKey();
     fetch(`/api/public/opinions/like?slug=${encodeURIComponent(slug)}&key=${encodeURIComponent(k)}`,
@@ -60,9 +73,13 @@ export default function OpinionLike({ slug, initial = 0 }) {
       })
       .catch(() => { if (!off) setReady(true); });
     return () => { off = true; };
-  }, [slug]);
+  }, [slug, known]);
 
-  async function toggle() {
+  async function toggle(e) {
+    // Cards wrap this in a link to the article. Without this, liking would
+    // navigate away from the page the reader is on.
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
     if (busy) return;
     const next = !liked;
     setBusy(true);
@@ -93,6 +110,26 @@ export default function OpinionLike({ slug, initial = 0 }) {
       setNote('You appear to be offline.');
     }
     setBusy(false);
+  }
+
+  /* Card footer: heart and number, nothing else.
+   *
+   * The count shows even at zero here, unlike the passive "6 reads" beside it.
+   * A 0 next to a button you can press reads as an invitation; a 0 next to a
+   * statistic reads as a verdict. */
+  if (compact) {
+    return (
+      <button onClick={toggle} disabled={busy}
+        aria-pressed={liked}
+        aria-label={liked ? 'Remove your like' : 'Like this opinion'}
+        title={liked ? 'Liked' : 'Like'}
+        className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 -ml-1.5 text-[11px]
+          transition-colors duration-micro disabled:opacity-50
+          ${liked ? 'text-rose-500' : 'text-gray-500 hover:text-rose-500'}`}>
+        <Heart size={11} aria-hidden="true" fill={liked ? 'currentColor' : 'none'} strokeWidth={2.2} />
+        <span className="tabular-nums">{count.toLocaleString()}</span>
+      </button>
+    );
   }
 
   return (

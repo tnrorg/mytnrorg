@@ -1,8 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { PenLine, Clock, Eye, Heart } from 'lucide-react';
+import { PenLine, Clock, Eye } from 'lucide-react';
 import SiteNav from '@/components/site/SiteNav';
+import OpinionLike from '@/components/site/OpinionLike';
+import ShareButtons from '@/components/site/ShareButtons';
+import useLikedSlugs from '@/components/site/useLikedSlugs';
 import SiteFooter from '@/components/site/SiteFooter';
 import Avatar from '@/components/ui/Avatar';
 import { COLORS, FONT } from '@/lib/design/tokens';
@@ -27,6 +30,9 @@ export default function OpinionsIndex() {
       .then(j => setRows(j?.ok ? (j.opinions || []) : []))
       .catch(() => setRows([]));
   }, []);
+
+  // One request for the whole list, not one per card.
+  const { liked, known } = useLikedSlugs((rows || []).map(o => o.slug));
 
   return (
     <div className="light-page min-h-screen bg-white" style={{ color: COLORS.charcoal, ...FONT }}>
@@ -125,12 +131,14 @@ export default function OpinionsIndex() {
                             {o.views.toLocaleString()}
                           </span>
                         )}
-                        {o.likes > 0 && (
-                          <span className="inline-flex items-center gap-1">
-                            <Heart size={10} aria-hidden="true" fill="currentColor" className="text-rose-400" />
-                            {o.likes.toLocaleString()}
-                          </span>
-                        )}
+                      </div>
+
+                      <div className="mt-1 flex items-center gap-1">
+                        <OpinionLike compact slug={o.slug} initial={o.likes || 0}
+                          initialLiked={known ? liked.has(o.slug) : undefined} />
+                        <ShareButtons compact title={o.published_title}
+                          summary={o.published_summary}
+                          path={`/media/opinions/${o.slug}`} />
                       </div>
                     </div>
                   </div>

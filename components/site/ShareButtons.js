@@ -55,19 +55,43 @@ const NETWORKS = [
   },
 ];
 
-export default function ShareButtons({ title = '', summary = '', label = 'Share this' }) {
+/**
+ * @param {string} [path] the article's own path, e.g. /media/opinions/my-piece.
+ *        REQUIRED on a card: without it this would share whatever page the
+ *        card is sitting on — the home page — and every share of every card
+ *        would point at the same URL.
+ * @param {boolean} [compact] one icon that opens the rest, for a card footer.
+ */
+export default function ShareButtons({
+  title = '', summary = '', label = 'Share this', path = '', compact = false,
+}) {
   const [url, setUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [canNativeShare, setCanNativeShare] = useState(false);
+  const [open, setOpen] = useState(false);
 
-  // Read on the client. The server has no idea which URL the reader is on, and
-  // guessing it from the slug would break the moment a page moves.
+  // Resolved on the client: the origin is only known there, and hard-coding it
+  // would break every preview deployment.
   useEffect(() => {
-    setUrl(window.location.href);
+    setUrl(path ? new URL(path, window.location.origin).toString() : window.location.href);
     setCanNativeShare(typeof navigator !== 'undefined' && !!navigator.share);
-  }, []);
+  }, [path]);
 
-  async function copy() {
+  // Close the card popover on an outside click or Escape.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', close);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  async function copy(e) {
+    e?.preventDefault?.(); e?.stopPropagation?.();
     try {
       await navigator.clipboard.writeText(url);
     } catch {
@@ -82,12 +106,61 @@ export default function ShareButtons({ title = '', summary = '', label = 'Share 
     setTimeout(() => setCopied(false), 2000);
   }
 
-  async function nativeShare() {
+  async function nativeShare(e) {
+    e?.preventDefault?.(); e?.stopPropagation?.();
     try {
       await navigator.share({ title, text: summary || title, url });
     } catch {
       // Cancelling the sheet throws. That is not an error worth reporting.
     }
+  }
+
+  /* Card footer: one small icon.
+   *
+   * On a phone it opens the system share sheet directly — one tap to whatever
+   * app they use. On desktop, where there is no sheet, it opens a small menu
+   * instead of doing nothing.
+   */
+  if (compact) {
+    return (
+      <span className="relative inline-flex">
+        <button
+          onClick={(e) => {
+            e.preventDefault(); e.stopPropagation();
+            if (canNativeShare) nativeShare(e); else setOpen(o => !o);
+          }}
+          aria-label="Share this opinion" title="Share"
+          aria-expanded={canNativeShare ? undefined : open}
+          className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] text-gray-500
+            hover:text-[#176B49] transition-colors duration-micro">
+          <Share2 size={11} strokeWidth={2.2} aria-hidden="true" />
+          <span className="sr-only">Share</span>
+        </button>
+
+        {open && !canNativeShare && (
+          <span onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            className="absolute bottom-full right-0 mb-2 z-20 flex items-center gap-1 rounded-full
+              border border-gray-200 bg-white px-2 py-1.5 shadow-tnr-raise">
+            {NETWORKS.map(n => (
+              <a key={n.key} href={url ? n.href(url, title) : '#'}
+                target="_blank" rel="noopener noreferrer"
+                aria-label={`Share on ${n.label}`} title={n.label}
+                className={`inline-flex items-center justify-center w-7 h-7 rounded-full
+                  text-gray-500 transition-colors duration-micro ${n.className}`}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  {n.icon}
+                </svg>
+              </a>
+            ))}
+            <button onClick={copy} aria-label="Copy link" title="Copy link"
+              className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors duration-micro
+                ${copied ? 'text-[#176B49]' : 'text-gray-500 hover:text-[#176B49]'}`}>
+              {copied ? <Check size={13} strokeWidth={2.5} /> : <Link2 size={13} strokeWidth={2.2} />}
+            </button>
+          </span>
+        )}
+      </span>
+    );
   }
 
   return (

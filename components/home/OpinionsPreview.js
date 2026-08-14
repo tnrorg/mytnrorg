@@ -1,9 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { ArrowRight, PenLine, Clock, Eye, Heart } from 'lucide-react';
+import { ArrowRight, PenLine, Clock, Eye } from 'lucide-react';
 import { SectionHeading, Reveal, RevealGroup, RevealItem } from '@/components/ui';
 import Avatar from '@/components/ui/Avatar';
+import OpinionLike from '@/components/site/OpinionLike';
+import ShareButtons from '@/components/site/ShareButtons';
+import useLikedSlugs from '@/components/site/useLikedSlugs';
 import { COLORS, FONT } from '@/lib/design/tokens';
 import { readingMinutes } from '@/lib/opinions';
 
@@ -27,6 +30,10 @@ export default function OpinionsPreview() {
       .then(j => setRows(j?.ok ? (j.opinions || []).slice(0, 3) : []))
       .catch(() => setRows([]));
   }, []);
+
+  // One request for all three cards, not one each.
+  // Called before the early return below — a hook cannot be skipped.
+  const { liked, known } = useLikedSlugs((rows || []).map(o => o.slug));
 
   // Still loading, or nothing published: show nothing at all.
   if (!rows?.length) return null;
@@ -97,12 +104,15 @@ export default function OpinionsPreview() {
                           {o.views.toLocaleString()}
                         </span>
                       )}
-                      {o.likes > 0 && (
-                        <span className="inline-flex items-center gap-1">
-                          <Heart size={10} aria-hidden="true" fill="currentColor" className="text-rose-400" />
-                          {o.likes.toLocaleString()}
-                        </span>
-                      )}
+                    </div>
+
+                    {/* Like and share without leaving the home page. */}
+                    <div className="mt-1 flex items-center gap-1">
+                      <OpinionLike compact slug={o.slug} initial={o.likes || 0}
+                        initialLiked={known ? liked.has(o.slug) : undefined} />
+                      <ShareButtons compact title={o.published_title}
+                        summary={o.published_summary}
+                        path={`/media/opinions/${o.slug}`} />
                     </div>
                   </div>
                 </div>

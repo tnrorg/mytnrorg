@@ -112,6 +112,37 @@ export async function GET(req) {
   const p = new URL(req.url).searchParams;
   const slug = String(p.get('slug') || '').trim();
   const anonRaw = String(p.get('key') || '').trim();
+
+  /* Batch form: ?slugs=a,b,c
+   *
+   * A list page renders many cards. Asking once per card would mean sixty
+   * requests on the Opinions index — so the page asks once for all of them and
+   * hands each card its answer.
+   *
+   * Returns ONLY the slugs this caller has liked. Not the totals for each, and
+   * certainly not who else liked them; the totals already arrive with the
+   * article list. */
+  const slugsRaw = String(p.get('slugs') || '').trim();
+  if (slugsRaw) {
+    const slugs = slugsRaw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 100);
+    if (!slugs.length) return ok({ liked: [] });
+
+    const sbB = supabaseAdmin();
+    const memberIdB = memberOf(req);
+    if (!memberIdB && anonRaw.length < 8) return ok({ liked: [] });
+
+    const { data: ops } = await sbB.from('opinions')
+      .select('id, slug').in('slug', slugs).eq('status', 'published');
+    if (!ops?.length) return ok({ liked: [] });
+
+    const bySlug = Object.fromEntries(ops.map(o => [o.id, o.slug]));
+    let lq = sbB.from('opinion_likes').select('opinion_id').in('opinion_id', ops.map(o => o.id));
+    lq = memberIdB ? lq.eq('member_id', memberIdB) : lq.eq('anon_key', digest(anonRaw));
+
+    const { data: mine } = await lq;
+    return ok({ liked: [...new Set((mine || []).map(l => bySlug[l.opinion_id]).filter(Boolean))] });
+  }
+
   if (!slug) return ok({ liked: false, likes: 0 });
 
   const sb = supabaseAdmin();
