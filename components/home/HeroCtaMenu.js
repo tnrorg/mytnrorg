@@ -16,7 +16,7 @@ import { COLORS } from '@/lib/design/tokens';
  * slide has only one CTA there is nothing to choose between, and this renders
  * as an ordinary link with no menu.
  */
-export default function HeroCtaMenu({ cta1, cta2, align = 'left' }) {
+export default function HeroCtaMenu({ cta1, cta2, buttonLabel, align = 'left' }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const btnRef = useRef(null);
@@ -88,7 +88,11 @@ export default function HeroCtaMenu({ cta1, cta2, align = 'left' }) {
         aria-expanded={open}
         className={primary}
         style={primaryStyle}>
-        {cta1.label}
+        {/* The button's own text, so it can differ from the first choice
+            inside the menu — "Join/Login TNR" opening onto "Join TNR" and
+            "Login TNR". Falls back to cta1's label when an admin has not set
+            one, which is how every existing slide keeps working. */}
+        {buttonLabel?.trim() || cta1.label}
         <ChevronDown size={17} strokeWidth={2.5} aria-hidden="true"
           className={`transition-transform duration-micro ${open ? 'rotate-180' : ''}`} />
       </button>

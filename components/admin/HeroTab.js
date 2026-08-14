@@ -163,6 +163,15 @@ function SlideEditor({ row, isNew, toast, onDone, onCancel }) {
 
     {/* ── Buttons ── */}
     <div className="grid sm:grid-cols-2 gap-3">
+      {/* The two buttons are shown as ONE button that opens a menu. This is the
+          text on that button; the two below are the choices inside it. */}
+      <Field label="Menu button — text (optional)">
+        <input className="input" value={f.cta_button_label || ''} onChange={set('cta_button_label')}
+          placeholder="Join/Login TNR" />
+        <span className="block mt-1 text-[11px] text-tnr-cream/40">
+          Leave empty to reuse Button 1’s text.
+        </span>
+      </Field>
       <Field label="Button 1 — text"><input className="input" value={f.cta1_label || ''} onChange={set('cta1_label')} placeholder="Join TNR" /></Field>
       <Field label="Button 1 — link"><input className="input" value={f.cta1_href || ''} onChange={set('cta1_href')} placeholder="/membership/apply" /></Field>
       <Field label="Button 2 — text"><input className="input" value={f.cta2_label || ''} onChange={set('cta2_label')} placeholder="Explore Our Work" /></Field>

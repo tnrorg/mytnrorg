@@ -241,6 +241,7 @@ export default function HeroCarousel({ initialSlides = null }) {
               {(s.cta1_label || s.cta2_label) && (
                 <div className={`mt-8 flex flex-wrap gap-3 ${s.align === 'center' ? 'justify-center' : ''}`}>
                   <HeroCtaMenu
+                    buttonLabel={s.cta_button_label}
                     cta1={{ label: s.cta1_label, href: s.cta1_href }}
                     cta2={{ label: s.cta2_label, href: s.cta2_href }}
                     align={s.align}
