@@ -4,6 +4,17 @@ import MemberShell from '@/components/member/MemberShell';
 import { mGet, mPatch, mPost } from '@/components/member/memberApi';
 import AddressSelect from '@/components/membership/AddressSelect';
 import { PROFESSIONS } from '@/lib/membership/options';
+import { MIN_AGE, MAX_AGE } from '@/lib/membership/validateApplication';
+
+/** Earliest and latest date of birth the age limits allow. */
+function dobBounds() {
+  const t = new Date();
+  const iso = (d) => d.toISOString().slice(0, 10);
+  return {
+    min: iso(new Date(t.getFullYear() - MAX_AGE - 1, t.getMonth(), t.getDate() + 1)),
+    max: iso(new Date(t.getFullYear() - MIN_AGE, t.getMonth(), t.getDate())),
+  };
+}
 import Combobox from '@/components/ui/Combobox';
 
 const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#D4A72C' };
@@ -175,6 +186,9 @@ function CoreCard({ core, onSaved }) {
     first_name: core.first_name || '', last_name: core.last_name || '',
     email: core.email || '', mobile: core.mobile || '',
     village: core.village || '', union_council: core.union_council || '',
+    // Sliced because Postgres returns a timestamp and <input type="date">
+    // accepts only YYYY-MM-DD — the full string leaves the picker blank.
+    date_of_birth: (core.date_of_birth || '').slice(0, 10),
   });
   const [busy, setBusy] = useState(false);
   const save = async () => {
@@ -192,6 +206,16 @@ function CoreCard({ core, onSaved }) {
           ['mobile', 'Mobile'], ['village', 'Village'], ['union_council', 'Union Council']].map(([k, l]) => (
           <F key={k} l={l}><input value={f[k]} onChange={e => setF({ ...f, [k]: e.target.value })} className={base} /></F>
         ))}
+        {/* Date of birth — editable, because the usual reason to change it is
+            that it was mistyped at registration. min/max keep the picker
+            inside TNR's age range; the API enforces the same limits, since
+            these attributes are trivially bypassed. */}
+        <F l={`Date of Birth (age ${MIN_AGE}–${MAX_AGE})`}>
+          <input type="date" value={f.date_of_birth || ''}
+            min={dobBounds().min} max={dobBounds().max}
+            onChange={e => setF({ ...f, date_of_birth: e.target.value })}
+            className={base} />
+        </F>
       </div>
       <button onClick={save} disabled={busy} className="mt-4 px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40"
         style={{ background: `linear-gradient(180deg,${C.green},${C.deep})` }}>

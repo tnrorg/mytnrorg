@@ -3,6 +3,7 @@ import { requireMember } from '@/lib/membership/auth';
 import { ok, fail, readJson } from '@/lib/api';
 import { SECTIONS, PROFILE_FIELDS, SENSITIVE_FIELDS, SELF_EDITABLE_CORE, FORBIDDEN_FIELDS, pick } from '@/lib/membership/profile';
 import { uploadDataUrl } from '@/lib/storage';
+import { ageFrom, MIN_AGE, MAX_AGE } from '@/lib/membership/validateApplication';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,6 +72,35 @@ export async function PATCH(req) {
     core.field_of_study = core.profession === 'Other'
       ? (String(b.profession_other || '').trim() || null)
       : (core.profession || null);
+  }
+
+  /* Date of birth, held to the same limits as the application form.
+   *
+   * Checked HERE and not only in the date picker: `min`/`max` on an input are
+   * a convenience, not a rule, and this endpoint can be called directly. A
+   * member correcting a typo is the case this exists for; changing it to an
+   * age outside TNR's membership is not.
+   *
+   * Age is derived from the date on every read, so there is no separate `age`
+   * column to keep in step. */
+  if ('date_of_birth' in core) {
+    const dob = String(core.date_of_birth || '').trim();
+    if (!dob) {
+      // Clearing it is not an edit anyone needs, and an empty birthday breaks
+      // the age statistics silently.
+      return fail('INVALID', 400, { message: 'Enter your date of birth.' });
+    }
+    const age = ageFrom(dob);
+    if (age === null || Number.isNaN(age)) {
+      return fail('INVALID', 400, { message: 'Enter a valid date of birth.' });
+    }
+    if (age < MIN_AGE || age > MAX_AGE) {
+      return fail('INVALID', 400, {
+        message: `TNR membership is for ages ${MIN_AGE}–${MAX_AGE}. Contact the committee if this is wrong.`,
+      });
+    }
+    core.date_of_birth = dob;
+    core.age = age;
   }
   if (Object.keys(core).length) {
     core.updated_at = new Date().toISOString();

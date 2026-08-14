@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import SiteNav from '@/components/site/SiteNav';
 import SiteFooter from '@/components/site/SiteFooter';
 import {
@@ -102,6 +102,13 @@ export default function ApplyPage() {
   const [councils, setCouncils] = useState(null);   // null = still loading
   const [touched, setTouched] = useState({});   // fields the applicant has visited
   const [tried, setTried] = useState(false);    // they have pressed Submit at least once
+  /* Proof that a submission came from the button and not a keystroke.
+   *
+   * A form submits on Enter from any of its fields. On the Review step that
+   * meant a completed application could be sent by a stray Enter — or by a
+   * browser autofill that ends with one — without the applicant ever choosing
+   * to. Set by the button's onClick, which always runs before onSubmit. */
+  const clickedSubmit = useRef(false);
   // `set('__address', {...})` applies several address fields in ONE update.
   // Cascading resets (country clears state and city) have to land together —
   // as separate setF calls the intermediate render can submit a city that no
@@ -201,6 +208,19 @@ export default function ApplyPage() {
     // if the data happened to validate. Submission must be a deliberate click
     // on the final step, never a keystroke.
     if (!onReview) { next(); return; }
+
+    /* And on the Review step, it must STILL be a click.
+     *
+     * The guard above only covered the earlier steps. Once an applicant
+     * reached Review with everything filled in, Enter — or a browser autofill
+     * that ends with one — submitted the whole application without them
+     * choosing to. Someone joining an organisation should press the button
+     * that says so.
+     *
+     * The flag is set by the button's own onClick, which fires before submit,
+     * and cleared here so the next Enter cannot reuse it. */
+    if (!clickedSubmit.current) return;
+    clickedSubmit.current = false;
 
     setTried(true);
     if (missing) {
@@ -641,6 +661,7 @@ export default function ApplyPage() {
               </button>
             ) : (
               <button type="submit" disabled={busy}
+                onClick={() => { clickedSubmit.current = true; }}
                 className="tnr-lift flex-1 py-3.5 rounded-tnr font-bold text-white text-lg shadow-tnr-raise
                   disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ background: missing && tried
