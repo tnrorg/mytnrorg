@@ -4,7 +4,60 @@ import { aGet, aPatch, aPost, aDel } from './adminApi';
 import { ROLES, LEADERSHIP_ROLES, roleLabel } from '@/lib/membership/roles';
 import { displayGender } from '@/lib/membership/options';
 import Avatar from '@/components/ui/Avatar';
+import { useAreas } from './AreaSelect';
 import { exportExcel } from './exporters';
+
+/* Inline Union Council + village editor for one row.
+ *
+ * Kept separate so its draft state lives and dies with the row being edited —
+ * held in the table it would leak between members, and the second correction
+ * would start from the first member's answer.
+ *
+ * Reads the SAME managed Areas list the public application form uses, so a
+ * correction cannot introduce yet another spelling of a village that already
+ * exists under a slightly different name.
+ */
+function AreaEditor({ m, onSave, onCancel }) {
+  const councils = useAreas();
+  const [council, setCouncil] = useState(m.union_council || '');
+  const [village, setVillage] = useState(m.village || '');
+
+  if (councils === null) return <span className="text-[11px] text-tnr-cream/40">Loading areas…</span>;
+
+  const names = councils.map(c => c.name);
+  const villages = councils.find(c => c.name === council)?.villages || [];
+  // A value that is not on the managed list is offered as an extra option and
+  // labelled, rather than vanishing and silently blanking the field on save.
+  const strayCouncil = council && !names.includes(council);
+  const strayVillage = village && !villages.includes(village);
+
+  const sel = 'w-full rounded-lg border border-tnr-line bg-black/30 px-2 py-1 text-xs text-tnr-cream';
+
+  return (
+    <div className="space-y-1.5 min-w-[190px]">
+      <select className={sel} value={council}
+        onChange={e => { setCouncil(e.target.value); setVillage(''); }}>
+        <option value="">— Union Council —</option>
+        {names.map(n => <option key={n} value={n}>{n}</option>)}
+        {strayCouncil && <option value={council}>{council} (not on the list)</option>}
+      </select>
+
+      <select className={sel} value={village} disabled={!council}
+        onChange={e => setVillage(e.target.value)}>
+        <option value="">{council ? '— Village —' : 'Pick a council first'}</option>
+        {villages.map(n => <option key={n} value={n}>{n}</option>)}
+        {strayVillage && <option value={village}>{village} (not on the list)</option>}
+      </select>
+
+      <div className="flex gap-2 pt-0.5">
+        <button className="text-[11px] font-semibold text-tnr-goldLight hover:underline"
+          onClick={() => onSave({ union_council: council, village })}>Save</button>
+        <button className="text-[11px] text-tnr-cream/40 hover:text-tnr-cream/70"
+          onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  );
+}
 
 const TONE = {
   active: 'bg-green-500/15 text-green-300 border-green-500/30',
@@ -20,6 +73,7 @@ export default function MembersDirectoryTab({ toast }) {
   const [search, setSearch] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
+  const [areaId, setAreaId] = useState(null);   // member whose area is being edited
 
   const load = () => {
     const q = new URLSearchParams({ status, search });
@@ -90,6 +144,26 @@ export default function MembersDirectoryTab({ toast }) {
     const r = await aPatch('/api/admin/membership/members/' + m.id, { photo_url: null });
     if (!r.ok) return toast?.(r.message || 'Could not remove the photo.', 'err');
     toast?.('Photo removed', 'ok');
+    load();
+  }
+
+  /* Correct a member's Union Council and village.
+   *
+   * The API has accepted these two fields all along, but nothing in this table
+   * offered a way to set them — village was printed as plain text and Union
+   * Council was not shown at all. So a member who typed "Mendi" instead of
+   * picking "UC MENDI" could only be fixed by editing the database by hand,
+   * and meanwhile they show up as a council of one in the public directory.
+   *
+   * Dropdowns come from the managed Areas list, so a correction cannot invent
+   * a third spelling while fixing the second.
+   */
+  async function saveArea(m, patch) {
+    const next = { union_council: m.union_council || '', village: m.village || '', ...patch };
+    const r = await aPatch('/api/admin/membership/members/' + m.id, next);
+    if (!r.ok) return toast?.(r.message || 'Could not update the area.', 'err');
+    toast?.(`${m.full_name} → ${next.union_council || '—'}`, 'ok');
+    setAreaId(null);
     load();
   }
 
@@ -181,7 +255,7 @@ export default function MembersDirectoryTab({ toast }) {
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wider text-tnr-cream/50 border-b border-tnr-line">
               <th className="px-3 py-2.5">Membership ID</th><th className="px-3 py-2.5">Name</th>
-              <th className="px-3 py-2.5">Email</th><th className="px-3 py-2.5">Village</th>
+              <th className="px-3 py-2.5">Email</th><th className="px-3 py-2.5">Area</th>
               <th className="px-3 py-2.5">Photo</th>
               <th className="px-3 py-2.5">Membership Type</th>
               <th className="px-3 py-2.5">Status</th><th className="px-3 py-2.5">Public</th>
@@ -194,7 +268,23 @@ export default function MembersDirectoryTab({ toast }) {
                 <td className="px-3 py-2 font-mono text-xs text-tnr-gold/90 whitespace-nowrap">{m.membership_id}</td>
                 <td className="px-3 py-2 font-medium text-tnr-cream">{m.full_name}</td>
                 <td className="px-3 py-2 text-tnr-cream/70">{m.email}</td>
-                <td className="px-3 py-2 text-tnr-cream/70">{m.village || '—'}</td>
+                {/* Area — editable. Shows Union Council and village together,
+                    because a village only means anything inside its council. */}
+                <td className="px-3 py-2 text-tnr-cream/70 align-top">
+                  {areaId === m.id ? (
+                    <AreaEditor m={m} onSave={(patch) => saveArea(m, patch)}
+                      onCancel={() => setAreaId(null)} />
+                  ) : (
+                    <button onClick={() => setAreaId(m.id)}
+                      title="Change Union Council or village"
+                      className="text-left hover:text-tnr-cream group">
+                      <span className="block">{m.village || '—'}</span>
+                      <span className="block text-[11px] text-tnr-cream/40 group-hover:text-tnr-goldLight">
+                        {m.union_council || 'No Union Council'} · edit
+                      </span>
+                    </button>
+                  )}
+                </td>
 
                 {/* Photo. Shows what the PUBLIC directory shows, so an admin
                     can see at a glance which members are on a placeholder. */}
