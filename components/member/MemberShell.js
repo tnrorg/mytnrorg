@@ -139,7 +139,16 @@ export default function MemberShell({ active, children }) {
               <span className="text-base">{icon}</span>{label}
             </a>
           ))}
-          <button onClick={signOut} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-red-500 hover:bg-red-50 mt-2">
+          {/* A way back to the public site.
+              Without it the only exit from the portal is signing out, so a
+              member who simply wants to read the site has to end their session
+              and log in again afterwards. Opens in this tab, like the admin
+              panel's equivalent — the portal is not somewhere you leave open. */}
+          <a href="/"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 mt-2 border-t border-gray-100 pt-3">
+            <span className="text-base">🌐</span>View Website
+          </a>
+          <button onClick={signOut} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-red-500 hover:bg-red-50">
             <span>↩</span>Sign Out
           </button>
         </nav>

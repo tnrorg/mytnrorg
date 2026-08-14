@@ -14,11 +14,17 @@ const BENEFITS = [
   ['Community', 'Connect with members and professionals across the world.'],
   ['Welfare & Volunteering', 'Take part in welfare projects and volunteer programmes.'],
 ];
+/* Third entry is where the step takes you, when there is somewhere to go.
+ *
+ * Only two of the four are things a reader can act on. Review and Approval
+ * happen to them, not by them — linking those would promise an action that
+ * does not exist, and a card that looks clickable and is not is worse than a
+ * card that plainly is not. */
 const STEPS = [
-  ['Apply Online', 'Complete the membership application form.'],
-  ['Committee Review', 'The membership committee reviews your application.'],
-  ['Approval', 'Approved applicants receive a unique Membership ID.'],
-  ['Portal Access', 'Set your password and access the Member Portal.'],
+  ['Apply Online', 'Complete the membership application form.', '/membership/apply'],
+  ['Committee Review', 'The membership committee reviews your application.', null],
+  ['Approval', 'Approved applicants receive a unique Membership ID.', '/membership/status'],
+  ['Portal Access', 'Set your password and access the Member Portal.', '/member/login'],
 ];
 
 export default function MembershipPage() {
@@ -69,14 +75,28 @@ export default function MembershipPage() {
       <section className="max-w-[1400px] mx-auto px-4 pb-16 w-full">
         <h2 style={{ ...mont, color: C.deep }} className="text-xl font-black uppercase text-center">How It Works</h2>
         <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {STEPS.map(([t, d], i) => (
-            <div key={t} className="rounded-2xl p-5 text-white shadow-lg" style={{ background: `linear-gradient(165deg,${C.deep},#04241A)` }}>
-              <div className="w-9 h-9 rounded-full grid place-items-center font-black text-[#063D2B]"
-                style={{ background: `linear-gradient(180deg,${C.soft},${C.gold})`, ...mont }}>{i + 1}</div>
-              <h3 style={{ ...mont, color: C.soft }} className="mt-3 font-bold text-sm">{t}</h3>
-              <p className="mt-1 text-sm text-white/60 leading-relaxed">{d}</p>
-            </div>
-          ))}
+          {STEPS.map(([t, d, href], i) => {
+            // A step with somewhere to go becomes a link; the rest stay plain
+            // cards, so only the actionable ones invite a click.
+            const Step = href ? 'a' : 'div';
+            return (
+              <Step key={t} {...(href ? { href } : {})}
+                className={`group block rounded-2xl p-5 text-white shadow-lg transition-transform duration-standard
+                  ${href ? 'hover:-translate-y-[3px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D7AE4A]' : ''}`}
+                style={{ background: `linear-gradient(165deg,${C.deep},#04241A)` }}>
+                <div className="w-9 h-9 rounded-full grid place-items-center font-black text-[#063D2B]"
+                  style={{ background: `linear-gradient(180deg,${C.soft},${C.gold})`, ...mont }}>{i + 1}</div>
+                <h3 style={{ ...mont, color: C.soft }} className="mt-3 font-bold text-sm">{t}</h3>
+                <p className="mt-1 text-sm text-white/60 leading-relaxed">{d}</p>
+                {href && (
+                  <span className="mt-2 inline-block text-[11px] font-bold group-hover:underline"
+                    style={{ color: C.gold }}>
+                    {i === 0 ? 'Start now →' : i === 2 ? 'Check your status →' : 'Sign in →'}
+                  </span>
+                )}
+              </Step>
+            );
+          })}
         </div>
         <div className="text-center mt-10">
           <a href="/membership/apply" className="inline-block px-8 py-4 rounded-xl font-bold text-white shadow-lg"
