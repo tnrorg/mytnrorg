@@ -41,13 +41,20 @@ export default function EmploymentStatisticsPage() {
               sub={d.total ? `${Math.round((studying / d.total) * 100)}% of members` : null} />
           </div>
 
+          {/* Anchors so the home page figures land on the chart they summarise.
+              Both "Students" and "Professionals" are derived from the current
+              position each member recorded, which is what these two show. */}
           <div className="grid lg:grid-cols-2 gap-5">
-            <BreakdownCard icon={Users} title="Work or Study"
-              note="Based on the current position each member recorded."
-              rows={d.employmentStatus} />
-            <BreakdownCard icon={Briefcase} title="Professions"
-              note="What members do today." colorFrom={3}
-              rows={d.professions} />
+            <div id="work-or-study" className="scroll-mt-24">
+              <BreakdownCard icon={Users} title="Work or Study"
+                note="Based on the current position each member recorded."
+                rows={d.employmentStatus} />
+            </div>
+            <div id="professions" className="scroll-mt-24">
+              <BreakdownCard icon={Briefcase} title="Professions"
+                note="What members do today." colorFrom={3}
+                rows={d.professions} />
+            </div>
             <BreakdownCard icon={HeartHandshake} title="Contribution Interests"
               note="Where members want to help. Members may choose several, so these add up to more than 100%."
               colorFrom={8} rows={d.contribution} />

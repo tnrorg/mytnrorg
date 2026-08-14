@@ -26,8 +26,14 @@ import { COLORS, FONT } from '@/lib/design/tokens';
 const CARDS = [
   ['members',       'Active Members',   Users,         '/members'],
   ['visits',        'Website Visitors', Eye,           null],
-  ['professionals', 'Professionals',    Briefcase,     '/statistics/employment'],
-  ['students',      'Students',         GraduationCap, '/statistics/education'],
+  /* Both of these count the member's CURRENT POSITION — a member is either
+   * studying or working — so both belong on the employment page.
+   *
+   * Students previously pointed at /statistics/education, which sounds right
+   * and is not: that page is about schools and colleges in Roundu and their
+   * staffing, nothing to do with which members are students. */
+  ['professionals', 'Professionals',    Briefcase,     '/statistics/employment#professions'],
+  ['students',      'Students',         GraduationCap, '/statistics/employment#work-or-study'],
   ['unionCouncils', 'Union Councils',   Landmark,      '/statistics#unionCouncils'],
   ['areas',         'Villages / Areas', MapPin,        '/statistics#villages'],
 ];
