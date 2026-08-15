@@ -20,7 +20,7 @@ export default function SiteFooter() {
               <span style={mont} className="font-extrabold">TNR</span>
             </div>
             <p className="mt-3 text-sm text-white/60 leading-relaxed">
-              Tehreek-e-Nojawanan Roundu — serving the Rondo community through education,
+              Tehreek-e-Nojawanan Roundu — serving the Roundu community through education,
               welfare, and youth empowerment.
             </p>
           </div>
