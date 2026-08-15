@@ -6,6 +6,7 @@ import {
   GENDERS, EDUCATION_LEVELS, POSITIONS, PROFESSIONS, CONTRIBUTION_AREAS,
   LEADERSHIP_OPTIONS, DECLARATION_TEXT, DECLARATION_VERSION, photoOptionalFor,
   GENDER_SELF_DESCRIBE, displayGender,
+  HEARD_ABOUT, needsReferrer, needsHeardDetail,
 } from '@/lib/membership/options';
 import {
   validateApplication, STEPS, stepErrors, isStepComplete, REQUIRED_LABELS, ageFrom,
@@ -33,7 +34,9 @@ const BLANK = {
   position_other: '', organization_name: '',
   profession: '', profession_other: '',
   why_join: '', contribution_areas: [], leadership_view: '', leadership_note: '',
-  youth_issues: '', declaration_accepted: false, whatsapp_opt_in: false,
+  youth_issues: '',
+  heard_about: '', heard_about_detail: '', referred_by_name: '',
+  declaration_accepted: false, whatsapp_opt_in: false,
   // Password is never persisted to the local draft — see the OMIT list in
   // useApplicationDraft.js.
   password: '', password_confirm: '',
@@ -71,6 +74,13 @@ function reviewRows(f, key) {
     ['Leadership view', f.leadership_view],
     ['Explanation', f.leadership_note || '—'],
     ['Youth issues', f.youth_issues],
+    // The follow-up is shown as part of the answer, not as a second row —
+    // "Other" on its own tells the reviewer nothing.
+    ['How you heard about TNR', needsReferrer(f.heard_about)
+      ? `${f.heard_about} — ${f.referred_by_name || '—'}`
+      : needsHeardDetail(f.heard_about)
+        ? `${f.heard_about} — ${f.heard_about_detail || '—'}`
+        : f.heard_about],
   ];
   if (key === 'D') return [
     ['Declaration accepted', yes(f.declaration_accepted)],
@@ -555,6 +565,48 @@ export default function ApplyPage() {
               <Textarea value={f.youth_issues} onChange={v => set('youth_issues', v)} rows={4}
                 onBlur={() => blur('youth_issues')} bad={!!showErr('youth_issues')} />
             </Field>
+
+            {/* How they found TNR. Buttons rather than a dropdown: six options
+                are all visible at once, and on a phone that is one tap instead
+                of open-scroll-select. */}
+            <Field label="How did you hear about TNR?" req error={showErr('heard_about')}>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {HEARD_ABOUT.map(o => {
+                  const on = f.heard_about === o;
+                  return (
+                    <button type="button" key={o}
+                      onClick={() => {
+                        // Clear the follow-ups when the answer changes, so a
+                        // name typed for a referral cannot be submitted
+                        // alongside "Facebook".
+                        setF(p => ({ ...p, heard_about: o, referred_by_name: '', heard_about_detail: '' }));
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold border transition ${on
+                        ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
+                      style={on ? { background: C.green } : {}}>{o}</button>
+                  );
+                })}
+              </div>
+            </Field>
+
+            {needsReferrer(f.heard_about) && (
+              <Field label="Name of the member who referred you" req error={showErr('referred_by_name')}>
+                <Input value={f.referred_by_name} onChange={v => set('referred_by_name', v)}
+                  onBlur={() => blur('referred_by_name')} bad={!!showErr('referred_by_name')}
+                  placeholder="Their full name as registered with TNR" />
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Their full name helps the committee thank the right person.
+                </p>
+              </Field>
+            )}
+
+            {needsHeardDetail(f.heard_about) && (
+              <Field label="Where did you hear about us?" req error={showErr('heard_about_detail')}>
+                <Input value={f.heard_about_detail} onChange={v => set('heard_about_detail', v)}
+                  onBlur={() => blur('heard_about_detail')} bad={!!showErr('heard_about_detail')}
+                  placeholder="e.g. a friend, a poster, a school event" />
+              </Field>
+            )}
           </Card>}
 
           {stepKey === 'D' && <Card title="Declaration">

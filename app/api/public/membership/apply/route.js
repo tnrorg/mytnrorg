@@ -9,7 +9,7 @@ import { sendApplicationReceived, sendAdminNewApplication } from '@/lib/membersh
 import { uploadDataUrl } from '@/lib/storage';
 import { hashPassword } from '@/lib/membership/auth';
 import { validateApplication, REQUIRED_LABELS, ageFrom } from '@/lib/membership/validateApplication';
-import { GENDER_SELF_DESCRIBE } from '@/lib/membership/options';
+import { GENDER_SELF_DESCRIBE, needsReferrer, needsHeardDetail } from '@/lib/membership/options';
 import { ROLE_KEYS, roleLabel } from '@/lib/membership/roles';
 
 export const dynamic = 'force-dynamic';
@@ -178,6 +178,22 @@ export async function POST(req) {
     leadership_view: b.leadership_view,
     leadership_note: b.leadership_note || null,
     youth_issues: String(b.youth_issues).trim(),
+
+    /* Referral source.
+     *
+     * The follow-up columns are stored only for the option that asks for them.
+     * Someone who types a referrer's name, then changes their answer to
+     * Facebook, must not leave that name behind on the record — it would show
+     * up in the referral counts as a person who referred nobody. The form
+     * clears them too; this is the half that a direct POST cannot skip. */
+    // validateApplication already rejected anything outside the six options,
+    // so this is one of them or the request never reached here.
+    heard_about: String(b.heard_about || '').trim() || null,
+    heard_about_detail: needsHeardDetail(b.heard_about)
+      ? (String(b.heard_about_detail || '').trim() || null) : null,
+    referred_by_name: needsReferrer(b.heard_about)
+      ? (String(b.referred_by_name || '').trim() || null) : null,
+
     declaration_accepted: true,
     declaration_version: b.declaration_version || 'v1.0',
     declaration_at: new Date().toISOString(),

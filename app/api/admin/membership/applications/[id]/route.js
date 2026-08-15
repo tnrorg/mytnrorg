@@ -100,6 +100,15 @@ export async function PATCH(req, { params }) {
        * committee can see what was asked for and grant it deliberately.
        */
       role: ROLE_KEYS.includes(b.role) ? b.role : 'general',
+      /* Referral source travels with the applicant.
+       *
+       * Kept on the member record rather than left behind on the application:
+       * the question "where do our members come from?" is about members. Left
+       * only on applications it could be asked of everyone who applied — which
+       * includes those who were rejected and excludes everyone who joined. */
+      heard_about: app.heard_about ?? null,
+      heard_about_detail: app.heard_about_detail ?? null,
+      referred_by_name: app.referred_by_name ?? null,
       // Identity documents stay in the private bucket; only the paths move.
       cnic_number: app.cnic_number ?? null,
       cnic_front_path: app.cnic_front_path ?? null,

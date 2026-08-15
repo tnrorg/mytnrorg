@@ -240,6 +240,13 @@ function ReviewModal({ app, busy, onClose, onAct, toast }) {
           <R k="Organisation" v={app.organization_name} />
           <R k="Contribution Areas" v={app.contribution_areas} />
           <R k="Leadership View" v={app.leadership_view} /><R k="Leadership Note" v={app.leadership_note} />
+          {/* Shown with its follow-up, because "Other" or "Referred by a
+              Registered Member" on its own answers nothing. */}
+          <R k="Heard About TNR" v={
+            !app.heard_about ? '' :
+            app.referred_by_name ? `${app.heard_about} — ${app.referred_by_name}` :
+            app.heard_about_detail ? `${app.heard_about} — ${app.heard_about_detail}` :
+            app.heard_about} />
           <R k="WhatsApp Opt-in" v={app.whatsapp_opt_in ? 'Yes' : 'No'} />
           <R k="Declaration" v={app.declaration_accepted ? `Accepted ${app.declaration_version || ''}` : 'Not accepted'} />
         </div>
