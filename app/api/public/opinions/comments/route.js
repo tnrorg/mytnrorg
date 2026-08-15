@@ -2,7 +2,8 @@ import { supabaseAdmin } from '@/lib/supabaseServer';
 import { verifyMemberToken } from '@/lib/membership/auth';
 import { getAdmin } from '@/lib/auth';
 import { ok, fail, readJson } from '@/lib/api';
-import { cleanComment, validateComment } from '@/lib/opinionComments';
+import { cleanComment, validateComment, withinEditWindow, EDIT_WINDOW_MINUTES } from '@/lib/opinionComments';
+import { notifyMember, excerpt, NOTIFY } from '@/lib/notify';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +49,7 @@ export async function GET(req) {
   if (!op) return ok({ comments: [] });
 
   const { data, error } = await sb.from('opinion_comments')
-    .select('id, member_id, body, created_at')
+    .select('id, member_id, body, created_at, edited_at, parent_id')
     .eq('opinion_id', op.id).is('deleted_at', null)
     .order('created_at', { ascending: true }).limit(500);
 
@@ -79,8 +80,10 @@ export async function GET(req) {
     comments: (data || []).map(c => ({
       id: c.id,
       member_id: c.member_id,
+      parent_id: c.parent_id || null,
       body: c.body,
       created_at: c.created_at,
+      edited_at: c.edited_at || null,
       author: people[c.member_id] || null,
     })),
   });
@@ -117,9 +120,29 @@ export async function POST(req) {
     message: 'You have posted several comments just now. Please wait a few minutes.',
   });
 
+  /* Resolve the parent, and flatten deeper nesting.
+   *
+   * Replying to a reply attaches to that reply's PARENT, so a thread is never
+   * more than two deep. Enforced here rather than trusted from the client:
+   * the browser sends whatever comment the reader clicked, and normalising it
+   * is what keeps the rule true for every route into this endpoint. */
+  let parentId = null;
+  let parentOwner = null;
+  if (b?.parent_id) {
+    const { data: parent } = await sb.from('opinion_comments')
+      .select('id, member_id, parent_id, opinion_id, deleted_at')
+      .eq('id', String(b.parent_id)).maybeSingle();
+    // Must exist, be live, and belong to THIS article — otherwise a reply
+    // could be smuggled onto a different piece.
+    if (parent && !parent.deleted_at && parent.opinion_id === op.id) {
+      parentId = parent.parent_id || parent.id;
+      parentOwner = parent.member_id;
+    }
+  }
+
   const { data, error } = await sb.from('opinion_comments')
-    .insert({ opinion_id: op.id, member_id: memberId, body })
-    .select('id, member_id, body, created_at').single();
+    .insert({ opinion_id: op.id, member_id: memberId, body, parent_id: parentId })
+    .select('id, member_id, body, created_at, edited_at, parent_id').single();
 
   if (error) return fail('COMMENT_FAILED', 500, {
     message: /opinion_comments/i.test(error.message || '')
@@ -132,6 +155,31 @@ export async function POST(req) {
     .select('full_name, membership_id, photo_url, photo_public, gender')
     .eq('id', memberId).maybeSingle();
 
+  /* Tell the people this concerns.
+   *
+   * A reply notifies the person being answered. A top-level comment notifies
+   * the writer of the article. Never both for one comment, and never the
+   * person who just typed it — notifyMember drops self-notifications, so a
+   * member replying to their own thread gets nothing.
+   *
+   * Not awaited as a barrier to the response: the comment is already saved,
+   * and a member should not wait on bookkeeping to see their own words. */
+  const who = me?.full_name || 'A member';
+  const link = `/media/opinions/${slug}`;
+  if (parentId && parentOwner) {
+    await notifyMember({
+      memberId: parentOwner, actorId: memberId,
+      title: `${who} replied to your comment`,
+      body: excerpt(body), link, category: NOTIFY.REPLY_TO_COMMENT,
+    });
+  } else if (!parentId) {
+    await notifyMember({
+      memberId: op.member_id, actorId: memberId,
+      title: `${who} commented on your opinion`,
+      body: excerpt(body), link, category: NOTIFY.COMMENT_ON_OPINION,
+    });
+  }
+
   return ok({
     comment: {
       ...data,
@@ -143,6 +191,47 @@ export async function POST(req) {
       } : null,
     },
   });
+}
+
+/* Edit your own comment, briefly.
+ *
+ * Only the writer, only within the edit window, and the row is marked as
+ * edited afterwards. Not the author of the piece and not an admin: their power
+ * is to REMOVE something, not to change what somebody else is recorded as
+ * having said. Those are different powers and should not be confused.
+ */
+export async function PATCH(req) {
+  const b = await readJson(req);
+  const id = String(b?.id || '').trim();
+  const body = cleanComment(b?.body);
+  if (!id) return fail('INVALID', 400, { message: 'Missing comment.' });
+
+  const memberId = memberOf(req);
+  if (!memberId) return fail('SIGN_IN_REQUIRED', 401, { message: 'Please sign in.' });
+
+  const problem = validateComment(body);
+  if (problem) return fail('INVALID', 400, { message: problem });
+
+  const sb = supabaseAdmin();
+  const { data: c } = await sb.from('opinion_comments')
+    .select('id, member_id, created_at, deleted_at').eq('id', id).maybeSingle();
+  if (!c || c.deleted_at) return fail('NOT_FOUND', 404, { message: 'Comment not found.' });
+
+  if (c.member_id !== memberId)
+    return fail('FORBIDDEN', 403, { message: 'You can only edit your own comment.' });
+
+  if (!withinEditWindow(c.created_at))
+    return fail('TOO_LATE', 403, {
+      message: `Comments can be edited for ${EDIT_WINDOW_MINUTES} minutes after posting. `
+        + 'You can still delete it.',
+    });
+
+  const now = new Date().toISOString();
+  const { error } = await sb.from('opinion_comments')
+    .update({ body, edited_at: now, updated_at: now }).eq('id', id);
+  if (error) return fail('EDIT_FAILED', 500, { message: 'Could not save that change.' });
+
+  return ok({ id, body, edited_at: now });
 }
 
 export async function DELETE(req) {

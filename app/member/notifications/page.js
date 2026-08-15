@@ -8,8 +8,34 @@ const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' }
 export default function Notifications() {
   const [d, setD] = useState(null);
   const load = () => mGet('/api/member/notifications').then(r => r.ok && setD(r));
-  useEffect(() => { load(); }, []);
-  const markAll = async () => { await mPatch('/api/member/notifications', {}); load(); };
+
+  /* Opening this page marks everything read.
+   *
+   * Facebook's rule, and the right one: the badge means "there is something
+   * you have not seen", and you have now seen it. Requiring a second click to
+   * clear a number you are already looking at makes the badge lie. Individual
+   * items keep their unread tint for this render so the page does not go flat
+   * the instant it loads. */
+  useEffect(() => {
+    let off = false;
+    (async () => {
+      const r = await mGet('/api/member/notifications');
+      if (off || !r?.ok) return;
+      setD(r);
+      if (r.unread > 0) {
+        await mPatch('/api/member/notifications', {});
+        // Tells MemberShell to drop the badge now rather than at its next poll.
+        window.dispatchEvent(new Event('tnr-notifications-read'));
+      }
+    })();
+    return () => { off = true; };
+  }, []);
+
+  const markAll = async () => {
+    await mPatch('/api/member/notifications', {});
+    window.dispatchEvent(new Event('tnr-notifications-read'));
+    load();
+  };
 
   return (
     <MemberShell active="/member/notifications">

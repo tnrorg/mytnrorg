@@ -84,11 +84,43 @@ export default function MemberShell({ active, children }) {
   const [member, setMember] = useState(null);
   const [state, setState] = useState('loading');
   const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
 
   const refresh = () => mGet('/api/member/me?t=' + Date.now()).then(r => {
     if (r?.ok) { setMember(r.member); setState('ok'); }
     else setState('denied');
   });
+
+  /* Unread count for the sidebar badge.
+   *
+   * Polled every 60 seconds rather than pushed. A live socket for a number
+   * that changes a few times a week would be a connection held open on every
+   * portal page for no visible benefit, and this runs on shared mobile data.
+   *
+   * Paused while the tab is hidden — there is no one to show a badge to, and
+   * a phone in a pocket should not be polling. */
+  const loadUnread = () => mGet('/api/member/notifications')
+    .then(r => { if (r?.ok) setUnread(Number(r.unread) || 0); })
+    .catch(() => { /* a missing badge must never disturb the page */ });
+
+  useEffect(() => {
+    if (!getToken()) return;
+    loadUnread();
+    const tick = setInterval(() => {
+      if (document.visibilityState === 'visible') loadUnread();
+    }, 60_000);
+    // The notifications page fires this after marking things read, so the
+    // badge clears at once instead of lingering for up to a minute.
+    const onRead = () => loadUnread();
+    window.addEventListener('tnr-notifications-read', onRead);
+    document.addEventListener('visibilitychange', onRead);
+    return () => {
+      clearInterval(tick);
+      window.removeEventListener('tnr-notifications-read', onRead);
+      document.removeEventListener('visibilitychange', onRead);
+    };
+    // eslint-disable-next-line
+  }, []);
 
   useEffect(() => {
     if (!getToken()) { window.location.href = '/member/login'; return; }
@@ -131,14 +163,28 @@ export default function MemberShell({ active, children }) {
         </div>
 
         <nav className={`${open ? 'block' : 'hidden'} lg:block p-2 space-y-0.5`}>
-          {navFor(member).map(([label, href, icon]) => (
-            <a key={href} href={href}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition ${active === href
-                ? 'text-white font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-              style={active === href ? { background: `linear-gradient(180deg,${C.green},${C.deep})` } : {}}>
-              <span className="text-base">{icon}</span>{label}
-            </a>
-          ))}
+          {navFor(member).map(([label, href, icon]) => {
+            const on = active === href;
+            const badge = href === '/member/notifications' ? unread : 0;
+            return (
+              <a key={href} href={href}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition ${on
+                  ? 'text-white font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+                style={on ? { background: `linear-gradient(180deg,${C.green},${C.deep})` } : {}}>
+                <span className="text-base">{icon}</span>{label}
+                {/* Only when there is something unread. A permanent 0 beside
+                    Notifications is furniture, and people stop seeing it. */}
+                {badge > 0 && (
+                  <span aria-label={`${badge} unread`}
+                    className={`ml-auto min-w-[20px] px-1.5 py-0.5 rounded-full text-[10px] font-black
+                      text-center leading-none tabular-nums ${on ? 'bg-white text-[#0B6B4F]' : 'text-white'}`}
+                    style={on ? undefined : { background: '#DC2626' }}>
+                    {badge > 99 ? '99+' : badge}
+                  </span>
+                )}
+              </a>
+            );
+          })}
           {/* A way back to the public site.
               Without it the only exit from the portal is signing out, so a
               member who simply wants to read the site has to end their session
