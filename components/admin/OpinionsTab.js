@@ -25,6 +25,7 @@ const fmt = (d) => (d ? new Date(d).toLocaleString('en-GB', {
 export default function OpinionsTab({ toast }) {
   const [rows, setRows] = useState([]);
   const [counts, setCounts] = useState({});
+  const [view, setView] = useState('articles');      // articles | comments
   const [status, setStatus] = useState('pending');   // the queue is the default view
   const [openId, setOpenId] = useState(null);
   const [note, setNote] = useState('');
@@ -93,6 +94,20 @@ export default function OpinionsTab({ toast }) {
         </div>
       )}
 
+      {/* Articles or the comment queue. Comments live here rather than in
+          their own tab because they belong to this section, and a tab that is
+          empty most weeks gets ignored. */}
+      <div className="flex gap-1.5 border-b border-tnr-line pb-3">
+        {[['articles', 'Articles'], ['comments', 'Comments']].map(([k, l]) => (
+          <button key={k} onClick={() => setView(k)}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${view === k
+              ? 'bg-tnr-gold text-tnr-black' : 'text-tnr-cream/60 hover:bg-white/5'}`}>{l}</button>
+        ))}
+      </div>
+
+      {view === 'comments' && <CommentQueue toast={toast} />}
+
+      {view === 'articles' && <>
       <div className="flex flex-wrap gap-1.5">
         {chip('pending', 'Awaiting review')}
         {chip('published', 'Published')}
@@ -205,6 +220,103 @@ export default function OpinionsTab({ toast }) {
           </Card>
         );
       })}
+      </>}
+    </div>
+  );
+}
+
+/* Every comment across every article, newest first.
+ *
+ * Comments go live the moment they are posted, so this is the place a problem
+ * is actually found. Scanning one list beats opening thirty articles, and the
+ * newest entry is the one least likely to have been seen by anyone yet.
+ *
+ * Removal is a soft delete: hidden from the public thread, still on the record
+ * with the name of whoever removed it, and restorable. Moderation calls get
+ * made quickly and are sometimes wrong.
+ */
+function CommentQueue({ toast }) {
+  const [rows, setRows] = useState([]);
+  const [removed, setRemoved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [hint, setHint] = useState('');
+
+  const load = () => {
+    setLoading(true);
+    aGet('/api/admin/opinions/comments' + (removed ? '?removed=1' : '')).then(r => {
+      setRows(r.ok ? (r.comments || []) : []);
+      setHint(r.hint || '');
+      setLoading(false);
+    });
+  };
+  useEffect(load, [removed]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function remove(c) {
+    if (!confirm('Remove this comment from the public page?')) return;
+    const r = await aDel('/api/admin/opinions/comments?id=' + c.id);
+    if (!r.ok) return toast?.(r.message || 'Failed.', 'err');
+    toast?.('Comment removed.', 'ok');
+    setRows(list => list.filter(x => x.id !== c.id));
+  }
+
+  async function restore(c) {
+    const r = await aPatch('/api/admin/opinions/comments?id=' + c.id, {});
+    if (!r.ok) return toast?.(r.message || 'Failed.', 'err');
+    toast?.('Comment restored.', 'ok');
+    setRows(list => list.filter(x => x.id !== c.id));
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {[[false, 'Live'], [true, 'Removed']].map(([k, l]) => (
+          <button key={l} onClick={() => setRemoved(k)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${removed === k
+              ? 'bg-tnr-gold text-tnr-black' : 'text-tnr-cream/60 hover:bg-white/5 border border-tnr-line'}`}>
+            {l}
+          </button>
+        ))}
+        <span className="text-[11px] text-tnr-cream/40 ml-1">
+          Comments appear immediately. Members can remove their own; article authors can remove any on their piece.
+        </span>
+      </div>
+
+      {hint && (
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
+          {hint}
+        </div>
+      )}
+
+      {!rows.length && (
+        <Card><div className="text-sm text-tnr-cream/40 text-center py-8">
+          {loading ? 'Loading…' : removed ? 'Nothing has been removed.' : 'No comments yet.'}
+        </div></Card>
+      )}
+
+      {rows.map(c => (
+        <Card key={c.id}>
+          <div className="flex flex-wrap items-baseline gap-2 text-xs">
+            <span className="font-bold text-tnr-cream">{c.author?.full_name || 'Unknown member'}</span>
+            <span className="text-tnr-cream/40">{c.author?.membership_id}</span>
+            <span className="text-tnr-cream/40">{new Date(c.created_at).toLocaleString()}</span>
+            {c.deleted_by && <span className="text-red-300">removed by {c.deleted_by}</span>}
+          </div>
+
+          <p className="mt-2 text-sm text-tnr-cream/80 leading-relaxed whitespace-pre-wrap">{c.body}</p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+            {c.opinion?.slug && (
+              <a href={`/media/opinions/${c.opinion.slug}`} target="_blank" rel="noopener noreferrer"
+                className="text-tnr-goldLight hover:underline">
+                on “{c.opinion.published_title || c.opinion.slug}” ↗
+              </a>
+            )}
+            {removed
+              ? <button className="text-tnr-cream/60 hover:underline ml-auto" onClick={() => restore(c)}>Restore</button>
+              : <button className="text-red-400 hover:underline ml-auto" onClick={() => remove(c)}>Remove</button>}
+          </div>
+        </Card>
+      ))}
     </div>
   );
 }

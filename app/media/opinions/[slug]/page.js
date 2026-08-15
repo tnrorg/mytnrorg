@@ -9,6 +9,7 @@ import Avatar from '@/components/ui/Avatar';
 import OpinionViewTracker from '@/components/site/OpinionViewTracker';
 import OpinionLike from '@/components/site/OpinionLike';
 import ShareButtons from '@/components/site/ShareButtons';
+import OpinionComments from '@/components/site/OpinionComments';
 import { COLORS, FONT } from '@/lib/design/tokens';
 import { paragraphs, readingMinutes } from '@/lib/opinions';
 
@@ -149,6 +150,10 @@ export default function OpinionArticle() {
               style={{ color: COLORS.green700 }}>See {o.author.full_name}&rsquo;s profile →</a></>
           )}
         </div>
+
+        {/* After the disclaimer, so a reader has seen whose view this is
+            before responding to it. */}
+        <OpinionComments slug={o.slug} />
       </main>
     </>
   );
