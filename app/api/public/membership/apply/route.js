@@ -22,11 +22,28 @@ export async function POST(req) {
 
   /* Registration is a public write that creates a row, uploads an image and
      sends two emails. Without a limit one script can fill the committee's
-     queue and exhaust the daily mail quota. Three per IP per hour still allows
-     a family sharing a connection to apply. */
-  const gate = await throttle('apply', ip, { max: 3, windowMinutes: 60, lockMinutes: 60 });
+     queue and exhaust the daily mail quota.
+
+     TWO THINGS WERE WRONG WITH THE OLD LIMIT, and both locked out real people.
+
+     It counted ATTEMPTS, not applications. It ran before validation, so an
+     applicant who mistyped a field, was shown the error and corrected it was
+     three tries from a one-hour lockout — punished for filling in a form the
+     way people actually fill in forms. It now charges the limit only after an
+     application has genuinely been created, below.
+
+     And three per hour is far too few for how registration really happens
+     here. Pakistani mobile networks put a great many subscribers behind one
+     public address, and members register in groups — one person with a laptop
+     helping a dozen others at a gathering is a normal evening's work, and to
+     this endpoint it looks like one connection. Twenty completed applications
+     an hour still stops a script; a fifteen-minute pause, rather than an
+     hour, is a recoverable mistake if a real group ever reaches it. */
+  const LIMIT = { max: 20, windowMinutes: 60, lockMinutes: 15 };
+  const gate = await throttle('apply', ip, { ...LIMIT, count: false });
   if (gate.blocked) return fail('RATE_LIMITED', 429, {
-    message: 'Too many applications from this connection. Please try again later.' });
+    message: 'A lot of applications have come from this connection in the last hour. '
+      + 'Please wait about 15 minutes and try again — your details have not been lost.' });
 
   const b = await readJson(req);
 
@@ -191,6 +208,20 @@ export async function POST(req) {
       message: 'Could not submit your application. Please try again.' ,
     });
   }
+
+  /* The application exists. NOW charge the rate limit.
+   *
+   * Deliberately after the insert: this counts applications created, which is
+   * the thing worth limiting, rather than requests received — which included
+   * every corrected typo and every duplicate check, and is what was locking
+   * real applicants out for an hour.
+   *
+   * Not awaited into the response path beyond this call, and wrapped: a
+   * throttle-bookkeeping failure must never lose an application that is
+   * already safely in the table. */
+  try {
+    await throttle('apply', ip, LIMIT);
+  } catch { /* the row is saved; the counter is not worth failing over */ }
 
   // Insert succeeded — now claim the reference number.
   let reference_no = placeholder;
