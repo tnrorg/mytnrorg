@@ -14,6 +14,18 @@ const FIELDS =
 
 const MIGRATION_HINT = 'Administrator: run supabase/migration_news.sql.';
 
+/* A timestamp we are willing to store.
+ *
+ * Returns null for anything empty or unparseable, and a full ISO string
+ * otherwise. A bare "2026-08-17T20:00" carries no timezone, so Postgres would
+ * read it as UTC — which is how a post published from Pakistan ended up
+ * scheduled five hours into its own future and vanished from the site. */
+function normalizeStamp(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 export async function GET(req) {
   const { res } = requireAdmin(req); if (res) return res;
   const status = (new URL(req.url).searchParams.get('status') || '').trim();
@@ -48,8 +60,11 @@ export async function POST(req) {
     body: String(b.body || '').trim().slice(0, LIMITS.body),
     category: CATEGORIES.includes(b.category) ? b.category : 'News',
     pinned: !!b.pinned,
-    publish_at: b.publish_at || null,
-    expires_at: b.expires_at || null,
+    // Normalised, so a value without a timezone can never be filed as UTC and
+    // silently push a post hours into the future. The editor already sends
+    // proper ISO; this catches anything that does not.
+    publish_at: normalizeStamp(b.publish_at),
+    expires_at: normalizeStamp(b.expires_at),
     author_name: String(b.author_name || '').trim() || null,
     updated_at: new Date().toISOString(),
   };

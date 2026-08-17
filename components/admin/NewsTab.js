@@ -2,7 +2,9 @@
 import { useEffect, useState } from 'react';
 import { aGet, aPost, aDel } from './adminApi';
 import { Card } from './ui';
-import { CATEGORIES, LIMITS, validateNews, wordCount, fmtDate } from '@/lib/news';
+import {
+  CATEGORIES, LIMITS, validateNews, wordCount, fmtDate, toLocalInput, fromLocalInput,
+} from '@/lib/news';
 
 const BLANK = {
   title: '', summary: '', body: '', category: 'News', cover_url: '', cover_data: '',
@@ -146,18 +148,47 @@ export default function NewsTab({ toast }) {
               className={input + ' leading-relaxed font-normal'} />
           </F>
 
+          {/* Times are converted between the editor's clock and UTC on the way
+              in and out — see toLocalInput / fromLocalInput. Sending the raw
+              picker value stored it as UTC, which pushed every scheduled post
+              hours into the future and made it silently invisible. */}
           <div className="grid sm:grid-cols-2 gap-4">
-            <F label="Publish at" hint="Leave empty to publish immediately.">
-              <input type="datetime-local" className={input}
-                value={(editing.publish_at || '').slice(0, 16)}
-                onChange={e => setEditing({ ...editing, publish_at: e.target.value })} />
+            <F label="Publish at" hint="Leave empty to publish immediately. Your local time.">
+              <div className="flex gap-2">
+                <input type="datetime-local" className={input}
+                  value={toLocalInput(editing.publish_at)}
+                  onChange={e => setEditing({ ...editing, publish_at: fromLocalInput(e.target.value) })} />
+                {editing.publish_at && (
+                  <button type="button" onClick={() => setEditing({ ...editing, publish_at: '' })}
+                    className="shrink-0 px-3 rounded-xl border border-white/10 text-xs text-tnr-cream/70
+                      hover:bg-white/5">Now</button>
+                )}
+              </div>
             </F>
             <F label="Hide after" hint="Optional. For a notice that stops being true.">
-              <input type="datetime-local" className={input}
-                value={(editing.expires_at || '').slice(0, 16)}
-                onChange={e => setEditing({ ...editing, expires_at: e.target.value })} />
+              <div className="flex gap-2">
+                <input type="datetime-local" className={input}
+                  value={toLocalInput(editing.expires_at)}
+                  onChange={e => setEditing({ ...editing, expires_at: fromLocalInput(e.target.value) })} />
+                {editing.expires_at && (
+                  <button type="button" onClick={() => setEditing({ ...editing, expires_at: '' })}
+                    className="shrink-0 px-3 rounded-xl border border-white/10 text-xs text-tnr-cream/70
+                      hover:bg-white/5">Clear</button>
+                )}
+              </div>
             </F>
           </div>
+
+          {/* Scheduling is the one setting whose mistake is invisible: the post
+              looks published everywhere in this panel and appears nowhere on
+              the site. So it says, in plain words, what will happen. */}
+          {editing.publish_at && new Date(editing.publish_at) > new Date() && (
+            <p className="text-[11px] text-amber-300 -mt-2">
+              This will stay hidden from the public site until{' '}
+              {new Date(editing.publish_at).toLocaleString()} (your time).
+              Press <b>Now</b> to publish immediately.
+            </p>
+          )}
 
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input type="checkbox" checked={!!editing.pinned} className="w-4 h-4"
