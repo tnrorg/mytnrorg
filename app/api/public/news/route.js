@@ -14,9 +14,14 @@ export const dynamic = 'force-dynamic';
  * `created_by` is never selected. Which admin wrote a piece is internal; the
  * public byline is `author_name`, which is set deliberately.
  */
+/* `expires_at` is selected even though nothing renders it.
+ *
+ * The scheduling window is applied to these rows below, and a column that is
+ * not selected comes back undefined — which read as "no expiry set" and let
+ * expired posts through. The check looked correct and did nothing. */
 const PUBLIC_FIELDS =
   'id, slug, title, summary, body, cover_url, category, pinned, ' +
-  'publish_at, created_at, views, author_name';
+  'publish_at, expires_at, created_at, views, author_name';
 
 export async function GET(req) {
   const p = new URL(req.url).searchParams;
@@ -53,11 +58,41 @@ export async function GET(req) {
 
   const { data, error } = await q;
   // A site with no news yet is not an error, and the page says so plainly.
-  if (error) return ok({ posts: [], categories: CATEGORIES, hint: 'news_posts table not found' });
+  if (error) return ok({
+    posts: [], categories: CATEGORIES,
+    why: { stage: 'query_failed', message: error.message },
+  });
 
-  const live = (data || []).filter(p =>
-    (!p.publish_at || p.publish_at <= nowIso) &&
-    (!p.expires_at || p.expires_at >= nowIso));
+  const rows = data || [];
 
-  return ok({ posts: slug ? live : live.slice(0, limit), categories: CATEGORIES });
+  /* Compared as dates, not as strings.
+   *
+   * Postgres returns "2026-08-17T15:00:00+00:00" while toISOString() produces
+   * "...Z". Those two spellings of the same instant do not compare correctly
+   * character by character, so a post could be judged unpublished purely
+   * because of how its timestamp was written. */
+  const now = Date.now();
+  const ms = (v) => (v ? new Date(v).getTime() : null);
+  const live = rows.filter(p => {
+    const start = ms(p.publish_at), end = ms(p.expires_at);
+    if (start !== null && !Number.isNaN(start) && start > now) return false;
+    if (end !== null && !Number.isNaN(end) && end < now) return false;
+    return true;
+  });
+
+  /* When the answer is "nothing", say which step produced the nothing.
+   *
+   * Counts only — no titles, no content. An empty list has four different
+   * causes that all render identically, and this is the difference between a
+   * five-second answer and an afternoon. */
+  const why = live.length ? undefined : {
+    stage: rows.length ? 'filtered_out' : 'no_rows_matched_query',
+    rows_from_query: rows.length,
+    server_now: new Date(now).toISOString(),
+    scheduled_ahead: rows.filter(p => ms(p.publish_at) > now).length,
+    already_expired: rows.filter(p => ms(p.expires_at) !== null && ms(p.expires_at) < now).length,
+    category_filter: category || null,
+  };
+
+  return ok({ posts: slug ? live : live.slice(0, limit), categories: CATEGORIES, why });
 }

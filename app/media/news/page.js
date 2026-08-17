@@ -16,14 +16,19 @@ import { CATEGORIES, CATEGORY_TONE, readingMinutes, fmtDate } from '@/lib/news';
 export default function NewsIndex() {
   const [rows, setRows] = useState(null);      // null = loading
   const [cat, setCat] = useState('');
+  const [why, setWhy] = useState(null);        // server's explanation of an empty list
 
   useEffect(() => {
     let off = false;
     setRows(null);
     fetch(`/api/public/news${cat ? `?category=${encodeURIComponent(cat)}` : ''}`, { cache: 'no-store' })
       .then(r => r.json())
-      .then(j => { if (!off) setRows(j?.ok ? (j.posts || []) : []); })
-      .catch(() => { if (!off) setRows([]); });
+      .then(j => {
+        if (off) return;
+        setRows(j?.ok ? (j.posts || []) : []);
+        setWhy(j?.why || null);
+      })
+      .catch(() => { if (!off) { setRows([]); setWhy({ stage: 'network' }); } });
     return () => { off = true; };
   }, [cat]);
 
@@ -80,6 +85,20 @@ export default function NewsIndex() {
               {cat ? 'Try another category — there may be posts elsewhere.'
                 : 'Updates from the committee will appear here.'}
             </p>
+
+            {/* Shown only when posts EXIST but were filtered out. A visitor to
+                a site with genuinely no news sees nothing extra; an admin
+                wondering why their published post is missing gets the answer
+                instead of an empty page that could mean anything. */}
+            {why?.rows_from_query > 0 && (
+              <p className="mt-4 text-[12px] text-amber-700 max-w-md mx-auto leading-relaxed">
+                {why.scheduled_ahead > 0
+                  ? `${why.scheduled_ahead} post(s) are scheduled for a later date and will appear then.`
+                  : why.already_expired > 0
+                    ? `${why.already_expired} post(s) have passed their "hide after" date.`
+                    : `${why.rows_from_query} post(s) exist but are outside their publish window.`}
+              </p>
+            )}
           </div>
         )}
 
