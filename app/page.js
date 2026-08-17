@@ -7,6 +7,7 @@ import Ticker from '@/components/home/Ticker';
 import CommunityStats from '@/components/home/CommunityStats';
 import LeadershipMessages from '@/components/home/LeadershipMessages';
 import CoreAreas from '@/components/home/CoreAreas';
+import LatestNews from '@/components/home/LatestNews';
 import OpinionsPreview from '@/components/home/OpinionsPreview';
 import JoinCta from '@/components/home/JoinCta';
 import MembersPreview from '@/components/home/MembersPreview';
@@ -67,6 +68,9 @@ export default async function Home() {
           the reader knows the people behind it, and it sits directly above the
           Join call to action it is meant to motivate. */}
       <CoreAreas />
+      {/* What the organisation has actually been doing, before what its
+          members think about it. Renders nothing until a post is published. */}
+      <LatestNews />
       {/* Members writing in their own name, after the organisation's own
           areas of work — the order says "this is what TNR does, and here is
           what its members think about it". Renders nothing until an opinion

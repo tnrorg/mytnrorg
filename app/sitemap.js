@@ -47,6 +47,7 @@ const STATIC_ROUTES = [
   ['/statistics/projects',          0.6, 'weekly'],
   ['/cec/apply',                    0.6, 'monthly'],
   ['/media/opinions',               0.8, 'weekly'],
+  ['/media/news',                   0.9, 'daily'],
   ['/contact',                      0.5, 'yearly'],
   ['/election-portal',              0.5, 'weekly'],
   ['/results',                      0.5, 'weekly'],
@@ -155,6 +156,32 @@ export default async function sitemap() {
         lastModified: o.published_at ? new Date(o.published_at) : now,
         changeFrequency: 'monthly',
         priority: 0.6,
+      });
+    }
+  } catch { /* the table may not exist yet */ }
+
+  /* Published news — /media/news/[slug].
+   *
+   * Same rules as opinions, plus the scheduling window: a story timed for next
+   * Friday must not be handed to Google this Tuesday, and one that has expired
+   * should stop being advertised. */
+  try {
+    const nowIso = new Date().toISOString();
+    const { data } = await sb.from('news_posts')
+      .select('slug, publish_at, created_at, expires_at')
+      .eq('status', 'published')
+      .not('slug', 'is', null)
+      .or(`publish_at.is.null,publish_at.lte.${nowIso}`)
+      .or(`expires_at.is.null,expires_at.gte.${nowIso}`)
+      .limit(1000);
+
+    for (const p of data || []) {
+      if (!p.slug) continue;
+      routes.push({
+        url: `${BASE}/media/news/${encodeURIComponent(p.slug)}`,
+        lastModified: new Date(p.publish_at || p.created_at || now),
+        changeFrequency: 'monthly',
+        priority: 0.7,
       });
     }
   } catch { /* the table may not exist yet */ }
