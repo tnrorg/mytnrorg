@@ -11,9 +11,61 @@ export const maxDuration = 60;
 
 const MAX_BATCH = 25; // keep each request inside the serverless time limit
 
+// 'none' means "send only to the addresses I typed" — see the send path.
+export const AUDIENCES = ['all', 'not_voted', 'voted', 'candidates', 'portal', 'none'];
+
+/* Registered portal members — the membership system, not the voter roll.
+ *
+ * These are two different populations and always have been. `members` is who
+ * could vote in the election; `membership_members` is who has joined TNR since.
+ * A member who registered this month is in the second and not the first, which
+ * is why they never received any of these emails.
+ *
+ * Mapped onto the same shape the voter rows use, so fillTokens and the send
+ * loop below do not need to know which table a recipient came from —
+ * {{name}}, {{member_code}} and {{village}} work for both.
+ */
+async function portalRecipients() {
+  const sb = supabaseAdmin();
+  const { data, error } = await sb.from('membership_members')
+    .select('id, full_name, membership_id, village, email, status, deleted_at')
+    .is('deleted_at', null);
+  if (error) { const e = new Error('membership_members query failed: ' + error.message); e.dbError = true; throw e; }
+
+  const LIVE = ['active', 'approved'];
+  return (data || [])
+    .filter(m => LIVE.includes(String(m.status || '').trim().toLowerCase()))
+    .map(m => ({
+      id: m.id,
+      full_name: m.full_name,
+      member_code: m.membership_id,      // token name the composer already uses
+      village: m.village,
+      email: String(m.email || '').trim(),
+      source: 'portal',
+    }))
+    .filter(m => m.email.includes('@'));
+}
+
+/** Loose address check — enough to catch a typo, not a full RFC parser. */
+export const looksLikeEmail = (v) =>
+  /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]{2,}$/.test(String(v || '').trim());
+
+/** Free-typed addresses, for people who are in neither table. */
+export function parseExtraEmails(raw) {
+  return [...new Set(
+    String(raw || '')
+      .split(/[\s,;\n]+/)
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean)
+  )];
+}
+
 // Returns the recipient list for the chosen audience (approved members with an email).
 async function recipients(audience, election, member_ids) {
   const sb = supabaseAdmin();
+  // The portal audience comes from a different table entirely and shares none
+  // of the voting filters below.
+  if (audience === 'portal') return portalRecipients();
   // select('*') so a missing optional column can never blank the whole query
   const { data: members, error: memErr } = await sb.from('members').select('*');
   if (memErr) { const e = new Error('members query failed: ' + memErr.message); e.dbError = true; throw e; }
@@ -55,9 +107,12 @@ export async function GET(req) {
   if (res) return res;
   try {
   const election = await getActiveElection();
-  const [all, notVoted, voted, candidates] = await Promise.all([
+  const [all, notVoted, voted, candidates, portal] = await Promise.all([
     recipients('all', election), recipients('not_voted', election),
     recipients('voted', election), recipients('candidates', election),
+    // Never let a missing membership table take down the whole panel — the
+    // election audiences must still work if this one cannot be read.
+    recipients('portal', election).catch(() => []),
   ]);
   // Diagnostics so a zero count explains itself in the UI
   const sb = supabaseAdmin();
@@ -80,7 +135,10 @@ export async function GET(req) {
   return ok({
     members_directory,
     election: election ? { id: election.id, title: election.title, voting_open: !!election.voting_open } : null,
-    counts: { all: all.length, not_voted: notVoted.length, voted: voted.length, candidates: candidates.length, missing_email: noEmail },
+    counts: {
+      all: all.length, not_voted: notVoted.length, voted: voted.length,
+      candidates: candidates.length, portal: portal.length, missing_email: noEmail,
+    },
     diagnostics: { total_members: rows.length, approved: approved.length, statuses, columns: sample, has_email_column: sample.includes('email') },
     smtp_configured: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS),
   });
@@ -97,7 +155,7 @@ export async function POST(req) {
   const subject = String(b.subject || '').trim();
   const message = String(b.message || '').trim();
   const heading = String(b.heading || '').trim();
-  const audience = ['all', 'not_voted', 'voted', 'candidates'].includes(b.audience) ? b.audience : 'not_voted';
+  const audience = AUDIENCES.includes(b.audience) ? b.audience : 'not_voted';
   const offset = Math.max(0, Number(b.offset || 0));
   const ip = clientIp(req);
 
@@ -106,7 +164,16 @@ export async function POST(req) {
 
   const election = await getActiveElection();
   const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
-  const ctaUrl = b.include_button === false ? null : `${origin}/vote`;
+  /* The "Cast Your Vote" button belongs to election audiences only.
+   *
+   * Portal members and typed-in addresses may have no vote to cast — several
+   * joined after the election — so the button is OFF by default for them and
+   * only appears if the admin ticks it deliberately. Mailing someone outside
+   * the organisation a link telling them to vote is worse than no button. */
+  const electionAudience = ['all', 'not_voted', 'voted', 'candidates'].includes(audience);
+  const wantButton = b.include_button === true
+    || (b.include_button !== false && electionAudience);
+  const ctaUrl = wantButton ? `${origin}/vote` : null;
   const ctaText = 'Cast Your Vote';
 
   // Test send — one email to the admin, nothing recorded against members.
@@ -124,7 +191,41 @@ export async function POST(req) {
   }
 
   const member_ids = Array.isArray(b.member_ids) ? b.member_ids : null;
-  const all = await recipients(audience, election, member_ids);
+  const extra = parseExtraEmails(b.extra_emails);
+  const badExtra = extra.filter(e => !looksLikeEmail(e));
+  if (badExtra.length)
+    return fail('BAD_EMAIL', 400, {
+      message: `That does not look like a valid address: ${badExtra.slice(0, 3).join(', ')}`,
+    });
+
+  /* Typed-in addresses REPLACE the audience when no audience list is wanted,
+   * and are appended when one is.
+   *
+   * The composer sends `audience: 'none'` for the first case — someone writing
+   * to two people outside the organisation should not have to worry that a
+   * highlighted button in the corner is also mailing 375 members. Nothing
+   * silently widens who receives a message. */
+  const audienceList = audience === 'none' ? [] : await recipients(audience, election, member_ids);
+
+  /* Deduplicate by address.
+   *
+   * A person can be in the voter roll AND the portal AND typed in by hand —
+   * three rows, one inbox. Without this they get the same message three times
+   * and the send count reported back is wrong. */
+  const seen = new Set();
+  const all = [];
+  for (const m of [...audienceList, ...extra.map(e => ({ email: e, source: 'typed' }))]) {
+    const key = String(m.email || '').toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    all.push(m);
+  }
+
+  if (!all.length)
+    return fail('NO_RECIPIENTS', 400, {
+      message: 'No one to send to. Choose an audience, pick members, or type an address.',
+    });
+
   const batch = all.slice(offset, offset + MAX_BATCH);
   if (!batch.length)
     return ok({ done: true, total: all.length, sent: 0, failed: 0, next_offset: offset, errors: [] });
@@ -148,7 +249,8 @@ export async function POST(req) {
 
   await logAudit({
     action: 'REMINDER_EMAIL_SENT', actor: admin?.username || 'admin',
-    details: `${audience} · ${sent} sent, ${errors.length} failed (${offset + 1}-${next_offset} of ${all.length}) · "${subject}"`,
+    details: `${audience}${extra.length ? ` +${extra.length} typed` : ''} · ${sent} sent, `
+      + `${errors.length} failed (${offset + 1}-${next_offset} of ${all.length}) · "${subject}"`,
     election_id: election?.id || null, ip,
   });
 

@@ -61,6 +61,8 @@ export default function RemindersTab({ toast }) {
   const [heading, setHeading] = useState(PRESETS[0].heading);
   const [message, setMessage] = useState(PRESETS[0].message);
   const [button, setButton] = useState(true);
+  // Free-typed recipients, for people in neither list.
+  const [extraEmails, setExtraEmails] = useState('');
   const [testTo, setTestTo] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(null);
@@ -79,7 +81,23 @@ export default function RemindersTab({ toast }) {
   };
 
   const counts = info?.counts || {};
-  const target = picked.length ? picked.filter(p => p.has_email).length : (counts[audience] ?? 0);
+
+  /* Typed-in addresses, parsed for the preview.
+   *
+   * Mirrors the server's split exactly, so the number shown here is the number
+   * that will actually be sent. A preview that disagrees with the send is
+   * worse than no preview — it is the count people rely on before clicking. */
+  const extraList = [...new Set(
+    String(extraEmails || '').split(/[\s,;\n]+/).map(s => s.trim().toLowerCase()).filter(Boolean)
+  )];
+  const badExtra = extraList.filter(e => !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]{2,}$/.test(e));
+
+  const audienceCount = picked.length
+    ? picked.filter(p => p.has_email).length
+    : (audience === 'none' ? 0 : (counts[audience] ?? 0));
+  // Approximate: a typed address that is also in the audience is de-duplicated
+  // server-side, so the real total can be a little lower.
+  const target = audienceCount + extraList.length;
 
   const sendTest = async () => {
     if (!testTo.trim()) return toast?.('Enter a test email address first.', 'error');
@@ -97,18 +115,28 @@ export default function RemindersTab({ toast }) {
     const payloadHeading = override?.heading ?? heading;
     const payloadMessage = (override?.message ?? message).trim();
     if (!payloadSubject || !payloadMessage) return toast?.('Subject and message are required.', 'error');
+    if (badExtra.length)
+      return toast?.(`Check these addresses: ${badExtra.slice(0, 3).join(', ')}`, 'error');
+    if (!target) return toast?.('No recipients — choose an audience or type an address.', 'error');
+
     const label = picked.length ? `your ${picked.length} selected member(s)`
-      : audience === 'all' ? 'ALL approved members'
-      : audience === 'not_voted' ? 'members who have NOT voted yet'
-      : audience === 'candidates' ? 'CANDIDATES of the current election' : 'members who have already voted';
-    if (!confirm(`Send this email to ${target} recipient(s) — ${label}?\n\nThis cannot be undone.`)) return;
+      : audience === 'none' ? 'only the addresses you typed'
+      : audience === 'all' ? 'ALL approved voters'
+      : audience === 'not_voted' ? 'voters who have NOT voted yet'
+      : audience === 'candidates' ? 'CANDIDATES of the current election'
+      : audience === 'portal' ? 'ALL registered portal members'
+      : 'voters who have already voted';
+    const extraNote = extraList.length && audience !== 'none'
+      ? `\n\nPlus ${extraList.length} typed address(es).` : '';
+    if (!confirm(`Send this email to about ${target} recipient(s) — ${label}?${extraNote}\n\nThis cannot be undone.`)) return;
 
     setBusy(true); setProgress({ sent: 0, failed: 0, total: target, errors: [] });
     let offset = 0, sent = 0, failed = 0, errors = [];
     try {
       for (let guard = 0; guard < 500; guard++) {
         const r = await aPost('/api/admin/reminders',
-          { subject: payloadSubject, heading: payloadHeading, message: payloadMessage, audience, include_button: button, offset,
+          { subject: payloadSubject, heading: payloadHeading, message: payloadMessage, audience,
+            include_button: button, offset, extra_emails: extraEmails,
             member_ids: picked.length ? picked.map(p => p.id) : undefined });
         if (r.error) { toast?.(r.detail || r.message || 'Sending failed.', 'error'); break; }
         sent += r.sent || 0; failed += r.failed || 0;
@@ -216,9 +244,39 @@ export default function RemindersTab({ toast }) {
         <label className="block text-xs uppercase tracking-wide text-tnr-cream/50 mb-2">Send to</label>
         <div className="flex flex-wrap gap-2">
           <Pill k="not_voted" label="Not voted yet" n={counts.not_voted} />
-          <Pill k="all" label="All members" n={counts.all} />
+          <Pill k="all" label="All voters" n={counts.all} />
           <Pill k="voted" label="Already voted" n={counts.voted} />
           <Pill k="candidates" label="Candidates" n={counts.candidates} />
+          {/* A different population entirely — see the note below. */}
+          <Pill k="portal" label="Registered members" n={counts.portal} />
+          <Pill k="none" label="Typed addresses only" n={extraList.length} />
+        </div>
+        <p className="mt-2 text-[11px] text-tnr-cream/40 leading-relaxed">
+          The first four are the <b>election voter roll</b>. <b>Registered members</b> are
+          people who joined through the membership form — a newer and different list, which is
+          why they have never received these emails.
+        </p>
+      </div>
+
+      {/* ── Addresses outside both lists ── */}
+      <div className="rounded-2xl border border-white/10 p-4 space-y-2">
+        <label className="block text-xs uppercase tracking-wide text-tnr-cream/50">
+          Also send to these email addresses
+        </label>
+        <textarea value={extraEmails} onChange={e => setExtraEmails(e.target.value)} rows={2}
+          placeholder="someone@gmail.com, another@example.org"
+          className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm text-tnr-cream" />
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          {extraList.length > 0 && (
+            <span className={badExtra.length ? 'text-red-300' : 'text-tnr-goldLight'}>
+              {extraList.length} address{extraList.length === 1 ? '' : 'es'}
+              {badExtra.length > 0 && ` · check: ${badExtra.slice(0, 2).join(', ')}`}
+            </span>
+          )}
+          <span className="text-tnr-cream/40">
+            Separate with commas, spaces or new lines. For people who are in neither list —
+            a guest speaker, a partner organisation, a member whose email is not on file.
+          </span>
         </div>
       </div>
 

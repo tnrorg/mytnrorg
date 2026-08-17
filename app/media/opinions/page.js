@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { PenLine, Clock, Eye } from 'lucide-react';
+import { PenLine, Clock, Eye, MessageSquare } from 'lucide-react';
 import SiteNav from '@/components/site/SiteNav';
 import OpinionLike from '@/components/site/OpinionLike';
 import ShareButtons from '@/components/site/ShareButtons';
@@ -136,6 +136,13 @@ export default function OpinionsIndex() {
                       <div className="mt-1 flex items-center gap-1">
                         <OpinionLike compact slug={o.slug} initial={o.likes || 0}
                           initialLiked={known ? liked.has(o.slug) : undefined} />
+                        <a href={`/media/opinions/${o.slug}#comments`}
+                          aria-label={`${o.comments || 0} comments`} title="Comments"
+                          className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px]
+                            text-gray-500 hover:text-[#176B49] transition-colors">
+                          <MessageSquare size={11} strokeWidth={2.2} aria-hidden="true" />
+                          <span className="tabular-nums">{(o.comments || 0).toLocaleString()}</span>
+                        </a>
                         <ShareButtons compact title={o.published_title}
                           summary={o.published_summary}
                           path={`/media/opinions/${o.slug}`} />

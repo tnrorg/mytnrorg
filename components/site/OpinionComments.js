@@ -134,7 +134,9 @@ export default function OpinionComments({ slug }) {
   const count = all.length;
 
   return (
-    <section className="mt-10 pt-8 border-t border-gray-200">
+    // Named so the comment count on a card can link straight here, rather
+    // than dropping the reader at the top of the article to scroll.
+    <section id="comments" className="mt-10 pt-8 border-t border-gray-200 scroll-mt-24">
       <h2 className="flex items-center gap-2 text-lg font-black" style={{ color: COLORS.green900 }}>
         <MessageSquare size={18} strokeWidth={2.4} aria-hidden="true" />
         {count === 0 ? 'Comments' : count === 1 ? '1 Comment' : `${count} Comments`}

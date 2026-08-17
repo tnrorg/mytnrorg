@@ -76,16 +76,31 @@ export async function GET(req) {
    * the query fails and every piece shows zero, which is honest and does not
    * take the page down with it. */
   const likeCount = {};
+  const commentCount = {};
   if (data?.length) {
+    const ids = data.map(o => o.id);
+
     const { data: likeRows } = await sb.from('opinion_likes')
-      .select('opinion_id').in('opinion_id', data.map(o => o.id));
+      .select('opinion_id').in('opinion_id', ids);
     for (const l of (likeRows || []))
       likeCount[l.opinion_id] = (likeCount[l.opinion_id] || 0) + 1;
+
+    /* Comment totals. Replies count too — a thread of ten is a thread of ten,
+     * whether or not they were answers to each other.
+     *
+     * Removed comments are excluded, so a moderated thread shows the number a
+     * reader will actually find when they open it. Only the id column is
+     * selected: no name, no text. */
+    const { data: cRows } = await sb.from('opinion_comments')
+      .select('opinion_id').in('opinion_id', ids).is('deleted_at', null);
+    for (const c of (cRows || []))
+      commentCount[c.opinion_id] = (commentCount[c.opinion_id] || 0) + 1;
   }
 
   const opinions = (data || []).map(({ member_id, ...o }) => ({
     ...o,
     likes: likeCount[o.id] || 0,
+    comments: commentCount[o.id] || 0,
     author: authors[member_id] || null,
   }));
 
