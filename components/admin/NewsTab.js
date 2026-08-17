@@ -11,6 +11,31 @@ const BLANK = {
   pinned: false, publish_at: '', expires_at: '', author_name: 'TNR Media Team',
 };
 
+const input = 'w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm text-tnr-cream';
+
+/* Field wrapper. DEFINED AT MODULE SCOPE, and it has to stay there.
+ *
+ * Declaring a component inside another component's body creates a brand-new
+ * function on every render. React compares by identity, sees a different
+ * component type, and unmounts the whole subtree to mount a fresh one — which
+ * throws away the DOM node holding the text cursor.
+ *
+ * The visible symptom is that typing one character loses focus, so every
+ * letter needs a fresh click. That is what this was doing, and it is why this
+ * lives out here rather than a few lines further down where it reads more
+ * conveniently.
+ */
+function F({ label, err, hint, children }) {
+  return (
+    <div>
+      <label className="block text-xs uppercase tracking-wide text-tnr-cream/50 mb-1.5">{label}</label>
+      {children}
+      {hint && !err && <p className="mt-1 text-[11px] text-tnr-cream/40">{hint}</p>}
+      {err && <p className="mt-1 text-[11px] font-semibold text-red-300">{err}</p>}
+    </div>
+  );
+}
+
 /* News & Announcements.
  *
  * Drafts save without validation — a draft is somewhere to think, and refusing
@@ -74,16 +99,6 @@ export default function NewsTab({ toast }) {
     if (!r.ok) return toast?.(r.message || 'Failed.', 'err');
     toast?.('Deleted.', 'ok'); load();
   }
-
-  const F = ({ label, err, hint: h, children }) => (
-    <div>
-      <label className="block text-xs uppercase tracking-wide text-tnr-cream/50 mb-1.5">{label}</label>
-      {children}
-      {h && !err && <p className="mt-1 text-[11px] text-tnr-cream/40">{h}</p>}
-      {err && <p className="mt-1 text-[11px] font-semibold text-red-300">{err}</p>}
-    </div>
-  );
-  const input = 'w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm text-tnr-cream';
 
   // ── Editor ────────────────────────────────────────────────────────────────
   if (editing) return (

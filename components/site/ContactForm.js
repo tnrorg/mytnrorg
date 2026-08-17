@@ -10,6 +10,30 @@ import { COLORS } from '@/lib/design/tokens';
  * copies of a form is how four forms end up with four different validation
  * rules and three of them quietly broken.
  */
+/* Field wrapper. MUST stay at module scope.
+ *
+ * A component declared inside another component's body is a new function on
+ * every render. React compares component types by identity, sees a different
+ * type, and unmounts the subtree to mount a fresh one — discarding the DOM
+ * node that holds the text cursor.
+ *
+ * The symptom is that typing one character loses focus, so every letter needs
+ * a fresh click. On a public contact form that is not a rough edge, it is a
+ * form nobody can complete.
+ */
+function Field({ label, required, error, hint, children }) {
+  return (
+    <label className="block">
+      <span className="block text-xs font-bold text-gray-600 mb-1.5">
+        {label}{required && <span className="text-red-500"> *</span>}
+      </span>
+      {children}
+      {hint && !error && <span className="mt-1 block text-[11px] text-gray-500">{hint}</span>}
+      {error && <span className="mt-1 block text-[11px] text-red-600">{error}</span>}
+    </label>
+  );
+}
+
 export default function ContactForm({ kind = 'general' }) {
   const meta = kindByKey(kind);
 
@@ -89,17 +113,6 @@ export default function ContactForm({ kind = 'general' }) {
     borderColor: bad ? '#DC2626' : 'rgba(0,0,0,.12)',
     background: '#fff',
   });
-
-  const Field = ({ label, required, error, hint, children }) => (
-    <label className="block">
-      <span className="block text-xs font-bold text-gray-600 mb-1.5">
-        {label}{required && <span className="text-red-500"> *</span>}
-      </span>
-      {children}
-      {hint && !error && <span className="mt-1 block text-[11px] text-gray-500">{hint}</span>}
-      {error && <span className="mt-1 block text-[11px] text-red-600">{error}</span>}
-    </label>
-  );
 
   return (
     <form onSubmit={submit} noValidate className="space-y-4">
