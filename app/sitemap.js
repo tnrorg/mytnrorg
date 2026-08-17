@@ -171,12 +171,14 @@ export default async function sitemap() {
       .select('slug, publish_at, created_at, expires_at')
       .eq('status', 'published')
       .not('slug', 'is', null)
-      .or(`publish_at.is.null,publish_at.lte.${nowIso}`)
-      .or(`expires_at.is.null,expires_at.gte.${nowIso}`)
       .limit(1000);
 
+    // Window applied here rather than as stacked .or() filters — see the note
+    // in app/api/public/news/route.js for why.
     for (const p of data || []) {
       if (!p.slug) continue;
+      if (p.publish_at && p.publish_at > nowIso) continue;
+      if (p.expires_at && p.expires_at < nowIso) continue;
       routes.push({
         url: `${BASE}/media/news/${encodeURIComponent(p.slug)}`,
         lastModified: new Date(p.publish_at || p.created_at || now),

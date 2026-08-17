@@ -23,6 +23,7 @@ export default function NewsTab({ toast }) {
   const [errs, setErrs] = useState({});
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState('');
+  const [diag, setDiag] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = () => {
@@ -33,6 +34,8 @@ export default function NewsTab({ toast }) {
       setHint(r.ok ? '' : (r.hint || r.message || ''));
       setLoading(false);
     });
+    // Answers "why isn't this on the site?" without anyone having to guess.
+    aGet('/api/admin/news/diagnose').then(r => setDiag(r?.ok ? r : null));
   };
   useEffect(load, [status]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -214,6 +217,29 @@ export default function NewsTab({ toast }) {
       {hint && (
         <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
           {hint}
+        </div>
+      )}
+
+      {/* "Nothing is showing on the site" has four possible causes that all
+          look identical from outside. This says which one it is. */}
+      {diag && !diag.ready && (
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-100 text-xs space-y-1">
+          <div className="font-bold">Nothing is live on the public site yet</div>
+          <div className="text-amber-200/90">{diag.message}</div>
+          <div className="text-amber-200/70"><b>Fix:</b> {diag.fix}</div>
+          {diag.counts && (
+            <div className="text-amber-200/50 pt-1">
+              {diag.counts.total} total · {diag.counts.drafts} draft · {diag.counts.published} published
+              {diag.counts.scheduled ? ` · ${diag.counts.scheduled} scheduled` : ''}
+              {diag.counts.expired ? ` · ${diag.counts.expired} expired` : ''}
+            </div>
+          )}
+        </div>
+      )}
+      {diag?.ready && (
+        <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-200 text-xs">
+          {diag.counts.live} post{diag.counts.live === 1 ? '' : 's'} live on the public site.
+          {' '}<a href="/media/news" target="_blank" rel="noopener noreferrer" className="underline">View →</a>
         </div>
       )}
 

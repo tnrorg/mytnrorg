@@ -27,12 +27,20 @@ export async function GET(req) {
   const nowIso = new Date().toISOString();
   const sb = supabaseAdmin();
 
+  /* Status filter in the query; the scheduling window applied after.
+   *
+   * Two chained .or() calls would be the obvious way to express "published
+   * already AND not yet expired", but stacking them relies on how PostgREST
+   * combines repeated `or` parameters — and a subtle mistake there fails in
+   * the worst possible direction: silently returning nothing, which is
+   * indistinguishable from "no news posted yet".
+   *
+   * The window is checked in plain JavaScript instead. The list is capped at
+   * 50 rows, so filtering here costs nothing and cannot be misread. */
   let q = sb.from('news_posts')
     .select(PUBLIC_FIELDS)
     .eq('status', 'published')
     .not('slug', 'is', null)
-    .or(`publish_at.is.null,publish_at.lte.${nowIso}`)
-    .or(`expires_at.is.null,expires_at.gte.${nowIso}`)
     .order('pinned', { ascending: false })
     .order('publish_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false });
@@ -40,12 +48,16 @@ export async function GET(req) {
   if (slug) q = q.eq('slug', slug).limit(1);
   else {
     if (category && CATEGORIES.includes(category)) q = q.eq('category', category);
-    q = q.limit(limit);
+    q = q.limit(limit + 20);      // headroom for rows the window removes
   }
 
   const { data, error } = await q;
   // A site with no news yet is not an error, and the page says so plainly.
-  if (error) return ok({ posts: [], categories: CATEGORIES });
+  if (error) return ok({ posts: [], categories: CATEGORIES, hint: 'news_posts table not found' });
 
-  return ok({ posts: data || [], categories: CATEGORIES });
+  const live = (data || []).filter(p =>
+    (!p.publish_at || p.publish_at <= nowIso) &&
+    (!p.expires_at || p.expires_at >= nowIso));
+
+  return ok({ posts: slug ? live : live.slice(0, limit), categories: CATEGORIES });
 }
