@@ -27,6 +27,19 @@ export default function Opportunities() {
   const load = () => mGet('/api/member/opportunities').then(r => r.ok && setD(r));
   useEffect(() => { load(); }, []);
 
+  /* Deep link from the public board: /member/opportunities?id=…
+   *
+   * A signed-in member who clicks "View Details" out on the public site should
+   * land on that opportunity, not on the board with the job of finding it
+   * again. Read from window.location rather than useSearchParams, which would
+   * force a Suspense boundary this page does not otherwise need. */
+  useEffect(() => {
+    try {
+      const id = new URLSearchParams(window.location.search).get('id');
+      if (id) setOpenId(id);
+    } catch { /* no query string to read */ }
+  }, []);
+
   const toggleSave = async (o) => {
     await mPost('/api/member/opportunities',
       { action: o.saved ? 'unsave' : 'save', opportunity_id: o.id });
@@ -41,7 +54,15 @@ export default function Opportunities() {
   // ── One opportunity, open ──
   if (openId) return (
     <MemberShell active="/member/opportunities">
-      <OpportunityDetail id={openId} onBack={() => { setOpenId(null); load(); }} />
+      <OpportunityDetail id={openId} onBack={() => {
+        setOpenId(null);
+        load();
+        /* Drop ?id= from the address bar. Left there, a refresh would reopen
+           the opportunity the member just closed, and Back would appear not to
+           work. replaceState rather than push: closing a panel is not a place
+           in the reader's history. */
+        try { window.history.replaceState({}, '', '/member/opportunities'); } catch { /* ignore */ }
+      }} />
     </MemberShell>
   );
 

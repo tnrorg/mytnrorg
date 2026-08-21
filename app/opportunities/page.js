@@ -22,6 +22,34 @@ export default function PublicOpportunities() {
   const [cat, setCat] = useState('');
   const [gate, setGate] = useState(null);        // the opportunity they tried to open
   const [why, setWhy] = useState(null);          // server's explanation of an empty board
+  const [signedIn, setSignedIn] = useState(null);  // null = still checking
+
+  /* Is the visitor already a signed-in member?
+   *
+   * Asked of the SERVER, not inferred from the presence of a token. An expired
+   * or revoked session would otherwise send someone straight to the portal to
+   * be bounced back to a login screen — worse than the gate they were trying
+   * to avoid. */
+  useEffect(() => {
+    let off = false;
+    let token = null;
+    try { token = localStorage.getItem('tnr_member_token'); } catch { /* storage blocked */ }
+    if (!token) { setSignedIn(false); return; }
+
+    fetch('/api/member/me', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => { if (!off) setSignedIn(!!(j?.ok && j.member)); })
+      .catch(() => { if (!off) setSignedIn(false); });
+    return () => { off = true; };
+  }, []);
+
+  /* Signed-in members skip the gate entirely and land on the opportunity
+   * itself. The gate exists to explain a restriction to people it applies to;
+   * showing it to someone who already has access is just a door in their way. */
+  const openDetails = (o) => {
+    if (signedIn) window.location.href = `/member/opportunities?id=${encodeURIComponent(o.id)}`;
+    else setGate(o);
+  };
 
   /* Honour ?category= from the navigation menu.
    *
@@ -124,7 +152,7 @@ export default function PublicOpportunities() {
 
         {rows !== null && rows.length > 0 && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {rows.map(o => <OpportunityCard key={o.id} o={o} onView={setGate} />)}
+            {rows.map(o => <OpportunityCard key={o.id} o={o} onView={openDetails} />)}
           </div>
         )}
       </main>
