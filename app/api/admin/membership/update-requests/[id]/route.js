@@ -4,6 +4,7 @@ import { ok, fail, readJson } from '@/lib/api';
 import { clientIp } from '@/lib/audit';
 import { logMembershipAudit, normalizeEmail, normalizeMobile } from '@/lib/membership/core';
 import { SENSITIVE_FIELDS } from '@/lib/membership/profile';
+import { nameParts } from '@/lib/membership/nameCase';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,22 @@ export async function PATCH(req, { params }) {
     // Keep normalized duplicate-check columns in step.
     if (rq.field === 'email')  patch.email_normalized  = normalizeEmail(rq.requested_value);
     if (rq.field === 'mobile') patch.mobile_normalized = normalizeMobile(rq.requested_value);
+
+    /* A name change has to carry `full_name` with it.
+     *
+     * full_name is a separate stored column, read by the directory, the
+     * membership card, the certificate and every export. Updating only
+     * first_name would approve a change that appears in one place and nowhere
+     * else — the worst kind of half-done, because it looks like it worked. */
+    if (rq.field === 'first_name' || rq.field === 'last_name') {
+      const { data: m } = await sb.from('membership_members')
+        .select('first_name, last_name').eq('id', rq.member_id).maybeSingle();
+      const merged = { ...(m || {}), [rq.field]: rq.requested_value };
+      const tidy = nameParts(merged);
+      patch.first_name = tidy.first_name || merged.first_name || null;
+      patch.last_name = tidy.last_name || merged.last_name || null;
+      patch.full_name = tidy.full_name;
+    }
 
     const { error } = await sb.from('membership_members').update(patch).eq('id', rq.member_id);
     if (error) return fail('APPLY_FAILED', 500, { message: 'Could not apply the change.', detail: error.message });

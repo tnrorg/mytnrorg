@@ -10,6 +10,7 @@ import { uploadDataUrl } from '@/lib/storage';
 import { hashPassword } from '@/lib/membership/auth';
 import { validateApplication, REQUIRED_LABELS, ageFrom } from '@/lib/membership/validateApplication';
 import { GENDER_SELF_DESCRIBE, needsReferrer, needsHeardDetail } from '@/lib/membership/options';
+import { toNameCase } from '@/lib/membership/nameCase';
 import { ROLE_KEYS, roleLabel } from '@/lib/membership/roles';
 
 export const dynamic = 'force-dynamic';
@@ -48,8 +49,11 @@ export async function POST(req) {
   const b = await readJson(req);
 
   // ── Required fields ──
-  const first_name = String(b.first_name || '').trim();
-  const last_name  = String(b.last_name || '').trim();
+  /* Tidied on the way in, so the directory, the membership card and the
+     certificate all read the same properly-cased name however the applicant
+     typed it. See lib/membership/nameCase.js. */
+  const first_name = toNameCase(b.first_name);
+  const last_name  = toNameCase(b.last_name);
   const email      = normalizeEmail(b.email);
   const mobile     = normalizeMobile(b.mobile);
 

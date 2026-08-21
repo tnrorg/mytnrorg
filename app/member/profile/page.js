@@ -198,13 +198,16 @@ function CoreCard({ core, onSaved }) {
     if (r.ok) onSaved(r.message);
   };
   return (
-    <Card title="Membership Details" note="Changes here are reviewed by the membership committee before they take effect.">
+    <Card title="Membership Details"
+      note="Name, email, mobile and location are reviewed by the membership committee before they take effect. Date of birth is saved straight away.">
       <div className="grid sm:grid-cols-2 gap-3">
         <F l="Membership ID"><input value={core.membership_id} disabled className={base + ' opacity-60 font-mono'} /></F>
         <F l="Status"><input value={core.status} disabled className={base + ' opacity-60 uppercase'} /></F>
         {[['first_name', 'First Name'], ['last_name', 'Last Name'], ['email', 'Email'],
           ['mobile', 'Mobile'], ['village', 'Village'], ['union_council', 'Union Council']].map(([k, l]) => (
-          <F key={k} l={l}><input value={f[k]} onChange={e => setF({ ...f, [k]: e.target.value })} className={base} /></F>
+          <F key={k} l={`${l} — needs approval`}>
+            <input value={f[k]} onChange={e => setF({ ...f, [k]: e.target.value })} className={base} />
+          </F>
         ))}
         {/* Date of birth — editable, because the usual reason to change it is
             that it was mistyped at registration. min/max keep the picker

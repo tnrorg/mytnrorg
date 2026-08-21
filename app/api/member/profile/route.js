@@ -4,6 +4,7 @@ import { ok, fail, readJson } from '@/lib/api';
 import { SECTIONS, PROFILE_FIELDS, SENSITIVE_FIELDS, SELF_EDITABLE_CORE, FORBIDDEN_FIELDS, pick } from '@/lib/membership/profile';
 import { uploadDataUrl } from '@/lib/storage';
 import { ageFrom, MIN_AGE, MAX_AGE } from '@/lib/membership/validateApplication';
+import { toNameCase } from '@/lib/membership/nameCase';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,8 +62,10 @@ export async function PATCH(req) {
     }
   }
 
-  // 2a. Core details the member owns — name, mobile, village, union council.
-  //     Written immediately so the public profile reflects the change at once.
+  // 2a. Core details the member owns outright — date of birth, profession,
+  //     organisation and current address. Written immediately.
+  //     Name, mobile, village and union council are NOT here any more; they go
+  //     through approval in step 3.
   const core = pick(b, SELF_EDITABLE_CORE);
   // `field_of_study` is no longer asked for directly — the profession replaced
   // it — but the Fields of Study chart, the leadership profile and the
@@ -124,10 +127,13 @@ export async function PATCH(req) {
   if (member.leadership_profile_id) {
     const mirror = {};
     if (photoUrl) mirror.photo_url = photoUrl;
-    if (core.first_name || core.last_name) {
-      mirror.name = [core.first_name ?? member.first_name,
-                     core.last_name ?? member.last_name].filter(Boolean).join(' ');
-    }
+    /* Only the photo mirrors from here now.
+     *
+     * A name change no longer lands in `core` — it becomes a request — so the
+     * leadership card is updated when that request is APPROVED, in
+     * app/api/admin/membership/update-requests/[id]/route.js. Mirroring an
+     * unapproved name here would publish it on the public council page while
+     * the committee was still deciding. */
     if (Object.keys(mirror).length) {
       mirror.updated_at = new Date().toISOString();
       await sb.from('leadership_profiles')
@@ -139,7 +145,14 @@ export async function PATCH(req) {
   const requests = [];
   for (const f of SENSITIVE_FIELDS) {
     if (b[f] === undefined) continue;
-    const requested = String(b[f] ?? '').trim();
+    /* Names are tidied BEFORE the request is stored.
+     *
+     * So the committee reviews the value that will actually be saved, and an
+     * approval cannot quietly introduce "shabbir hussain" into a directory
+     * where every other row is properly cased. */
+    const requested = (f === 'first_name' || f === 'last_name')
+      ? toNameCase(b[f])
+      : String(b[f] ?? '').trim();
     const current = String(member[f] ?? '');
     if (!requested || requested === current) continue;
 
@@ -152,11 +165,26 @@ export async function PATCH(req) {
   }
   if (requests.length) await sb.from('profile_update_requests').insert(requests);
 
+  /* Name the fields that are waiting, rather than saying "your email change".
+   *
+   * Several fields can now be queued at once, and a member told the wrong one
+   * needs approval will keep re-saving the field they actually changed. */
+  const LABELS = {
+    first_name: 'first name', last_name: 'last name', email: 'email address',
+    mobile: 'mobile number', village: 'village', union_council: 'union council',
+    category_id: 'membership category',
+  };
+  const waiting = requests.map(r => LABELS[r.field] || r.field.replace(/_/g, ' '));
+  const list = waiting.length > 1
+    ? `${waiting.slice(0, -1).join(', ')} and ${waiting[waiting.length - 1]}`
+    : waiting[0];
+
   return ok({
     saved: true,
     pending_approval: requests.map(r => r.field),
-    message: requests.length
-      ? 'Profile updated. Your email change needs committee approval before it takes effect.'
+    message: waiting.length
+      ? `Saved. Your change to ${list} has been sent to the committee for approval — `
+        + 'it will appear once they have reviewed it.'
       : 'Profile updated. Your public profile has been refreshed.',
   });
 }
