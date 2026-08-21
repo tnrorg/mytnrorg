@@ -312,36 +312,60 @@ function ApplyForm({ d, onDone }) {
 
       {/* ── The five questions ── */}
       <div className="mt-6 space-y-5">
-        {FELLOWSHIP_QUESTIONS.map((q, i) => (
-          <fieldset key={q.key}>
-            <legend className="text-[13.5px] font-bold" style={{ color: C.deep }}>
-              {i + 1}. {q.label}
-            </legend>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {q.options.map(opt => {
-                const on = answers[q.key] === opt;
-                return (
-                  <button type="button" key={opt}
-                    onClick={() => setAnswers({ ...answers, [q.key]: opt })}
-                    className={`rounded-xl border px-3.5 py-2 text-[13px] font-semibold transition ${on
-                      ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
-                    style={on ? { background: C.green } : {}}>
-                    {opt}
-                  </button>
-                );
-              })}
-            </div>
-            {q.otherKey && answers[q.key] === 'Other' && (
-              <input value={answers[q.otherKey] || ''}
-                onChange={e => setAnswers({ ...answers, [q.otherKey]: e.target.value })}
-                placeholder="Please tell us which area"
-                className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#0B6B4F]" />
-            )}
-            {(errs[q.key] || errs[q.otherKey]) && (
-              <p className="mt-1 text-[11px] text-red-600">{errs[q.key] || errs[q.otherKey]}</p>
-            )}
-          </fieldset>
-        ))}
+        {FELLOWSHIP_QUESTIONS.map((q, i) => {
+          // A question can be waived by an earlier answer — a graduate has no
+          // current semester CGPA to give, so it is not asked of them.
+          const waived = q.optionalWhen
+            && q.optionalWhen.is.includes(String(answers[q.optionalWhen.key] || ''));
+
+          return (
+            <fieldset key={q.key}>
+              <legend className="text-[13.5px] font-bold" style={{ color: C.deep }}>
+                {i + 1}. {q.label}
+                {waived && <span className="ml-1.5 text-[11px] font-normal text-gray-400">(optional)</span>}
+              </legend>
+
+              {q.input ? (
+                <>
+                  <input value={answers[q.key] || ''} inputMode="decimal"
+                    onChange={e => setAnswers({ ...answers, [q.key]: e.target.value })}
+                    placeholder={q.placeholder || ''}
+                    className="mt-2 w-full sm:max-w-xs rounded-xl border border-gray-200 bg-white
+                      px-3.5 py-2.5 text-sm outline-none focus:border-[#0B6B4F]" />
+                  {q.hint && !errs[q.key] && (
+                    <p className="mt-1 text-[11px] text-gray-500">{q.hint}</p>
+                  )}
+                </>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {q.options.map(opt => {
+                    const on = answers[q.key] === opt;
+                    return (
+                      <button type="button" key={opt}
+                        onClick={() => setAnswers({ ...answers, [q.key]: opt })}
+                        className={`rounded-xl border px-3.5 py-2 text-[13px] font-semibold transition ${on
+                          ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
+                        style={on ? { background: C.green } : {}}>
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {q.otherKey && answers[q.key] === 'Other' && (
+                <input value={answers[q.otherKey] || ''}
+                  onChange={e => setAnswers({ ...answers, [q.otherKey]: e.target.value })}
+                  placeholder="Please tell us which area"
+                  className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#0B6B4F]" />
+              )}
+
+              {(errs[q.key] || errs[q.otherKey]) && (
+                <p className="mt-1 text-[11px] text-red-600">{errs[q.key] || errs[q.otherKey]}</p>
+              )}
+            </fieldset>
+          );
+        })}
       </div>
 
       {/* ── Declaration ── */}

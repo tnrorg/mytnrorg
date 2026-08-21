@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { roleLabel } from '@/lib/membership/roles';
 import { profileCompletion } from '@/lib/membership/profile';
+import { APP_STATUS_LABEL } from '@/lib/opportunities';
 import { mGet } from '@/components/member/memberApi';
 import MemberShell from '@/components/member/MemberShell';
 import Avatar from '@/components/member/Avatar';
@@ -23,6 +24,7 @@ export default function MemberDashboard() {
   const [profile, setProfile] = useState(null);
   const [notices, setNotices] = useState(null);     // announcements
   const [vacancies, setVacancies] = useState([]);   // open CEC positions
+  const [opportunities, setOpportunities] = useState([]);   // open to this member
 
   useEffect(() => {
     mGet('/api/member/profile').then(r => r?.ok && setProfile(r));
@@ -49,6 +51,25 @@ export default function MemberDashboard() {
        * "Apply here" for a closed position wastes the member's time. */
       .then(j => setVacancies((j?.vacancies || []).filter(v => v.accepting)))
       .catch(() => setVacancies([]));
+
+    /* Open opportunities, from the MEMBER endpoint rather than the public one.
+     *
+     * The public board carries only the teaser and knows nothing about who is
+     * reading it. This route is behind requireMember, so it can also say
+     * whether this member has already applied — which is the difference
+     * between "Apply here" and telling someone they already did.
+     *
+     * Capped at three. A dashboard is a summary; the full board is one click
+     * away, and a card listing eleven programmes is a page nobody reads. */
+    mGet('/api/member/opportunities')
+      .then(r => {
+        if (!r?.ok) return;
+        const live = (r.opportunities || [])
+          .filter(o => o.state === 'open' || o.state === 'closing_soon')
+          .slice(0, 3);
+        setOpportunities(live);
+      })
+      .catch(() => setOpportunities([]));
   }, []);
 
   return (
@@ -174,6 +195,65 @@ export default function MemberDashboard() {
                   </Row>
                 );
               })}
+            </div>
+          )}
+
+          {/* ── Open opportunities ──
+              Above the CEC card: a scholarship or fellowship is relevant to
+              every member, while a committee vacancy concerns the few
+              considering it. Rendered only while something is genuinely open,
+              so the dashboard never carries an empty promise. */}
+          {opportunities.length > 0 && (
+            <div className="mt-8 rounded-2xl border p-6"
+              style={{ borderColor: 'rgba(23,107,73,.30)', background: 'rgba(23,107,73,.05)' }}>
+              <div className="flex items-start gap-3">
+                <div className="text-2xl" aria-hidden="true">💼</div>
+                <div className="flex-1 min-w-0">
+                  <h3 style={{ ...mont, color: C.deep }} className="font-extrabold">
+                    {opportunities.length === 1
+                      ? 'An opportunity is open to you'
+                      : `${opportunities.length} opportunities are open to you`}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600 leading-relaxed">
+                    Scholarships, fellowships and programmes open to TNR members.
+                  </p>
+
+                  <ul className="mt-3 space-y-2">
+                    {opportunities.map(o => (
+                      <li key={o.id}
+                        className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-white
+                          border border-gray-100 px-3.5 py-2.5">
+                        <span className="font-bold text-sm" style={{ color: C.deep }}>{o.title}</span>
+                        <span className="text-[11px] text-gray-500">{o.category}</span>
+                        {(o.deadline || o.closes_at) && (
+                          <span className="text-[11px] text-gray-500">
+                            Closes {new Date(o.closes_at || o.deadline).toLocaleDateString('en-GB',
+                              { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        )}
+                        {/* Already applied members get their status, not another
+                            invitation to apply — the portal should not ask twice. */}
+                        {o.application ? (
+                          <span className="ml-auto text-xs font-bold" style={{ color: C.green }}>
+                            {APP_STATUS_LABEL[o.application.status] || 'Submitted'}
+                          </span>
+                        ) : (
+                          <a href="/member/opportunities"
+                            className="ml-auto text-xs font-bold hover:underline" style={{ color: C.green }}>
+                            {o.accepting ? 'Apply here →' : 'View details →'}
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <a href="/member/opportunities"
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white"
+                    style={{ background: `linear-gradient(180deg,${C.green},${C.deep})` }}>
+                    Browse all opportunities →
+                  </a>
+                </div>
+              </div>
             </div>
           )}
 

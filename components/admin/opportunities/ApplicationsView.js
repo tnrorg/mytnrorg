@@ -117,7 +117,7 @@ export default function ApplicationsView({ opportunity, onBack, toast }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[10px] uppercase tracking-wider text-tnr-cream/40 border-b border-tnr-line">
-                {['Applicant', 'Membership ID', 'Qualification', 'Profession', 'Internet', 'Device', 'Applied', 'Status', ''].map(h => (
+                {['Applicant', 'Membership ID', 'Qualification', 'Semester', 'CGPA', 'Profession', 'Internet', 'Device', 'Applied', 'Status', ''].map(h => (
                   <th key={h} className="px-3 py-2.5 font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -132,6 +132,8 @@ export default function ApplicationsView({ opportunity, onBack, toast }) {
                     </td>
                     <td className="px-3 py-2.5 text-tnr-cream/60 font-mono text-xs">{a.member?.membership_id || '—'}</td>
                     <td className="px-3 py-2.5 text-tnr-cream/60">{a.member?.education_level || '—'}</td>
+                    <td className="px-3 py-2.5 text-tnr-cream/60 whitespace-nowrap">{a.answers?.semester || '—'}</td>
+                    <td className="px-3 py-2.5 text-tnr-cream/80 font-semibold tabular-nums">{a.answers?.cgpa || '—'}</td>
                     <td className="px-3 py-2.5 text-tnr-cream/60">{a.member?.profession || a.member?.field_of_study || '—'}</td>
                     <td className="px-3 py-2.5 text-tnr-cream/60">{a.answers?.internet || '—'}</td>
                     <td className="px-3 py-2.5 text-tnr-cream/60">{a.answers?.device || '—'}</td>
