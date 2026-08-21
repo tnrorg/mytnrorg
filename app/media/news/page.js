@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import useRefreshOnFocus from '@/components/site/useRefreshOnFocus';
 import Image from 'next/image';
 import { Newspaper, Clock, Eye, ArrowRight } from 'lucide-react';
 import SiteNav from '@/components/site/SiteNav';
@@ -18,19 +19,18 @@ export default function NewsIndex() {
   const [cat, setCat] = useState('');
   const [why, setWhy] = useState(null);        // server's explanation of an empty list
 
-  useEffect(() => {
-    let off = false;
-    setRows(null);
+  const load = useCallback(() => {
     fetch(`/api/public/news${cat ? `?category=${encodeURIComponent(cat)}` : ''}`, { cache: 'no-store' })
       .then(r => r.json())
-      .then(j => {
-        if (off) return;
-        setRows(j?.ok ? (j.posts || []) : []);
-        setWhy(j?.why || null);
-      })
-      .catch(() => { if (!off) { setRows([]); setWhy({ stage: 'network' }); } });
-    return () => { off = true; };
+      .then(j => { setRows(j?.ok ? (j.posts || []) : []); setWhy(j?.why || null); })
+      .catch(() => { setRows([]); setWhy({ stage: 'network' }); });
   }, [cat]);
+
+  useEffect(() => { setRows(null); load(); }, [load]);
+
+  // Coming back to this tab re-reads the list — see the hook for why a
+  // no-store fetch is not enough on its own.
+  useRefreshOnFocus(load);
 
   const [lead, ...rest] = rows || [];
 

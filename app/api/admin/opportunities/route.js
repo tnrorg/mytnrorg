@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabaseServer';
 import { requireAdmin } from '@/lib/guard';
 import { uploadDataUrl } from '@/lib/storage';
 import { logAudit, clientIp } from '@/lib/audit';
+import { purgePublic } from '@/lib/purgePublic';
 import { ok, fail, readJson } from '@/lib/api';
 import {
   CATEGORIES, ADMIN_STATUSES, APPLICATION_TYPES, publicStatus,
@@ -143,6 +144,8 @@ export async function POST(req) {
     details: `${category}: ${title}`.slice(0, 200), ip: clientIp(req),
   });
 
+  // See the note in lib/purgePublic.js.
+  purgePublic('/opportunities');
   return ok({ opportunity: { ...row, state: publicStatus(row) } });
 }
 
@@ -173,6 +176,7 @@ export async function DELETE(req) {
     action: 'OPPORTUNITY_DELETED', actor: admin?.username || 'admin',
     details: o?.title || id, ip: clientIp(req),
   });
+  purgePublic('/opportunities');
   return ok({ deleted: true });
 }
 

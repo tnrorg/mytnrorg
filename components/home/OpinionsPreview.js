@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import useRefreshOnFocus from '@/components/site/useRefreshOnFocus';
 import Image from 'next/image';
 import { ArrowRight, PenLine, Clock, Eye, MessageSquare } from 'lucide-react';
 import { SectionHeading, Reveal, RevealGroup, RevealItem } from '@/components/ui';
@@ -24,12 +25,17 @@ const fmt = (d) => (d ? new Date(d).toLocaleDateString('en-GB', {
 export default function OpinionsPreview() {
   const [rows, setRows] = useState(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     fetch('/api/public/opinions', { cache: 'no-store' })
       .then(r => r.json())
       .then(j => setRows(j?.ok ? (j.opinions || []).slice(0, 3) : []))
       .catch(() => setRows([]));
   }, []);
+
+  useEffect(() => { load(); }, [load]);
+  // Re-reads when the reader returns to the tab — a no-store fetch does not
+  // help if the component was never re-mounted. See the hook.
+  useRefreshOnFocus(load);
 
   // One request for all three cards, not one each.
   // Called before the early return below — a hook cannot be skipped.

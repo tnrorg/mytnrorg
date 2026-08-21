@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import useRefreshOnFocus from '@/components/site/useRefreshOnFocus';
 import { Briefcase, Lock, X, LogIn, UserPlus } from 'lucide-react';
 import SiteNav from '@/components/site/SiteNav';
 import SiteFooter from '@/components/site/SiteFooter';
@@ -63,19 +64,17 @@ export default function PublicOpportunities() {
     } catch { /* no query string to read */ }
   }, []);
 
-  useEffect(() => {
-    let off = false;
-    setRows(null);
+  const load = useCallback(() => {
     fetch(`/api/public/opportunities${cat ? `?category=${encodeURIComponent(cat)}` : ''}`, { cache: 'no-store' })
       .then(r => r.json())
-      .then(j => {
-        if (off) return;
-        setRows(j?.ok ? (j.opportunities || []) : []);
-        setWhy(j?.why || null);
-      })
-      .catch(() => { if (!off) { setRows([]); setWhy({ stage: 'network' }); } });
-    return () => { off = true; };
+      .then(j => { setRows(j?.ok ? (j.opportunities || []) : []); setWhy(j?.why || null); })
+      .catch(() => { setRows([]); setWhy({ stage: 'network' }); });
   }, [cat]);
+
+  useEffect(() => { setRows(null); load(); }, [load]);
+
+  // Re-reads the board when the reader returns to this tab.
+  useRefreshOnFocus(load);
 
   // Close the gate on Escape, like every other dialog on the site.
   useEffect(() => {

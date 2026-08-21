@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabaseServer';
 import { requireAdmin } from '@/lib/guard';
 import { uploadDataUrl } from '@/lib/storage';
 import { logAudit, clientIp } from '@/lib/audit';
+import { purgePublic } from '@/lib/purgePublic';
 import { ok, fail, readJson } from '@/lib/api';
 import { validateNews, makeSlug, CATEGORIES, LIMITS } from '@/lib/news';
 
@@ -135,6 +136,9 @@ export async function POST(req) {
     ip: clientIp(req),
   });
 
+  // The home page holds a cached copy for up to 60 seconds. Drop it now
+  // so an admin who saves and switches tab sees their own change.
+  purgePublic('/media/news');
   return ok({ post: row });
 }
 
@@ -153,5 +157,6 @@ export async function DELETE(req) {
     action: 'NEWS_DELETED', actor: admin?.username || 'admin',
     details: `${p?.status || ''} — ${p?.title || id}`.slice(0, 200), ip: clientIp(req),
   });
+  purgePublic('/media/news');
   return ok({ deleted: true });
 }

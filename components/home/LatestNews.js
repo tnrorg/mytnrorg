@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import useRefreshOnFocus from '@/components/site/useRefreshOnFocus';
 import Image from 'next/image';
 import { ArrowRight, Newspaper, Clock } from 'lucide-react';
 import { SectionHeading, Reveal, RevealGroup, RevealItem } from '@/components/ui';
@@ -19,12 +20,17 @@ import { CATEGORY_TONE, readingMinutes, fmtDate } from '@/lib/news';
 export default function LatestNews() {
   const [rows, setRows] = useState(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     fetch('/api/public/news?limit=3', { cache: 'no-store' })
       .then(r => r.json())
       .then(j => setRows(j?.ok ? (j.posts || []) : []))
       .catch(() => setRows([]));
   }, []);
+
+  useEffect(() => { load(); }, [load]);
+  // Re-reads when the reader returns to the tab — a no-store fetch does not
+  // help if the component was never re-mounted. See the hook.
+  useRefreshOnFocus(load);
 
   if (!rows?.length) return null;
   const [lead, ...rest] = rows;
