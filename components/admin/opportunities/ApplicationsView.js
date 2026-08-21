@@ -9,6 +9,16 @@ import {
 
 const input = 'w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm text-tnr-cream';
 
+/* Dialogs on this screen are LIGHT.
+ *
+ * The list behind them is a light panel, and these two carry an applicant's
+ * personal details and interview arrangements — things read carefully rather
+ * than glanced at. Dark-on-light is the easier read for that, and a black
+ * dialog over a white table simply looked like a mistake. */
+const LIGHT = { deep: '#063D2B', green: '#0B6B4F' };
+const lightInput =
+  'w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#0B6B4F]';
+
 /* Applications for one opportunity.
  *
  * The four decisions each: confirm → update → record history → email → report.
@@ -158,22 +168,27 @@ export default function ApplicationsView({ opportunity, onBack, toast }) {
 
       {/* ── One application ── */}
       {open && detail && (
-        <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/70 backdrop-blur-sm overflow-auto"
+        <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/50 backdrop-blur-sm overflow-auto"
           onClick={() => setOpen(null)}>
-          <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-tnr-black p-6 my-8 space-y-5"
+          {/* A light card, matching the panel behind it.
+              This dialog carries an applicant's personal details and is read
+              carefully rather than glanced at — dark-on-light is the easier
+              read for that, and it is what the rest of this screen already is. */}
+          <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 my-8 space-y-5 shadow-xl"
             onClick={e => e.stopPropagation()}>
 
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-bold text-tnr-cream">{detail.member?.full_name}</h3>
-                <p className="text-xs text-tnr-cream/50 font-mono">{detail.member?.membership_id}</p>
+                <h3 className="text-lg font-bold" style={{ color: LIGHT.deep }}>{detail.member?.full_name}</h3>
+                <p className="text-xs text-gray-500 font-mono">{detail.member?.membership_id}</p>
               </div>
-              <button onClick={() => setOpen(null)} className="text-tnr-cream/40 hover:text-tnr-cream">✕</button>
+              <button onClick={() => setOpen(null)}
+                className="text-gray-400 hover:text-gray-700 text-lg leading-none">✕</button>
             </div>
 
             {/* Member information — read live from their profile */}
             <section>
-              <h4 className="text-xs uppercase tracking-wide text-tnr-cream/40 mb-2">Member information</h4>
+              <h4 className="text-xs uppercase tracking-wide text-gray-400 mb-2">Member information</h4>
               <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-[13px]">
                 {[
                   ['Email', detail.member?.email], ['Mobile', detail.member?.mobile],
@@ -184,9 +199,9 @@ export default function ApplicationsView({ opportunity, onBack, toast }) {
                   ['Village', detail.member?.village], ['Union Council', detail.member?.union_council],
                   ...Object.entries(detail.application?.profile_gaps || {}).map(([k, v]) => [`${k} (supplied)`, v]),
                 ].filter(([, v]) => v).map(([k, v]) => (
-                  <div key={k} className="flex justify-between gap-3 border-b border-white/5 pb-1">
-                    <dt className="text-tnr-cream/40">{k}</dt>
-                    <dd className="text-tnr-cream/80 text-right">{v}</dd>
+                  <div key={k} className="flex justify-between gap-3 border-b border-gray-100 pb-1">
+                    <dt className="text-gray-500">{k}</dt>
+                    <dd className="text-gray-800 text-right font-medium">{v}</dd>
                   </div>
                 ))}
               </dl>
@@ -194,12 +209,12 @@ export default function ApplicationsView({ opportunity, onBack, toast }) {
 
             {/* Their answers */}
             <section>
-              <h4 className="text-xs uppercase tracking-wide text-tnr-cream/40 mb-2">Application answers</h4>
+              <h4 className="text-xs uppercase tracking-wide text-gray-400 mb-2">Application answers</h4>
               <div className="space-y-2">
                 {FELLOWSHIP_QUESTIONS.map((q, i) => (
                   <div key={q.key} className="text-[13px]">
-                    <div className="text-tnr-cream/40">{i + 1}. {q.label}</div>
-                    <div className="text-tnr-cream font-semibold">
+                    <div className="text-gray-500">{i + 1}. {q.label}</div>
+                    <div className="font-semibold" style={{ color: LIGHT.deep }}>
                       {detail.application?.answers?.[q.key] || '—'}
                       {q.otherKey && detail.application?.answers?.[q.otherKey]
                         ? ` — ${detail.application.answers[q.otherKey]}` : ''}
@@ -211,32 +226,35 @@ export default function ApplicationsView({ opportunity, onBack, toast }) {
 
             {/* Timeline */}
             <section>
-              <h4 className="text-xs uppercase tracking-wide text-tnr-cream/40 mb-2">Timeline</h4>
+              <h4 className="text-xs uppercase tracking-wide text-gray-400 mb-2">Timeline</h4>
               <div className="space-y-1.5">
                 {(detail.history || []).map(h => (
                   <div key={h.id} className="flex flex-wrap items-baseline gap-2 text-[12px]">
-                    <span className="text-tnr-cream/80 font-semibold">
+                    <span className="font-semibold" style={{ color: LIGHT.deep }}>
                       {APP_STATUS_LABEL[h.to_status] || h.to_status}
                     </span>
-                    <span className="text-tnr-cream/40">by {h.changed_by}</span>
-                    <span className="text-tnr-cream/30">{new Date(h.created_at).toLocaleString()}</span>
-                    {h.email_status === 'sent' && <span className="text-green-300">email sent</span>}
+                    <span className="text-gray-500">by {h.changed_by}</span>
+                    <span className="text-gray-400">{new Date(h.created_at).toLocaleString()}</span>
+                    {h.email_status === 'sent' && <span className="text-green-700 font-semibold">email sent</span>}
                     {h.email_status === 'failed' && (
-                      <span className="text-red-300">email failed{h.email_error ? ` — ${h.email_error}` : ''}</span>
+                      <span className="text-red-600 font-semibold">
+                        email failed{h.email_error ? ` — ${h.email_error}` : ''}
+                      </span>
                     )}
                   </div>
                 ))}
               </div>
               {(detail.history || []).some(h => h.email_status === 'failed') && (
                 <button onClick={() => retryEmail(detail.application)} disabled={busyId === detail.application?.id}
-                  className="mt-2 text-xs font-bold text-tnr-goldLight hover:underline disabled:opacity-40">
+                  className="mt-2 text-xs font-bold hover:underline disabled:opacity-40"
+                  style={{ color: LIGHT.green }}>
                   Retry email
                 </button>
               )}
             </section>
 
             {/* Decisions */}
-            <div className="flex flex-wrap gap-2 pt-3 border-t border-tnr-line">
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
               {[
                 ['shortlisted', 'Shortlist'],
                 ['interview_invited', 'Interview Invite'],
@@ -248,9 +266,10 @@ export default function ApplicationsView({ opportunity, onBack, toast }) {
                   onClick={() => to === 'interview_invited'
                     ? setInterviewFor(detail.application)
                     : decide(detail.application, to, label)}
-                  className={`px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-40 ${to === 'rejected'
-                    ? 'border border-red-500/30 text-red-300 hover:bg-red-500/10'
-                    : 'bg-tnr-gold text-tnr-black'}`}>
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-40 transition ${to === 'rejected'
+                    ? 'border border-red-300 text-red-600 hover:bg-red-50'
+                    : 'text-white'}`}
+                  style={to === 'rejected' ? undefined : { background: LIGHT.green }}>
                   {busyId === detail.application?.id ? 'Working…' : label}
                 </button>
               ))}
@@ -274,52 +293,54 @@ function InterviewModal({ app, busy, onCancel, onSend }) {
   const ready = iv.date.trim() && iv.time.trim();
 
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center p-4 bg-black/70 backdrop-blur-sm"
+    <div className="fixed inset-0 z-[60] grid place-items-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={onCancel}>
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-tnr-black p-6 space-y-3"
+      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 space-y-3 shadow-xl"
         onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold text-tnr-cream">Interview invitation</h3>
-        <p className="text-[12px] text-tnr-cream/50">
+        <h3 className="text-lg font-bold" style={{ color: LIGHT.deep }}>Interview invitation</h3>
+        <p className="text-[12px] text-gray-500">
           These details go straight into the applicant&rsquo;s email, so write them
           as you want them read.
         </p>
 
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className="block text-xs text-tnr-cream/50 mb-1">Date *</span>
-            <input type="date" value={iv.date} onChange={e => setIv({ ...iv, date: e.target.value })} className={input} />
+            <span className="block text-xs text-gray-500 mb-1">Date *</span>
+            <input type="date" value={iv.date} onChange={e => setIv({ ...iv, date: e.target.value })} className={lightInput} />
           </label>
           <label className="block">
-            <span className="block text-xs text-tnr-cream/50 mb-1">Time *</span>
-            <input type="time" value={iv.time} onChange={e => setIv({ ...iv, time: e.target.value })} className={input} />
+            <span className="block text-xs text-gray-500 mb-1">Time *</span>
+            <input type="time" value={iv.time} onChange={e => setIv({ ...iv, time: e.target.value })} className={lightInput} />
           </label>
         </div>
 
         <label className="block">
-          <span className="block text-xs text-tnr-cream/50 mb-1">Mode</span>
-          <select value={iv.mode} onChange={e => setIv({ ...iv, mode: e.target.value })} className={input}>
+          <span className="block text-xs text-gray-500 mb-1">Mode</span>
+          <select value={iv.mode} onChange={e => setIv({ ...iv, mode: e.target.value })} className={lightInput}>
             {INTERVIEW_MODES.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </label>
 
         <label className="block">
-          <span className="block text-xs text-tnr-cream/50 mb-1">
+          <span className="block text-xs text-gray-500 mb-1">
             {/online|phone|whatsapp/i.test(iv.mode) ? 'Meeting link / number' : 'Venue'}
           </span>
-          <input value={iv.venue} onChange={e => setIv({ ...iv, venue: e.target.value })} className={input} />
+          <input value={iv.venue} onChange={e => setIv({ ...iv, venue: e.target.value })} className={lightInput} />
         </label>
 
         <label className="block">
-          <span className="block text-xs text-tnr-cream/50 mb-1">Additional instructions (optional)</span>
-          <textarea rows={3} value={iv.notes} onChange={e => setIv({ ...iv, notes: e.target.value })} className={input} />
+          <span className="block text-xs text-gray-500 mb-1">Additional instructions (optional)</span>
+          <textarea rows={3} value={iv.notes} onChange={e => setIv({ ...iv, notes: e.target.value })} className={lightInput} />
         </label>
 
         <div className="flex gap-2 pt-1">
-          <button onClick={onCancel} className="flex-1 px-4 py-2 rounded-xl border border-white/10 text-sm text-tnr-cream">
+          <button onClick={onCancel}
+            className="flex-1 px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50">
             Cancel
           </button>
           <button onClick={() => onSend(iv)} disabled={!ready || busy}
-            className="flex-1 px-4 py-2 rounded-xl bg-tnr-gold text-tnr-black font-semibold text-sm disabled:opacity-40">
+            className="flex-1 px-4 py-2 rounded-xl text-white font-semibold text-sm disabled:opacity-40"
+            style={{ background: LIGHT.green }}>
             {busy ? 'Sending…' : 'Send invitation'}
           </button>
         </div>
