@@ -22,6 +22,7 @@ import MessagesTab from '@/components/admin/MessagesTab';
 import BrandingTab from '@/components/admin/BrandingTab';
 import AnnouncementsTab from '@/components/admin/AnnouncementsTab';
 import NewsTab from '@/components/admin/NewsTab';
+import OpportunitiesTab from '@/components/admin/OpportunitiesTab';
 import HeroTab from '@/components/admin/HeroTab';
 import ProjectsTab from '@/components/admin/ProjectsTab';
 import InstitutionsTab from '@/components/admin/InstitutionsTab';
@@ -57,6 +58,7 @@ const TOP_TABS = [
   ['projects', 'Projects', '🏗️', 'content'],
   ['institutions', 'Schools & Colleges', '🏫', 'content'],
   ['cec', 'CEC Recruitment', '📋', 'cec'],
+  ['opportunities', 'Opportunities', '💼', 'opportunities'],
   ['news', 'News & Announcements', '📰', 'content'],
   ['announcements', 'Ticker Notices', '📢', 'content'],
   ['branding', 'Branding', '✉️', 'content'],
@@ -259,6 +261,7 @@ export default function Admin() {
       {view === 'hero' && <HeroTab toast={toast} />}
       {view === 'messages' && <MessagesTab toast={toast} />}
       {view === 'news' && <NewsTab toast={toast} />}
+      {view === 'opportunities' && <OpportunitiesTab toast={toast} />}
       {view === 'announcements' && <AnnouncementsTab toast={toast} />}
       {view === 'branding' && <BrandingTab toast={toast} />}
       {view === 'opinions' && <OpinionsTab toast={toast} />}

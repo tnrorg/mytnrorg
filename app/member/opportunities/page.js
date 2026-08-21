@@ -2,69 +2,154 @@
 import { useEffect, useState } from 'react';
 import MemberShell from '@/components/member/MemberShell';
 import { mGet, mPost } from '@/components/member/memberApi';
+import OpportunityCard from '@/components/opportunities/OpportunityCard';
+import OpportunityDetail from '@/components/opportunities/OpportunityDetail';
+import {
+  MEMBER_TABS, APP_STATUS_LABEL, APP_STATUS_TONE, fmtDate,
+} from '@/lib/opportunities';
+
 const C = { deep: '#063D2B', green: '#0B6B4F' };
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
 
+/* Member portal — Opportunities.
+ *
+ * Two views in one page rather than two routes: the board, and one opportunity
+ * open. A member who applies and closes the detail returns to the board with
+ * the card already showing "Application Submitted", which a separate route
+ * would have to refetch to discover.
+ */
 export default function Opportunities() {
-  const [d, setD] = useState(null); const [cat, setCat] = useState('');
-  const load = () => mGet('/api/member/opportunities' + (cat ? '?category=' + encodeURIComponent(cat) : ''))
-    .then(r => r.ok && setD(r));
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [cat]);
+  const [d, setD] = useState(null);
+  const [tab, setTab] = useState('');
+  const [openId, setOpenId] = useState(null);
+  const [showApps, setShowApps] = useState(false);
 
-  const toggle = async (o) => { await mPost('/api/member/opportunities',
-    { action: o.saved ? 'unsave' : 'save', opportunity_id: o.id }); load(); };
+  const load = () => mGet('/api/member/opportunities').then(r => r.ok && setD(r));
+  useEffect(() => { load(); }, []);
+
+  const toggleSave = async (o) => {
+    await mPost('/api/member/opportunities',
+      { action: o.saved ? 'unsave' : 'save', opportunity_id: o.id });
+    load();
+  };
+
+  const all = d?.opportunities || [];
+  const match = MEMBER_TABS.find(t => t.key === tab)?.match;
+  const rows = match ? all.filter(o => match.includes(o.category)) : all;
+  const mine = all.filter(o => o.application);
+
+  // ── One opportunity, open ──
+  if (openId) return (
+    <MemberShell active="/member/opportunities">
+      <OpportunityDetail id={openId} onBack={() => { setOpenId(null); load(); }} />
+    </MemberShell>
+  );
 
   return (
     <MemberShell active="/member/opportunities">
-      <h1 style={{ ...mont, color: C.deep }} className="text-2xl font-black">Jobs &amp; Scholarships</h1>
-      <p className="mt-1 text-sm text-gray-500">Opportunities shared with TNR members.</p>
-
-      {d?.categories?.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {['', ...d.categories].map(c => (
-            <button key={c || 'all'} onClick={() => setCat(c)}
-              className={`px-3 py-1.5 rounded-lg text-xs border transition ${cat === c
-                ? 'text-white border-transparent font-semibold' : 'bg-white text-gray-600 border-gray-200'}`}
-              style={cat === c ? { background: C.green } : {}}>{c || 'All'}</button>
-          ))}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 style={{ ...mont, color: C.deep }} className="text-2xl font-black">Opportunities</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Scholarships, fellowships and programmes open to TNR members.
+          </p>
         </div>
-      )}
-
-      {d && !d.opportunities.length && <Empty icon="💼" title="No opportunities yet"
-        text="Jobs, scholarships and internships posted by TNR will appear here." />}
-
-      <div className="mt-5 space-y-3">
-        {(d?.opportunities || []).map(o => (
-          <div key={o.id} className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5">
-            <div className="flex items-start gap-3 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: C.green }}>{o.category}</div>
-                <h3 style={{ ...mont, color: C.deep }} className="font-extrabold mt-0.5">{o.title}</h3>
-                <div className="text-xs text-gray-500">{[o.organization, o.location].filter(Boolean).join(' · ')}</div>
-                {o.description && <p className="mt-2 text-sm text-gray-600 leading-relaxed whitespace-pre-line">{o.description}</p>}
-                {o.eligibility && <p className="mt-2 text-xs text-gray-500"><b>Eligibility:</b> {o.eligibility}</p>}
-                {o.deadline && <p className="mt-2 text-xs font-semibold text-amber-700">
-                  Deadline: {new Date(o.deadline).toLocaleDateString('en-GB', { dateStyle: 'medium' })}</p>}
-              </div>
-              <div className="flex flex-col gap-2">
-                {o.external_url && <a href={o.external_url} target="_blank" rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white text-center"
-                  style={{ background: `linear-gradient(180deg,${C.green},${C.deep})` }}>Apply</a>}
-                <button onClick={() => toggle(o)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200">
-                  {o.saved ? '★ Saved' : '☆ Save'}</button>
-              </div>
-            </div>
-          </div>
-        ))}
+        {mine.length > 0 && (
+          <button onClick={() => setShowApps(v => !v)}
+            className="rounded-xl border px-4 py-2 text-sm font-bold"
+            style={{ borderColor: 'rgba(6,61,43,.18)', color: C.green }}>
+            {showApps ? 'Browse Opportunities' : `My Applications (${mine.length})`}
+          </button>
+        )}
       </div>
+
+      {/* ── My Applications ── */}
+      {showApps ? (
+        <div className="mt-6 space-y-3">
+          {mine.map(o => {
+            const a = o.application;
+            const tone = APP_STATUS_TONE[a.status] || APP_STATUS_TONE.submitted;
+            return (
+              <div key={o.id}
+                className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="font-black text-[16px]" style={{ color: C.deep }}>{o.title}</h3>
+                    <p className="mt-1 text-[12.5px] text-gray-500">
+                      Application Date: {fmtDate(a.submitted_at)}
+                    </p>
+                  </div>
+                  <span className="rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wider"
+                    style={{ background: tone.bg, color: tone.fg }}>
+                    {APP_STATUS_LABEL[a.status] || a.status}
+                  </span>
+                </div>
+                <button onClick={() => { setShowApps(false); setOpenId(o.id); }}
+                  className="mt-3 text-[13px] font-bold hover:underline" style={{ color: C.green }}>
+                  View opportunity →
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <>
+          <div className="mt-5 flex flex-wrap gap-1.5">
+            {MEMBER_TABS.map(t => (
+              <button key={t.key || 'all'} onClick={() => setTab(t.key)}
+                className={`px-3.5 py-2 rounded-lg text-xs font-semibold border transition ${tab === t.key
+                  ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
+                style={tab === t.key ? { background: C.green } : {}}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {!d && (
+            <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+              {[0, 1, 2].map(i => <div key={i} className="h-80 rounded-2xl bg-gray-50 animate-pulse" />)}
+            </div>
+          )}
+
+          {d && !rows.length && (
+            <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-10 text-center">
+              <div className="text-3xl">💼</div>
+              <h3 style={{ ...mont, color: C.deep }} className="mt-2 font-extrabold">
+                Nothing here right now
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                New opportunities appear here as the committee posts them.
+              </p>
+            </div>
+          )}
+
+          {d && rows.length > 0 && (
+            <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+              {rows.map(o => (
+                <OpportunityCard key={o.id} o={o} onView={() => setOpenId(o.id)}
+                  ctaLabel={o.application ? 'View Application' : 'View Details'}
+                  footer={
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      {o.application ? (
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                          style={{
+                            background: (APP_STATUS_TONE[o.application.status] || {}).bg,
+                            color: (APP_STATUS_TONE[o.application.status] || {}).fg,
+                          }}>
+                          {APP_STATUS_LABEL[o.application.status]}
+                        </span>
+                      ) : <span />}
+                      <button onClick={(e) => { e.stopPropagation(); toggleSave(o); }}
+                        className="text-[11px] font-semibold text-gray-400 hover:text-gray-700">
+                        {o.saved ? '★ Saved' : '☆ Save'}
+                      </button>
+                    </div>
+                  } />
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </MemberShell>
   );
-}
-function Empty({ icon, title, text }) {
-  return <div className="mt-6 rounded-2xl bg-white border border-gray-100 shadow-sm p-10 text-center">
-    <div className="text-4xl">{icon}</div>
-    <h3 style={{ ...mont, color: C.deep }} className="mt-2 font-extrabold">{title}</h3>
-    <p className="mt-1 text-sm text-gray-500">{text}</p>
-  </div>;
 }

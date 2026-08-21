@@ -57,11 +57,19 @@ export const NAV = [
     soon('Volunteer With TNR', '/volunteer'),
   ]},
 
-  { label: 'Opportunities', href: '/member/opportunities', items: [
-    live('Browse Opportunities', '/member/opportunities'),
-    soon('Jobs & Internships', '/opportunities/jobs'),
-    soon('Scholarships', '/opportunities/scholarships'),
-    soon('Training & Mentorship', '/opportunities/training'),
+  /* Points at the PUBLIC board, not the member portal.
+   *
+   * This menu previously sent every visitor to /member/opportunities, which
+   * demands a login — so an unregistered visitor following "Opportunities"
+   * from the main navigation hit a sign-in wall instead of the thing being
+   * advertised. The public board promotes; the portal holds the detail. */
+  { label: 'Opportunities', href: '/opportunities', items: [
+    live('All Opportunities', '/opportunities'),
+    live('Scholarships', '/opportunities?category=Scholarship'),
+    live('Fellowships', '/opportunities?category=Fellowship'),
+    live('Jobs & Internships', '/opportunities?category=Job'),
+    live('Training & Mentorship', '/opportunities?category=Training'),
+    live('Member Portal', '/member/opportunities'),
   ]},
 
   // The first entry is live and computed from membership records. The rest are
