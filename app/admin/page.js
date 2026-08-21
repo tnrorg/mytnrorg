@@ -190,11 +190,26 @@ export default function Admin() {
   );
 
   return <div className="admin-light min-h-screen flex flex-col md:flex-row">
-    <aside className="md:w-60 md:min-h-screen border-b md:border-b-0 md:border-r border-tnr-line bg-tnr-black/40 backdrop-blur">
-      <div className="p-4 flex items-center gap-3 border-b border-tnr-line"><Logo size={40} />
+    {/* Sidebar pinned to the viewport with its OWN scrollbar.
+     *
+     * It used to scroll with the page. With this many tabs the menu is taller
+     * than the screen, so reaching a lower one meant scrolling the page down —
+     * and then clicking it swapped the main panel for something shorter, the
+     * page got shorter with it, and the browser clamped the scroll position.
+     * The menu appeared to jump on its own.
+     *
+     * Sticky + its own overflow means the menu never moves when the content
+     * changes. `h-screen` and not `min-h-screen`: the latter lets the element
+     * grow past the viewport, which is what put it back on the page scrollbar.
+     *
+     * Desktop only — on mobile it stays the horizontal strip above the
+     * content, where a pinned full-height menu would eat the screen. */}
+    <aside className="md:w-60 md:sticky md:top-0 md:h-screen md:self-start md:flex md:flex-col
+      border-b md:border-b-0 md:border-r border-tnr-line bg-tnr-black/40 backdrop-blur">
+      <div className="p-4 flex items-center gap-3 border-b border-tnr-line shrink-0"><Logo size={40} />
         <div><div className="font-bold text-sm text-tnr-cream">TNR Admin</div>
           <div className="text-[10px] text-tnr-gold uppercase tracking-widest">{roleLabel}</div></div></div>
-      <nav className="p-2 flex md:flex-col gap-1 overflow-x-auto">
+      <nav className="p-2 flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible md:flex-1 md:overflow-y-auto">
         {topTabs.map(t => NavBtn(t))}
 
         {/* ── Election Portal group ──
@@ -230,7 +245,8 @@ export default function Admin() {
         {!!platformExtra.length && <div className="hidden md:block h-px bg-tnr-line my-1" />}
         {platformExtra.map(t => NavBtn(t))}
       </nav>
-      <div className="p-2 md:mt-auto">
+      {/* Stays put at the foot of the menu while the list above it scrolls. */}
+      <div className="p-2 shrink-0 border-t border-tnr-line/50">
         <button onClick={() => { clearToken(); setAuthed(false); }} className="w-full btn-ghost !py-2 text-sm">Sign out</button>
       </div>
     </aside>

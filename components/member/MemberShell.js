@@ -145,8 +145,13 @@ export default function MemberShell({ active, children }) {
     <div className="member-portal min-h-screen flex flex-col lg:flex-row bg-[#F7F9F8]"
       style={{ color: C.ink, ...mont }}>
       {/* Sidebar */}
-      <aside className="lg:w-64 lg:min-h-screen bg-white border-b lg:border-b-0 lg:border-r border-gray-100">
-        <div className="p-4 flex items-center gap-3 border-b border-gray-100">
+      {/* Pinned, with its own scrollbar — see the note in app/admin/page.js.
+          `h-screen`, not `min-h-screen`: the latter lets the sidebar grow past
+          the viewport, which puts it back on the page scrollbar and brings the
+          jumping with it. */}
+      <aside className="lg:w-64 lg:sticky lg:top-0 lg:h-screen lg:self-start lg:flex lg:flex-col
+        bg-white border-b lg:border-b-0 lg:border-r border-gray-100">
+        <div className="p-4 flex items-center gap-3 border-b border-gray-100 shrink-0">
           <a href="/member/profile" title="My Profile"
             className="w-11 h-11 rounded-full grid place-items-center overflow-hidden shrink-0 ring-2 ring-[#D4A72C] bg-[#0B6B4F]">
             {member?.photo_url
@@ -162,7 +167,7 @@ export default function MemberShell({ active, children }) {
           </button>
         </div>
 
-        <nav className={`${open ? 'block' : 'hidden'} lg:block p-2 space-y-0.5`}>
+        <nav className={`${open ? 'block' : 'hidden'} lg:block p-2 space-y-0.5 lg:flex-1 lg:overflow-y-auto`}>
           {navFor(member).map(([label, href, icon]) => {
             const on = active === href;
             const badge = href === '/member/notifications' ? unread : 0;
