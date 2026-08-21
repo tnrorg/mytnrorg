@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabaseServer';
 import { ok } from '@/lib/api';
-import { publicSelect, publicStatus, CATEGORIES } from '@/lib/opportunities';
+import { publicSelect, publicSelectBase, publicStatus, CATEGORIES } from '@/lib/opportunities';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,25 +27,56 @@ export async function GET(req) {
 
   const sb = supabaseAdmin();
 
-  let q = sb.from('opportunities')
-    .select(publicSelect())
-    .eq('status', 'published')          // drafts and archives are not public
-    .order('pinned', { ascending: false })
-    .order('deadline', { ascending: true, nullsFirst: false })
-    .limit(limit);
+  /* Try the full teaser, fall back to the columns that have always existed.
+   *
+   * Postgres refuses a whole query for one unknown column. Without this
+   * fallback, an environment where migration_opportunities_v2.sql has not run
+   * returns NOTHING — while the admin panel, which selects *, lists the same
+   * opportunity perfectly. "Published in admin, absent from the site" is then
+   * the only symptom, and it points nowhere near the real cause.
+   *
+   * `pinned` is in the new set, so the ordering is applied per attempt. */
+  const build = (cols, withV2) => {
+    let x = sb.from('opportunities')
+      .select(cols)
+      .eq('status', 'published');       // drafts and archives are not public
+    if (withV2) x = x.order('pinned', { ascending: false });
+    x = x.order('deadline', { ascending: true, nullsFirst: false }).limit(limit);
+    if (category && CATEGORIES.includes(category)) x = x.eq('category', category);
+    return x;
+  };
 
-  if (category && CATEGORIES.includes(category)) q = q.eq('category', category);
+  let degraded = false;
+  let { data, error } = await build(publicSelect(), true);
+  if (error) {
+    ({ data, error } = await build(publicSelectBase(), false));
+    degraded = !error;
+  }
 
-  const { data, error } = await q;
-  // An empty board is not an error, and the page says so plainly.
-  if (error) return ok({ opportunities: [], categories: CATEGORIES });
+  if (error) return ok({
+    opportunities: [], categories: CATEGORIES,
+    why: { stage: 'query_failed', message: error.message },
+  });
 
   const now = Date.now();
+  const rows = data || [];
+
   return ok({
     categories: CATEGORIES,
     /* `state` is computed here so every surface — public cards, portal cards,
      * admin list — shows the same badge from the same rule, rather than three
      * components each deciding for themselves what "closing soon" means. */
-    opportunities: (data || []).map(o => ({ ...o, state: publicStatus(o, now) })),
+    opportunities: rows.map(o => ({ ...o, state: publicStatus(o, now) })),
+    // Says WHICH step produced an empty board, instead of leaving four
+    // different causes looking identical from the outside.
+    why: rows.length ? undefined : {
+      stage: degraded ? 'migration_pending' : 'no_published_rows',
+      message: degraded
+        ? 'Reading legacy columns only — run supabase/migration_opportunities_v2.sql.'
+        : 'No opportunity has status = published.',
+      category_filter: category || null,
+      server_now: new Date(now).toISOString(),
+    },
+    ...(degraded ? { migration_pending: true } : {}),
   });
 }

@@ -21,6 +21,7 @@ export default function PublicOpportunities() {
   const [rows, setRows] = useState(null);
   const [cat, setCat] = useState('');
   const [gate, setGate] = useState(null);        // the opportunity they tried to open
+  const [why, setWhy] = useState(null);          // server's explanation of an empty board
 
   /* Honour ?category= from the navigation menu.
    *
@@ -39,8 +40,12 @@ export default function PublicOpportunities() {
     setRows(null);
     fetch(`/api/public/opportunities${cat ? `?category=${encodeURIComponent(cat)}` : ''}`, { cache: 'no-store' })
       .then(r => r.json())
-      .then(j => { if (!off) setRows(j?.ok ? (j.opportunities || []) : []); })
-      .catch(() => { if (!off) setRows([]); });
+      .then(j => {
+        if (off) return;
+        setRows(j?.ok ? (j.opportunities || []) : []);
+        setWhy(j?.why || null);
+      })
+      .catch(() => { if (!off) { setRows([]); setWhy({ stage: 'network' }); } });
     return () => { off = true; };
   }, [cat]);
 
@@ -99,6 +104,21 @@ export default function PublicOpportunities() {
               New scholarships, fellowships and programmes are posted here as they open.
               Members are notified in their portal.
             </p>
+
+            {/* Only for a setup problem — a visitor to a genuinely empty board
+                sees nothing extra. An admin who has published something and
+                cannot find it gets the reason instead of a blank page. */}
+            {why?.stage === 'migration_pending' && (
+              <p className="mt-4 text-[12px] text-amber-700 max-w-md mx-auto leading-relaxed">
+                Setup incomplete: the opportunities table is missing its newer columns.
+                Run <code>migration_opportunities_v2.sql</code> in Supabase.
+              </p>
+            )}
+            {why?.stage === 'query_failed' && (
+              <p className="mt-4 text-[12px] text-amber-700 max-w-md mx-auto leading-relaxed">
+                The opportunities table could not be read. {why.message}
+              </p>
+            )}
           </div>
         )}
 

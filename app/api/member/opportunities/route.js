@@ -2,7 +2,7 @@ import { supabaseAdmin } from '@/lib/supabaseServer';
 import { requireMember } from '@/lib/membership/auth';
 import { ok, fail, readJson } from '@/lib/api';
 import {
-  memberSelect, publicStatus, acceptingApplications,
+  memberSelect, memberSelectBase, publicStatus, acceptingApplications,
   validateAnswers, cleanAnswers, PROFILE_FETCH, CATEGORIES,
 } from '@/lib/opportunities';
 
@@ -53,9 +53,16 @@ export async function GET(req) {
 
   // ── One opportunity, in full ──
   if (id) {
-    const { data: o, error } = await sb.from('opportunities')
+    // Full column list first, legacy columns if the migration has not run —
+    // otherwise a missing column reads as "opportunity not found", which sends
+    // the reader looking for a deleted record that is sitting right there.
+    let { data: o, error } = await sb.from('opportunities')
       .select(memberSelect()).eq('id', id).maybeSingle();
-    if (error || !o) return fail('NOT_FOUND', 404, { message: 'Opportunity not found.' });
+    if (error) {
+      ({ data: o } = await sb.from('opportunities')
+        .select(memberSelectBase()).eq('id', id).maybeSingle());
+    }
+    if (!o) return fail('NOT_FOUND', 404, { message: 'Opportunity not found.' });
     // Drafts and archives are not visible to members either — only admins see
     // work in progress.
     if (!['published', 'closed'].includes(o.status))
@@ -74,17 +81,22 @@ export async function GET(req) {
     });
   }
 
-  // ── The board ──
-  let q = sb.from('opportunities')
-    .select(memberSelect())
-    .in('status', ['published', 'closed'])
-    .order('pinned', { ascending: false })
-    .order('deadline', { ascending: true, nullsFirst: false })
-    .limit(200);
-  if (cat && CATEGORIES.includes(cat)) q = q.eq('category', cat);
+  /* ── The board ──
+   *
+   * Same fallback as the public route: one unknown column would otherwise
+   * empty the portal entirely while the admin list, which selects *, looks
+   * perfectly healthy. */
+  const build = (cols, withV2) => {
+    let x = sb.from('opportunities').select(cols).in('status', ['published', 'closed']);
+    if (withV2) x = x.order('pinned', { ascending: false });
+    x = x.order('deadline', { ascending: true, nullsFirst: false }).limit(200);
+    if (cat && CATEGORIES.includes(cat)) x = x.eq('category', cat);
+    return x;
+  };
+  let boardRes = await build(memberSelect(), true);
+  if (boardRes.error) boardRes = await build(memberSelectBase(), false);
 
-  const [{ data: opps }, { data: saved }, { data: apps }] = await Promise.all([
-    q,
+  const [{ data: saved }, { data: apps }] = await Promise.all([
     sb.from('saved_opportunities').select('*').eq('member_id', member.id),
     sb.from('opportunity_applications')
       .select('opportunity_id, status, submitted_at').eq('member_id', member.id),
@@ -95,7 +107,7 @@ export async function GET(req) {
   const now = Date.now();
 
   return ok({
-    opportunities: (opps || []).map(o => ({
+    opportunities: (boardRes.data || []).map(o => ({
       ...o,
       state: publicStatus(o, now),
       accepting: acceptingApplications(o, now),
