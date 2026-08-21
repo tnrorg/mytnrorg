@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { mGet, mPost, clearToken, getToken } from './memberApi';
-import { canReviewCecApplications } from '@/lib/membership/roles';
+import { canReviewCecApplications, canReviewOpportunityApplications } from '@/lib/membership/roles';
 
 const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#D4A72C', soft: '#F3E4B3', ink: '#15231D' };
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
@@ -71,6 +71,17 @@ export const navFor = (member) => {
   if (typeof member === 'object' && canReviewCecApplications(member)
       && !extra.some(([, href]) => href === CEC_APPS[1])) {
     extra.push(CEC_APPS);
+  }
+
+  /* Scholarship and fellowship applications, for the selection panel.
+   *
+   * The rule needs the whole member, not just the role: access here is by
+   * membership ID alone. Holding a committee seat grants nothing, so the link
+   * appears for exactly three people and no more. */
+  const OPP_APPS = ['Applications for Review', '/member/opportunity-applications', '🎓'];
+  if (typeof member === 'object' && canReviewOpportunityApplications(member)
+      && !extra.some(([, href]) => href === OPP_APPS[1])) {
+    extra.push(OPP_APPS);
   }
 
   if (!extra.length) return NAV;
