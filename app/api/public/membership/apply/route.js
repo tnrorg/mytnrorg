@@ -69,21 +69,64 @@ export async function POST(req) {
   }
   if (!isValidEmail(email)) return fail('INVALID', 400, { message: 'Please enter a valid email address.' });
 
-  // ── Duplicate prevention (privacy-safe: never reveal whose record it is) ──
-  const { data: dupes } = await sb.from('membership_applications')
-    .select('status, email_normalized, mobile_normalized')
-    .or(`email_normalized.eq.${email},mobile_normalized.eq.${mobile}`);
-  const blocking = (dupes || []).find(d => ACTIVE.includes(d.status));
+  /* ── Duplicate prevention ──
+   *
+   * Two separate queries rather than one .or(...).
+   *
+   * The old version interpolated the email and mobile straight into a
+   * PostgREST filter string, where a comma or a parenthesis in the value would
+   * change what the filter means. Two plain equality checks cannot be
+   * misassembled, and they also tell us WHICH field matched — which the single
+   * combined query could not.
+   *
+   * That distinction is the whole point. The message used to say "these
+   * details" for both cases, so an applicant with a brand-new email address
+   * whose MOBILE number was already registered was told a membership existed
+   * for details they had never used before. They then changed the email again,
+   * which of course changed nothing.
+   *
+   * Naming the field is not a privacy leak: it says a number is registered,
+   * not whose it is, and the applicant already knows the number is theirs. */
+  const [{ data: byEmail }, { data: byMobile }] = await Promise.all([
+    sb.from('membership_applications').select('status').eq('email_normalized', email),
+    sb.from('membership_applications').select('status').eq('mobile_normalized', mobile),
+  ]);
+
+  const emailClash = (byEmail || []).find(d => ACTIVE.includes(d.status));
+  const mobileClash = (byMobile || []).find(d => ACTIVE.includes(d.status));
+  const blocking = emailClash || mobileClash;
+
   if (blocking) {
+    const which = emailClash && mobileClash ? 'email address and mobile number'
+      : emailClash ? 'email address' : 'mobile number';
     const msg = blocking.status === 'approved'
-      ? 'A membership already exists for these details. Please use Member Login, or contact support if you need help.'
-      : 'An application with these details is already under review. Please use "Check Application Status".';
-    return fail('DUPLICATE', 409, { message: msg });
+      ? `That ${which} is already registered to a TNR membership. `
+        + 'Please use Member Login, or contact the committee if you think this is a mistake.'
+      : `An application using that ${which} is already under review. `
+        + 'Please use "Check Application Status" — or use a different one if you are applying for someone else.';
+    // `field` lets the form highlight the offending input rather than making
+    // the applicant guess which of the two to change.
+    return fail('DUPLICATE', 409, {
+      message: msg,
+      field: emailClash && !mobileClash ? 'email' : (!emailClash ? 'mobile' : null),
+    });
   }
-  const { data: existingMember } = await sb.from('membership_members')
-    .select('id').eq('email_normalized', email).is('deleted_at', null).limit(1);
-  if (existingMember && existingMember.length)
-    return fail('DUPLICATE', 409, { message: 'A membership already exists for these details. Please use Member Login.' });
+
+  // An approved member may hold either identifier; check both here too, for
+  // the same reason.
+  const [{ data: memberByEmail }, { data: memberByMobile }] = await Promise.all([
+    sb.from('membership_members').select('id').eq('email_normalized', email).is('deleted_at', null).limit(1),
+    sb.from('membership_members').select('id').eq('mobile_normalized', mobile).is('deleted_at', null).limit(1),
+  ]);
+  if (memberByEmail?.length || memberByMobile?.length) {
+    const which = memberByEmail?.length && memberByMobile?.length ? 'email address and mobile number'
+      : memberByEmail?.length ? 'email address' : 'mobile number';
+    return fail('DUPLICATE', 409, {
+      message: `That ${which} already belongs to a TNR member. Please use Member Login.`,
+      field: memberByEmail?.length && !memberByMobile?.length ? 'email'
+        : (!memberByEmail?.length ? 'mobile' : null),
+    });
+  }
 
   // ── Profile photo (optional) ──
   // Validated server-side: images only, max ~4 MB decoded.

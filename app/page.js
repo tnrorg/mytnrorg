@@ -10,6 +10,7 @@ import CoreAreas from '@/components/home/CoreAreas';
 import LatestNews from '@/components/home/LatestNews';
 import OpinionsPreview from '@/components/home/OpinionsPreview';
 import JoinCta from '@/components/home/JoinCta';
+import FollowUs from '@/components/home/FollowUs';
 import MembersPreview from '@/components/home/MembersPreview';
 import MembershipReach from '@/components/home/MembershipReach';
 import CouncilSection from '@/components/home/CouncilSection';
@@ -77,6 +78,10 @@ export default async function Home() {
           has been approved and published. */}
       <OpinionsPreview />
       <JoinCta />
+      {/* Directly above the footer: the last thing on the page is where to
+          keep following TNR. Renders nothing until an admin has entered at
+          least one link in Branding. */}
+      <FollowUs />
       <SiteFooter />
       <AiFab />
     </main>
