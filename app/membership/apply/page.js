@@ -7,6 +7,7 @@ import {
   LEADERSHIP_OPTIONS, DECLARATION_TEXT, DECLARATION_VERSION, photoOptionalFor,
   GENDER_SELF_DESCRIBE, displayGender,
   HEARD_ABOUT, needsReferrer, needsHeardDetail,
+  WHY_JOIN_OPTIONS, YOUTH_ISSUE_OPTIONS,
 } from '@/lib/membership/options';
 import {
   validateApplication, STEPS, stepErrors, isStepComplete, REQUIRED_LABELS, ageFrom,
@@ -533,9 +534,20 @@ export default function ApplyPage() {
           </Card>}
 
           {stepKey === 'C' && <Card title="Motivation & Contribution">
+            {/* Chips rather than a paragraph — same control the leadership and
+                contribution questions already use, so the step reads as one
+                thing. Wrapping rather than a single row: the longest option
+                here is far wider than "Yes / No / Not Sure", and a fixed row
+                would either overflow on a phone or force an unreadable size. */}
             <Field label="Why do you want to join تحریک نوجوانان روندو؟" req error={showErr('why_join')}>
-              <Textarea value={f.why_join} onChange={v => set('why_join', v)} rows={4}
-                onBlur={() => blur('why_join')} bad={!!showErr('why_join')} />
+              <div className="flex flex-wrap gap-2 mt-1">
+                {WHY_JOIN_OPTIONS.map(o => (
+                  <button type="button" key={o} onClick={() => set('why_join', o)}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold border transition text-left ${f.why_join === o
+                      ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-[#0B6B4F]'}`}
+                    style={f.why_join === o ? { background: C.green } : {}}>{o}</button>
+                ))}
+              </div>
             </Field>
             <Field label="Which areas are you most interested in contributing to?" req error={showErr('contribution_areas')}>
               <div className="flex flex-wrap gap-2 mt-1">
@@ -562,8 +574,14 @@ export default function ApplyPage() {
               <Textarea value={f.leadership_note} onChange={v => set('leadership_note', v)} rows={2} />
             </Field>
             <Field label="What are the biggest issues facing the youth of Roundu today?" req error={showErr('youth_issues')}>
-              <Textarea value={f.youth_issues} onChange={v => set('youth_issues', v)} rows={4}
-                onBlur={() => blur('youth_issues')} bad={!!showErr('youth_issues')} />
+              <div className="flex flex-wrap gap-2 mt-1">
+                {YOUTH_ISSUE_OPTIONS.map(o => (
+                  <button type="button" key={o} onClick={() => set('youth_issues', o)}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold border transition text-left ${f.youth_issues === o
+                      ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-[#0B6B4F]'}`}
+                    style={f.youth_issues === o ? { background: C.green } : {}}>{o}</button>
+                ))}
+              </div>
             </Field>
 
             {/* How they found TNR. Buttons rather than a dropdown: six options
