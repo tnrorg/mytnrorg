@@ -7,7 +7,7 @@ import {
   LEADERSHIP_OPTIONS, DECLARATION_TEXT, DECLARATION_VERSION, photoOptionalFor,
   GENDER_SELF_DESCRIBE, displayGender,
   HEARD_ABOUT, needsReferrer, needsHeardDetail,
-  WHY_JOIN_OPTIONS, YOUTH_ISSUE_OPTIONS,
+  WHY_JOIN_OPTIONS, YOUTH_ISSUE_OPTIONS, whatsappGroupFor,
 } from '@/lib/membership/options';
 import {
   validateApplication, STEPS, stepErrors, isStepComplete, REQUIRED_LABELS, ageFrom,
@@ -282,6 +282,44 @@ export default function ApplyPage() {
             </div>
           </div>
           <p className="mt-4 text-xs text-gray-400">Save this reference number. You will need it with your email to check your application status.</p>
+
+          {/* ── WhatsApp group ──
+              Offered here rather than only by email: this is the moment the
+              applicant is engaged, and an invitation that arrives three days
+              later competes with everything else in their inbox.
+
+              The group follows the gender they gave. Anyone who chose to
+              self-describe, or not to say, is not guessed at — see
+              whatsappGroupFor. */}
+          {whatsappGroupFor(f.gender) ? (
+            <div className="mt-6 rounded-2xl border p-5 text-left"
+              style={{ borderColor: 'rgba(37,211,102,.45)', background: 'rgba(37,211,102,.07)' }}>
+              <div className="flex items-start gap-3">
+                <span className="text-2xl leading-none" aria-hidden="true">💬</span>
+                <div className="min-w-0">
+                  <h2 style={{ ...mont, color: C.deep }} className="font-extrabold text-[15px]">
+                    Join the TNR WhatsApp group
+                  </h2>
+                  <p className="mt-1 text-[13px] text-gray-600 leading-relaxed">
+                    This is where members share announcements, opportunities and
+                    day-to-day discussion. You can join now while your application
+                    is being reviewed.
+                  </p>
+                  <a href={whatsappGroupFor(f.gender)} target="_blank" rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white"
+                    style={{ background: '#25D366' }}>
+                    Open WhatsApp Group →
+                  </a>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-[12.5px] text-gray-600">
+              TNR runs separate WhatsApp groups for women and men. Please contact the
+              membership committee and they will add you to the right one.
+            </p>
+          )}
+
           <div className="mt-6 flex flex-col sm:flex-row gap-3">
             <a href="/membership/status" className="tnr-lift flex-1 py-3 rounded-xl font-bold text-white"
               style={{ background: `linear-gradient(180deg,${C.green},${C.deep})`, border: '1px solid rgba(200,154,43,.4)' }}>
