@@ -238,26 +238,45 @@ export async function DELETE(req) {
   if (!id) return fail('INVALID', 400, { message: 'Missing meeting.' });
 
   const sb = supabaseAdmin();
+  const url = new URL(req.url);
+  const force = url.searchParams.get('force') === '1';
+
   const { data: m } = await sb.from('meetings').select('title, status').eq('id', id).maybeSingle();
   if (!m) return fail('NOT_FOUND', 404, { message: 'Meeting not found.' });
 
-  /* Refuse to delete a meeting that happened.
-   *
-   * The cascade would take its attendance records, minutes and decisions with
-   * it. Those are the organisational record of what a committee resolved —
-   * the reason to hold the meeting in the first place. Cancelling hides a
-   * future meeting; nothing should quietly erase a past one. */
-  if (m.status === 'completed' || m.status === 'live')
-    return fail('HAS_RECORD', 409, {
-      message: 'This meeting has taken place. Its attendance and minutes are part of the record and cannot be deleted.',
+  // A meeting still running is never deletable — people are in the room.
+  if (m.status === 'live')
+    return fail('IS_LIVE', 409, {
+      message: 'This meeting is running. End it first.',
     });
 
-  const { count } = await sb.from('meeting_attendance_sessions')
-    .select('id', { count: 'exact', head: true }).eq('meeting_id', id);
-  if ((count || 0) > 0)
+  /* Deleting a meeting that HAPPENED erases its record.
+   *
+   * The cascade takes the attendance, the minutes and the action items with
+   * it — the organisational record of what a committee resolved, which is the
+   * reason the meeting was held. So it is a two-step: the first request
+   * refuses and reports exactly what would be lost, and only a request that
+   * has seen those numbers and says `force` goes through.
+   *
+   * Not a flat refusal, because that left test meetings stuck in the list
+   * forever with no way to clear them. An administrator is allowed to delete
+   * their own organisation's data — they are not allowed to do it by accident. */
+  const at = async (table) => (await sb.from(table)
+    .select('id', { count: 'exact', head: true }).eq('meeting_id', id)).count || 0;
+
+  const [sessions, attendance, minutes, documents, actions] = await Promise.all([
+    at('meeting_attendance_sessions'), at('meeting_attendance'),
+    at('meeting_minutes'), at('meeting_documents'), at('meeting_action_items'),
+  ]);
+  const records = sessions + attendance + minutes + documents + actions;
+
+  if (records > 0 && !force) {
     return fail('HAS_RECORD', 409, {
-      message: 'People have attended this meeting. Cancel it instead — deleting would erase their attendance.',
+      needs_force: true,
+      counts: { attendance, sessions, minutes, documents, action_items: actions },
+      message: 'This meeting has a record attached.',
     });
+  }
 
   const { error } = await sb.from('meetings').delete().eq('id', id);
   if (error) return fail('DELETE_FAILED', 500, { message: 'Could not delete.' });

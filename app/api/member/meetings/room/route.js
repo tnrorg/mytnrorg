@@ -95,6 +95,19 @@ export async function POST(req) {
       admission, admission_at: new Date().toISOString(), admitted_by: member.id,
     }).eq('meeting_id', id).in('member_id', safe);
 
+    /* Removing means DISCONNECTING them, not just flagging the row.
+     *
+     * The flag stops them getting a new token; without this they would stay
+     * in the meeting they had just been removed from until they chose to
+     * leave, which is not what "remove" means to the host who pressed it. */
+    if (admission === 'removed' || admission === 'rejected') {
+      const { ejectParticipant } = await import('@/lib/livekit');
+      for (const t of safe) {
+        try { await ejectParticipant(meeting.room_id, t); }
+        catch { /* already gone, or the room has ended */ }
+      }
+    }
+
     /* Removing someone also closes their attendance session. They were in the
      * room until this moment and the record should say so — leaving the
      * session open would keep counting time after they were disconnected. */
@@ -110,6 +123,53 @@ export async function POST(req) {
     }
 
     return ok({ message: `${safe.length} ${admission}.`, count: safe.length });
+  }
+
+  /* ── Microphone moderation ──
+   *
+   * Identity in the LiveKit room is the member's uuid — set by the server when
+   * the token was minted, never sent up by a client. So a host names a MEMBER
+   * and this route resolves it; a browser cannot name an arbitrary identity
+   * and mute a stranger in someone else's room. */
+  if (b.action === 'mute_participant' || b.action === 'ask_unmute') {
+    const targets = Array.isArray(b.member_ids) ? b.member_ids.map(String)
+      : b.member_id ? [String(b.member_id)] : [];
+    if (!targets.length) return fail('INVALID', 400, { message: 'Nobody selected.' });
+
+    // Only people actually on this meeting. A host of meeting A must not be
+    // able to reach into meeting B by passing a member id from it.
+    const { data: onList } = await sb.from('meeting_participants')
+      .select('member_id').eq('meeting_id', id).in('member_id', targets);
+    const allowed = (onList || []).map(r => String(r.member_id));
+    if (!allowed.length) return fail('NOT_FOUND', 404, { message: 'Not in this meeting.' });
+
+    const { forceMuteAudio, askToUnmute } = await import('@/lib/livekit');
+    let done = 0;
+    for (const t of allowed) {
+      try {
+        if (b.action === 'mute_participant') { await forceMuteAudio(meeting.room_id, t); }
+        else { await askToUnmute(meeting.room_id, t, member.full_name || 'The host'); }
+        done += 1;
+      } catch { /* someone who has already left is not a failure */ }
+    }
+
+    return ok({
+      count: done,
+      message: b.action === 'mute_participant'
+        ? `${done} participant(s) muted.`
+        : `Asked ${done} participant(s) to unmute.`,
+    });
+  }
+
+  /* Mute everyone but the hosts — the control a chair actually reaches for
+   * when a session of thirty descends into crosstalk. */
+  if (b.action === 'mute_all') {
+    const { forceMuteEveryone } = await import('@/lib/livekit');
+    const keep = [meeting.host_id, ...(meeting.co_host_ids || [])].filter(Boolean);
+    let muted = 0;
+    try { muted = await forceMuteEveryone(meeting.room_id, keep); }
+    catch { return fail('MUTE_FAILED', 502, { message: 'Could not reach the meeting server.' }); }
+    return ok({ count: muted, message: `${muted} participant(s) muted.` });
   }
 
   if (b.action === 'lock') {

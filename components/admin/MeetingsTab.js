@@ -46,10 +46,37 @@ export default function MeetingsTab({ toast }) {
     if (r.ok) load();
   }
 
+  /* Delete, in two steps when there is a record to lose.
+   *
+   * The first request comes back refusing and saying exactly what is attached
+   * — 4 attendance rows, minutes, 2 documents. The confirmation then names
+   * those numbers rather than asking "are you sure?" about an abstraction.
+   * Only that second, informed request carries force. */
   async function remove(m) {
-    if (!confirm(`Delete "${m.title}" permanently?\n\nThis is only possible for meetings that never ran.`)) return;
+    if (!confirm(`Delete "${m.title}"?`)) return;
     setBusyId(m.id);
-    const r = await aDel(`/api/admin/meetings?id=${m.id}`);
+
+    let r = await aDel(`/api/admin/meetings?id=${m.id}`);
+
+    if (!r.ok && r.needs_force) {
+      const c = r.counts || {};
+      const lost = [
+        c.attendance && `${c.attendance} attendance record(s)`,
+        c.sessions && `${c.sessions} join/leave session(s)`,
+        c.minutes && 'the meeting minutes',
+        c.documents && `${c.documents} document(s)`,
+        c.action_items && `${c.action_items} action item(s)`,
+      ].filter(Boolean);
+
+      const go = confirm(
+        `"${m.title}" has a record attached.\n\n`
+        + `Deleting it will also erase:\n  • ${lost.join('\n  • ')}\n\n`
+        + `This cannot be undone. Delete anyway?`
+      );
+      if (!go) { setBusyId(null); return; }
+      r = await aDel(`/api/admin/meetings?id=${m.id}&force=1`);
+    }
+
     setBusyId(null);
     toast?.(r.ok ? r.message : (r.message || 'Could not delete.'), r.ok ? 'ok' : 'err');
     if (r.ok) load();
@@ -164,7 +191,11 @@ export default function MeetingsTab({ toast }) {
                           <button onClick={() => cancel(m)} disabled={busyId === m.id}
                             className="text-amber-300 hover:underline disabled:opacity-40">Cancel</button>
                         )}
-                        {(m.state === 'scheduled' || m.state === 'cancelled') && (
+                        {/* Available for completed meetings too — a finished
+                            test still has to be clearable. What it would
+                            erase is named in the confirmation. Live meetings
+                            are the one exception; people are in the room. */}
+                        {m.state !== 'live' && (
                           <button onClick={() => remove(m)} disabled={busyId === m.id}
                             className="text-red-300 hover:underline disabled:opacity-40">Delete</button>
                         )}

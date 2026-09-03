@@ -3,8 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   LiveKitRoom, RoomAudioRenderer, StartAudio, GridLayout, ParticipantTile,
   Chat, MediaDeviceMenu, useTracks, useLocalParticipant, useRoomContext,
-  useConnectionState, useParticipants,
+  useConnectionState, useParticipants, useDataChannel,
 } from '@livekit/components-react';
+import { RoomEvent } from 'livekit-client';
 import { Track, ConnectionState } from 'livekit-client';
 import '@livekit/components-styles';
 import { mGet, mPost } from '@/components/member/memberApi';
@@ -116,6 +117,9 @@ function RoomShell({ id, data, onLeave }) {
 
       {mediaError && <MediaError err={mediaError} onDismiss={() => setMediaError(null)} />}
 
+      {/* The host's nudge lands here, on the participant's own screen. */}
+      <UnmuteRequest onError={setMediaError} />
+
       <div className="flex min-h-0 flex-1">
         <div className="min-h-0 flex-1 p-2">
           <GridLayout tracks={tracks} style={{ height: '100%' }}>
@@ -125,17 +129,26 @@ function RoomShell({ id, data, onLeave }) {
           </GridLayout>
         </div>
 
+        {/* Chat sits BESIDE the speaker rather than over them, and closes from
+            its own header — a panel you can only dismiss from a toolbar button
+            somewhere else is one people leave open and then complain about. */}
         {panel === 'chat' && data.meeting?.chat_enabled && (
-          <aside className="w-full max-w-sm border-l" style={{ borderColor: 'rgba(255,255,255,.10)' }}>
-            <Chat />
+          <aside className="flex w-full max-w-sm flex-col border-l"
+            style={{ borderColor: 'rgba(255,255,255,.10)', background: '#0A4A35' }}>
+            <PanelHead title="Chat" onClose={() => setPanel('')} />
+            <div className="min-h-0 flex-1"><Chat /></div>
           </aside>
         )}
         {panel === 'people' && (
-          <PeoplePanel participants={participants} />
+          <PeoplePanel id={id} participants={participants} isHost={data.is_host}
+            meHostId={data.me?.id} onClose={() => setPanel('')} />
         )}
-        {panel === 'diag' && <Diagnostics room={room} connection={connection} />}
+        {panel === 'diag' && (
+          <Diagnostics room={room} connection={connection} onClose={() => setPanel('')} />
+        )}
       </div>
 
+      <Reactions />
       <MediaBar meeting={data.meeting} onError={setMediaError} />
 
       {/* Mounted ONCE. Without it a member is connected and hears nobody. */}
@@ -160,12 +173,49 @@ function MediaBar({ meeting, onError }) {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
     useLocalParticipant();
   const [busy, setBusy] = useState('');
+  const [hand, setHand] = useState(false);
+  const [emoji, setEmoji] = useState(false);
 
   const run = async (what, fn) => {
     setBusy(what);
     try { await fn(); onError(null); }
     catch (e) { onError(describeMediaError(e, what)); }
     finally { setBusy(''); }
+  };
+
+  /* Raise hand as a participant ATTRIBUTE, not a broadcast message.
+   *
+   * Attributes are state the media server holds and replays to anyone who
+   * joins later. A data message is a one-off: raise your hand at 8:02 and the
+   * member who joins at 8:05 never sees it, so the host looks straight past
+   * someone who has been waiting to speak. */
+  const toggleHand = async () => {
+    const next = !hand;
+    setHand(next);
+    try { await localParticipant.setAttributes({ hand: next ? String(Date.now()) : '' }); }
+    catch { setHand(!next); }      // put the button back if it did not stick
+  };
+
+  // The host can ask for a hand to be lowered; the participant's own client
+  // does it, which is also what keeps the attribute owner consistent.
+  useDataChannel('tnr-host', (msg) => {
+    try {
+      const p = JSON.parse(new TextDecoder().decode(msg.payload));
+      if (p?.type === 'lower_hand') {
+        setHand(false);
+        localParticipant.setAttributes({ hand: '' }).catch(() => {});
+      }
+    } catch { /* not ours */ }
+  });
+
+  const react = async (glyph) => {
+    setEmoji(false);
+    try {
+      await localParticipant.publishData(
+        new TextEncoder().encode(JSON.stringify({ type: 'reaction', glyph })),
+        { reliable: false, topic: 'tnr-reaction' },
+      );
+    } catch { /* a dropped reaction is not worth an error banner */ }
   };
 
   const canShare = meeting?.screen_share_enabled !== false;
@@ -193,11 +243,88 @@ function MediaBar({ meeting, onError }) {
             () => localParticipant.setScreenShareEnabled(!isScreenShareEnabled))} />
       )}
 
+      <Toggle on={hand} onLabel="Lower hand" offLabel="Raise hand" icon="✋"
+        onClick={toggleHand} />
+
+      {/* Reactions. Fire-and-forget, unreliable on purpose — a clap that
+          arrives four seconds late is worse than one that never arrives. */}
+      <span className="relative">
+        <button onClick={() => setEmoji(!emoji)}
+          className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[12.5px]
+            font-bold text-white transition-colors hover:bg-white/10"
+          style={{ borderColor: 'rgba(255,255,255,.18)' }}>
+          <span aria-hidden="true">😀</span> React
+        </button>
+        {emoji && (
+          <div className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 gap-1 rounded-xl border
+            p-1.5 shadow-lg"
+            style={{ background: '#0A4A35', borderColor: 'rgba(255,255,255,.18)' }}>
+            {REACTIONS.map(g => (
+              <button key={g} onClick={() => react(g)} aria-label={`React ${g}`}
+                className="rounded-lg px-1.5 py-1 text-xl transition-transform hover:scale-125">
+                {g}
+              </button>
+            ))}
+          </div>
+        )}
+      </span>
+
       {/* Speaker choice, where the browser supports setSinkId. */}
       <span className="hidden items-center gap-1 rounded-xl border px-2 py-1.5 text-[12px] text-white/70 sm:inline-flex"
         style={{ borderColor: 'rgba(255,255,255,.18)' }}>
         🔊 <MediaDeviceMenu kind="audiooutput" />
       </span>
+    </div>
+  );
+}
+
+const REACTIONS = ['👍', '👏', '❤️', '😂', '🎉', '🤔', '👋'];
+
+/* Reactions float up from the bottom and disappear.
+ *
+ * Ephemeral by design — nothing is stored, nothing is in the minutes, and a
+ * reaction that arrives after the moment has passed is dropped rather than
+ * queued. This is the one part of the room that does not need to be reliable. */
+function Reactions() {
+  const [live, setLive] = useState([]);
+
+  useDataChannel('tnr-reaction', (msg) => {
+    try {
+      const p = JSON.parse(new TextDecoder().decode(msg.payload));
+      if (p?.type !== 'reaction' || !REACTIONS.includes(p.glyph)) return;   // only our own set
+      const item = { key: `${Date.now()}-${Math.random()}`, glyph: p.glyph, who: msg.from?.name || '' };
+      setLive(l => [...l.slice(-11), item]);                                 // never more than 12
+      setTimeout(() => setLive(l => l.filter(x => x.key !== item.key)), 3200);
+    } catch { /* not ours */ }
+  });
+
+  if (!live.length) return null;
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-24 z-10 flex
+      flex-wrap items-end justify-center gap-3">
+      {live.map(r => (
+        <span key={r.key} className="flex flex-col items-center"
+          style={{ animation: 'tnrFloat 3.2s ease-out forwards' }}>
+          <span className="text-3xl">{r.glyph}</span>
+          {r.who && <span className="text-[10px] text-white/70">{r.who}</span>}
+        </span>
+      ))}
+      <style>{`@keyframes tnrFloat{
+        0%{opacity:0;transform:translateY(20px) scale(.6)}
+        18%{opacity:1;transform:translateY(0) scale(1)}
+        100%{opacity:0;transform:translateY(-90px) scale(1)}}`}</style>
+    </div>
+  );
+}
+
+/* A panel header that can close itself. */
+function PanelHead({ title, onClose }) {
+  return (
+    <div className="flex items-center justify-between gap-2 border-b px-3 py-2"
+      style={{ borderColor: 'rgba(255,255,255,.10)' }}>
+      <h3 className="text-[12px] font-black uppercase tracking-wider text-white/60">{title}</h3>
+      <button onClick={onClose} aria-label={`Close ${title}`}
+        className="rounded-md px-2 py-0.5 text-white/50 hover:bg-white/10 hover:text-white">✕</button>
     </div>
   );
 }
@@ -281,7 +408,7 @@ function MediaError({ err, onDismiss }) {
  * NOTHING SENSITIVE: no token, no API key, no member contact details — device
  * labels and track states only. Behind a button, so it is available when
  * something is wrong without cluttering a working meeting. */
-function Diagnostics({ room, connection }) {
+function Diagnostics({ room, connection, onClose }) {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant();
   const [perm, setPerm] = useState({ camera: 'checking', microphone: 'checking' });
   const [devices, setDevices] = useState({ audioinput: 0, videoinput: 0, audiooutput: 0 });
@@ -332,11 +459,10 @@ function Diagnostics({ room, connection }) {
   ];
 
   return (
-    <aside className="w-full max-w-sm overflow-y-auto border-l p-4"
+    <aside className="flex w-full max-w-sm flex-col border-l"
       style={{ borderColor: 'rgba(255,255,255,.10)', background: '#0A4A35' }}>
-      <h3 className="mb-3 text-[12px] font-black uppercase tracking-wider text-white/50">
-        Connection diagnostics
-      </h3>
+      <PanelHead title="Connection diagnostics" onClose={onClose} />
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
       <dl className="space-y-1">
         {rows.map(([k, v]) => (
           <div key={k} className="flex justify-between gap-3 border-b py-1 text-[12px]"
@@ -349,6 +475,7 @@ function Diagnostics({ room, connection }) {
       <p className="mt-3 text-[11px] leading-relaxed text-white/40">
         Device and track state only. No tokens, keys or member details are shown here.
       </p>
+      </div>
     </aside>
   );
 }
@@ -356,39 +483,209 @@ const show = (v) => v === true ? 'yes' : v === false ? 'no' : String(v);
 const tone = (v) => v === true || v === 'granted' ? 'text-green-300'
   : v === false || v === 'denied' ? 'text-red-300' : 'text-white/70';
 
-/* ── People ──────────────────────────────────────────────────────────────── */
-function PeoplePanel({ participants }) {
+/* ── "The host would like you to speak" ──────────────────────────────────── */
+/* A PROMPT, NOT A COMMAND — see the long note in lib/livekit.js. The host can
+ * silence a microphone from the server; only the person sitting behind it can
+ * open one. This is the second half of that: one tap to accept.
+ *
+ * It also gives the member somewhere to fail visibly. If their microphone is
+ * unplugged or held by another application, the same error banner explains it
+ * rather than the host wondering why nothing happened. */
+function UnmuteRequest({ onError }) {
+  const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
+  const [ask, setAsk] = useState(null);
+
+  useDataChannel('tnr-host', (msg) => {
+    try {
+      const payload = JSON.parse(new TextDecoder().decode(msg.payload));
+      if (payload?.type === 'ask_unmute') setAsk(payload);
+    } catch { /* not one of ours */ }
+  });
+
+  // Nothing to ask once they are already speaking.
+  useEffect(() => { if (isMicrophoneEnabled) setAsk(null); }, [isMicrophoneEnabled]);
+
+  if (!ask) return null;
+
+  const accept = async () => {
+    try { await localParticipant.setMicrophoneEnabled(true); setAsk(null); }
+    catch (e) { setAsk(null); onError(describeMediaError(e, 'microphone')); }
+  };
+
   return (
-    <aside className="w-full max-w-sm overflow-y-auto border-l p-4"
+    <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3"
+      style={{ background: 'rgba(215,174,74,.16)', borderColor: 'rgba(255,255,255,.10)' }}>
+      <span aria-hidden="true">🎤</span>
+      <p className="min-w-0 flex-1 text-[13px] text-white">
+        <strong>{ask.from || 'The host'}</strong> has asked you to unmute.
+      </p>
+      <button onClick={accept}
+        className="rounded-lg px-3 py-1.5 text-[12.5px] font-black"
+        style={{ background: C.gold, color: C.deep }}>Unmute</button>
+      <button onClick={() => setAsk(null)}
+        className="rounded-lg border px-3 py-1.5 text-[12.5px] font-bold text-white/80"
+        style={{ borderColor: 'rgba(255,255,255,.25)' }}>Stay muted</button>
+    </div>
+  );
+}
+
+/* ── People ──────────────────────────────────────────────────────────────── */
+function PeoplePanel({ id, participants, isHost, meHostId, onClose }) {
+  const room = useRoomContext();
+  const [busy, setBusy] = useState('');
+  const [, bump] = useState(0);
+
+  /* Attributes change without any track changing, so the participant list
+   * would not re-render on its own when someone raises a hand. */
+  useEffect(() => {
+    if (!room) return;
+    const redraw = () => bump(n => n + 1);
+    room.on(RoomEvent.ParticipantAttributesChanged, redraw);
+    return () => { room.off(RoomEvent.ParticipantAttributesChanged, redraw); };
+  }, [room]);
+
+  const act = async (action, memberIds, key) => {
+    setBusy(key);
+    await mPost('/api/member/meetings/room', { meeting_id: id, action, member_ids: memberIds });
+    setBusy('');
+  };
+
+  const lowerHand = async (identity) => {
+    try {
+      await room.localParticipant.publishData(
+        new TextEncoder().encode(JSON.stringify({ type: 'lower_hand' })),
+        { reliable: true, topic: 'tnr-host', destinationIdentities: [String(identity)] },
+      );
+    } catch { /* they have left */ }
+  };
+
+  const eject = async (p) => {
+    if (!confirm(`Remove ${p.name || 'this member'} from the meeting?\n\n`
+      + `They will be disconnected immediately and cannot rejoin unless you re-admit them.`)) return;
+    await act('remove', [p.identity], p.identity);
+  };
+
+  // Identity IS the member uuid — set by the server at token time.
+  const others = participants.filter(p => String(p.identity) !== String(meHostId));
+  const raised = (p) => !!p.attributes?.hand;
+
+  /* Raised hands first, oldest first — whoever has been waiting longest is
+   * top of the list, which is the whole point of raising a hand. */
+  const ordered = [...participants].sort((a, b) => {
+    const ha = a.attributes?.hand || '', hb = b.attributes?.hand || '';
+    if (ha && hb) return Number(ha) - Number(hb);
+    if (ha) return -1;
+    if (hb) return 1;
+    return 0;
+  });
+  const hands = ordered.filter(raised).length;
+
+  return (
+    <aside className="flex w-full max-w-sm flex-col border-l"
       style={{ borderColor: 'rgba(255,255,255,.10)', background: '#0A4A35' }}>
-      <h3 className="mb-3 text-[12px] font-black uppercase tracking-wider text-white/50">
-        In the room ({participants.length})
-      </h3>
+      <PanelHead title={`In the room (${participants.length})`} onClose={onClose} />
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {hands > 0 && (
+          <p className="mb-2 rounded-lg px-2.5 py-1.5 text-[12px] font-bold"
+            style={{ background: 'rgba(215,174,74,.16)', color: C.gold }}>
+            ✋ {hands} {hands === 1 ? 'hand' : 'hands'} raised
+          </p>
+        )}
+
+        {isHost && others.length > 0 && (
+          <button onClick={() => act('mute_all', [], 'all')} disabled={!!busy}
+            className="mb-2 w-full rounded-lg border px-2.5 py-1.5 text-[11.5px] font-bold text-white/85
+              hover:bg-white/10 disabled:opacity-40"
+            style={{ borderColor: 'rgba(255,255,255,.25)' }}>
+            {busy === 'all' ? 'Muting…' : 'Mute everyone'}
+          </button>
+        )}
+
       <ul className="space-y-1.5">
-        {participants.map(p => {
+        {ordered.map(p => {
           // Set by the SERVER when the token was minted — see lib/livekit.js.
           let meta = {};
           try { meta = JSON.parse(p.metadata || '{}'); } catch { /* not ours */ }
+          const isMe = String(p.identity) === String(meHostId);
+          const theyAreHost = meta.role === 'host' || meta.role === 'co_host';
+
           return (
-            <li key={p.identity} className="flex items-center gap-2.5 rounded-lg bg-white/5 px-2.5 py-1.5">
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-semibold text-white">
-                  {p.name || 'Member'}
+            <li key={p.identity} className="rounded-lg px-2.5 py-1.5"
+              style={{ background: raised(p) ? 'rgba(215,174,74,.14)' : 'rgba(255,255,255,.05)' }}>
+              <div className="flex items-center gap-2.5">
+                {raised(p) && <span className="text-[15px]" title="Hand raised">✋</span>}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-semibold text-white">
+                    {p.name || 'Member'}{isMe ? ' (you)' : ''}
+                  </span>
+                  <span className="block font-mono text-[10.5px] text-white/40">
+                    {meta.membership_id || ''}
+                    {meta.role && meta.role !== 'participant' ? ` · ${meta.role.replace('_', '-')}` : ''}
+                  </span>
                 </span>
-                <span className="block font-mono text-[10.5px] text-white/40">
-                  {meta.membership_id || ''}{meta.role && meta.role !== 'participant' ? ` · ${meta.role}` : ''}
+                <span className="text-[13px]" title={p.isMicrophoneEnabled ? 'Unmuted' : 'Muted'}>
+                  {p.isMicrophoneEnabled ? '🎤' : '🔇'}
                 </span>
-              </span>
-              <span className="text-[13px]" title={p.isMicrophoneEnabled ? 'Unmuted' : 'Muted'}>
-                {p.isMicrophoneEnabled ? '🎤' : '🔇'}
-              </span>
-              <span className="text-[13px]" title={p.isCameraEnabled ? 'Camera on' : 'Camera off'}>
-                {p.isCameraEnabled ? '📹' : '⬛'}
-              </span>
+                <span className="text-[13px]" title={p.isCameraEnabled ? 'Camera on' : 'Camera off'}>
+                  {p.isCameraEnabled ? '📹' : '⬛'}
+                </span>
+              </div>
+
+              {/* Host controls. Co-hosts are left alone — a chair silencing the
+                  other chair mid-sentence is a different kind of problem. */}
+              {isHost && !isMe && !theyAreHost && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {p.isMicrophoneEnabled ? (
+                    <button onClick={() => act('mute_participant', [p.identity], p.identity)}
+                      disabled={!!busy}
+                      className="rounded-md border px-2 py-0.5 text-[11px] font-bold text-white/80
+                        hover:bg-white/10 disabled:opacity-40"
+                      style={{ borderColor: 'rgba(255,255,255,.25)' }}>
+                      {busy === p.identity ? '…' : 'Mute'}
+                    </button>
+                  ) : (
+                    <button onClick={() => act('ask_unmute', [p.identity], p.identity)}
+                      disabled={!!busy}
+                      className="rounded-md px-2 py-0.5 text-[11px] font-bold disabled:opacity-40"
+                      style={{ background: 'rgba(215,174,74,.2)', color: C.gold }}
+                      title="They will be asked — only they can switch their microphone on">
+                      {busy === p.identity ? '…' : 'Ask to unmute'}
+                    </button>
+                  )}
+
+                  {raised(p) && (
+                    <button onClick={() => lowerHand(p.identity)}
+                      className="rounded-md border px-2 py-0.5 text-[11px] font-bold text-white/80
+                        hover:bg-white/10"
+                      style={{ borderColor: 'rgba(255,255,255,.25)' }}>
+                      Lower hand
+                    </button>
+                  )}
+
+                  {/* Last, and red. A destructive action should not sit next to
+                      Mute where a mis-tap costs someone their seat. */}
+                  <button onClick={() => eject(p)} disabled={!!busy}
+                    className="rounded-md border px-2 py-0.5 text-[11px] font-bold text-red-300
+                      hover:bg-red-500/15 disabled:opacity-40"
+                    style={{ borderColor: 'rgba(248,113,113,.4)' }}>
+                    Remove
+                  </button>
+                </div>
+              )}
             </li>
           );
         })}
       </ul>
+
+        {isHost && (
+          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+            Muting takes effect immediately. Unmuting is a request — only the
+            member can switch their own microphone on. Removing disconnects
+            them at once.
+          </p>
+        )}
+      </div>
     </aside>
   );
 }
