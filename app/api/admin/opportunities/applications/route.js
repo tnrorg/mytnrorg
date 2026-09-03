@@ -107,6 +107,18 @@ export async function POST(req) {
   const b = await readJson(req);
   const sb = supabaseAdmin();
 
+  /* ── Bulk decision ──
+   *
+   * One set of interview details sent to many shortlisted applicants.
+   *
+   * Processed in SMALL BATCHES, with the client looping until done. Each
+   * applicant costs a database write plus an SMTP round trip, and thirty of
+   * those in one request will hit the serverless time limit — at which point
+   * the connection drops mid-run and nobody, including the admin, knows how
+   * many emails went out. Ten at a time finishes well inside the limit and
+   * reports exactly what happened. */
+  if (Array.isArray(b.ids)) return bulk(sb, b, admin, req);
+
   const id = String(b.id || '').trim();
   if (!id) return fail('INVALID', 400, { message: 'Missing application.' });
 
@@ -197,6 +209,120 @@ export async function POST(req) {
       : mail.skipped ? 'Status updated.'
         : 'Application status updated, but the notification email could not be sent.',
   });
+}
+
+/* One decision applied to many applicants.
+ *
+ * The client sends a CHUNK of ids at a time and calls again until its list is
+ * exhausted, so a run of thirty never sits in one request. The cap below is
+ * enforced here as well — a client that ignores the chunk size still cannot
+ * make the server attempt thirty SMTP sends in one invocation.
+ *
+ * Every applicant is processed independently and reported individually. One
+ * bad email address must not stop the other twenty-eight invitations, and the
+ * admin must be able to see WHICH one failed rather than being told "some
+ * failed".
+ */
+const BULK_CHUNK = 8;
+
+async function bulk(sb, b, admin, req) {
+  const to = String(b.status || '').trim();
+  if (!APP_STATUSES.includes(to) || to === 'submitted' || to === 'withdrawn')
+    return fail('INVALID', 400, { message: 'Not a decision that can be applied here.' });
+
+  const ids = [...new Set(b.ids.map(x => String(x || '').trim()).filter(Boolean))].slice(0, BULK_CHUNK);
+  if (!ids.length) return fail('INVALID', 400, { message: 'No applications selected.' });
+
+  let interview = null;
+  if (to === 'interview_invited') {
+    const i = b.interview || {};
+    if (!String(i.date || '').trim() || !String(i.time || '').trim())
+      return fail('INVALID', 400, { message: 'Interview date and time are required.' });
+    interview = {
+      date: String(i.date).trim().slice(0, 40),
+      time: String(i.time).trim().slice(0, 40),
+      mode: INTERVIEW_MODES.includes(i.mode) ? i.mode : 'Online',
+      venue: String(i.venue || '').trim().slice(0, 300),
+      notes: String(i.notes || '').trim().slice(0, 600),
+    };
+  }
+
+  const { data: apps } = await sb.from('opportunity_applications').select('*').in('id', ids);
+  const rows = apps || [];
+
+  // Members and opportunities for the whole chunk in two queries rather than
+  // two per applicant.
+  const [{ data: mem }, { data: opp }] = await Promise.all([
+    sb.from('membership_members').select(MEMBER_COLUMNS)
+      .in('id', [...new Set(rows.map(r => r.member_id))]),
+    sb.from('opportunities').select('id, title')
+      .in('id', [...new Set(rows.map(r => r.opportunity_id))]),
+  ]);
+  const members = Object.fromEntries((mem || []).map(m => [m.id, m]));
+  const opps = Object.fromEntries((opp || []).map(o => [o.id, o]));
+
+  const results = [];
+  const now = new Date().toISOString();
+
+  for (const id of ids) {
+    const app = rows.find(r => r.id === id);
+    const member = app ? members[app.member_id] : null;
+    const name = member?.full_name || member?.membership_id || 'Applicant';
+
+    if (!app) { results.push({ id, name, state: 'missing', note: 'Application not found.' }); continue; }
+
+    // Same guard as the single decision: never email someone twice because
+    // they were already in this state before the run started.
+    if (app.status === to) { results.push({ id, name, state: 'skipped', note: 'Already at this status.' }); continue; }
+
+    const { error } = await sb.from('opportunity_applications')
+      .update({ status: to, updated_at: now, ...(interview ? { interview } : {}) }).eq('id', id);
+    if (error) { results.push({ id, name, state: 'failed', note: 'Could not update.' }); continue; }
+
+    const opportunity = opps[app.opportunity_id] || { title: 'Opportunity' };
+
+    const { data: hist } = await sb.from('opportunity_application_history').insert({
+      application_id: id, opportunity_id: app.opportunity_id, member_id: app.member_id,
+      from_status: app.status, to_status: to,
+      changed_by: admin?.username || 'admin',
+      interview, email_status: 'pending',
+    }).select('id').single();
+
+    const mail = await sendApplicationEmail({ status: to, member, opportunity, interview });
+
+    if (hist?.id) {
+      await sb.from('opportunity_application_history').update({
+        email_status: mail.skipped ? 'not_required' : (mail.sent ? 'sent' : 'failed'),
+        email_error: mail.error || null,
+        email_sent_at: mail.sent ? new Date().toISOString() : null,
+      }).eq('id', hist.id);
+    }
+
+    await notifyMember({
+      memberId: app.member_id,
+      title: `${opportunity.title} — ${to.replace('_', ' ')}`,
+      body: 'Open your Opportunities page to see the details.',
+      link: '/member/opportunities', category: 'opportunity',
+    });
+
+    /* The status change stands even when the email does not go.
+     * `email_failed` is deliberately NOT `failed` — the committee's decision
+     * was recorded, only the message needs resending, and Retry Email on that
+     * row will do it without touching the status again. */
+    results.push({
+      id, name,
+      state: (mail.sent || mail.skipped) ? 'done' : 'email_failed',
+      note: mail.error || null,
+    });
+  }
+
+  await logAudit({
+    action: `APPLICATION_BULK_${to.toUpperCase()}`, actor: admin?.username || 'admin',
+    details: `${results.filter(r => r.state === 'done').length}/${ids.length} applied`,
+    ip: clientIp(req),
+  });
+
+  return ok({ results, chunk: ids.length });
 }
 
 /** Resend the email for the most recent decision. Status is not touched. */
