@@ -145,7 +145,10 @@ function RoomShell({ id, data, onLeave }) {
         {/* THE STAGE is the one dark surface: a deep radial wash, because
             video and faces sit far better on it than on white, and a rounded
             card so it reads as a distinct object rather than a filled area. */}
-        <div className="min-h-0 flex-1 p-3">
+        {/* On a phone a side panel takes the whole width, so the stage is
+            hidden while one is open rather than squeezed into the strip left
+            over. From `md` up both fit and the stage stays. */}
+        <div className={`min-h-0 flex-1 p-2 sm:p-3 ${panel ? 'hidden md:block' : ''}`}>
           <div className="h-full overflow-hidden rounded-2xl p-2"
             style={{
               background: `radial-gradient(1200px 600px at 50% -10%, #0B5540 0%, ${C.deep} 55%, #041E16 100%)`,
@@ -168,7 +171,7 @@ function RoomShell({ id, data, onLeave }) {
          * gone. Hiding costs one offscreen element and keeps every message
          * until the member leaves. */}
         {data.meeting?.chat_enabled && (
-          <aside className={`w-full max-w-sm flex-col border-l ${panel === 'chat' ? 'flex' : 'hidden'}`}
+          <aside className={`w-full flex-col border-l md:max-w-sm ${panel === 'chat' ? 'flex' : 'hidden'}`}
             style={{ borderColor: SURFACE.line, background: SURFACE.bg }}>
             <TnrChat onClose={() => setPanel('')} />
           </aside>
@@ -504,7 +507,7 @@ function Diagnostics({ room, connection, onClose }) {
   ];
 
   return (
-    <aside className="flex w-full max-w-sm flex-col border-l"
+    <aside className="flex w-full flex-col border-l md:max-w-sm"
       style={{ borderColor: SURFACE.line, background: SURFACE.bg }}>
       <PanelHead title="Connection diagnostics" onClose={onClose} />
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -627,7 +630,7 @@ function PeoplePanel({ id, participants, isHost, meHostId, onClose }) {
   const hands = ordered.filter(raised).length;
 
   return (
-    <aside className="flex w-full max-w-sm flex-col border-l"
+    <aside className="flex w-full flex-col border-l md:max-w-sm"
       style={{ borderColor: SURFACE.line, background: SURFACE.bg }}>
       <PanelHead title={`In the room (${participants.length})`} onClose={onClose} />
 
@@ -753,6 +756,7 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
   const [waiting, setWaiting] = useState([]);
   const [busy, setBusy] = useState(false);
   const [lobby, setLobby] = useState(false);
+  const [rec, setRec] = useState(false);
 
   useEffect(() => {
     if (!isHost || !meeting?.waiting_room_enabled) return;
@@ -768,6 +772,18 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
     await mPost('/api/member/meetings/room', { meeting_id: id, action, member_ids: memberIds });
     setWaiting(w => w.filter(p => !memberIds.includes(p.member_id)));
     setBusy(false);
+  };
+
+  const record = async (on) => {
+    if (on && !confirm(
+      'Start recording this meeting?\n\n'
+      + 'Everyone present is shown a recording indicator for as long as it runs.')) return;
+    setBusy(true);
+    const r = await mPost('/api/member/meetings/room',
+      { meeting_id: id, action: on ? 'start_recording' : 'stop_recording' });
+    setBusy(false);
+    setRec(on && r?.ok);
+    if (!r?.ok) alert(r?.message || 'Could not change recording.');
   };
 
   const end = async () => {
@@ -821,14 +837,27 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
           </div>
         </div>
 
+        {/* The indicator is shown to EVERYONE the whole time a recording
+            runs — section 32 of the brief, and simple decency. */}
         {meeting?.recording_enabled && (
-          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1
-            text-[11px] font-bold text-red-700"
-            style={{ background: 'rgba(220,38,38,.10)' }}>
-            <span className="h-2 w-2 animate-pulse rounded-full bg-red-600" />
-            <span className="hidden sm:inline">Recording enabled</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold"
+            style={rec
+              ? { background: '#DC2626', color: '#fff' }
+              : { background: 'rgba(220,38,38,.10)', color: '#B91C1C' }}>
+            <span className={`h-2 w-2 rounded-full ${rec ? 'animate-pulse bg-white' : 'bg-red-600'}`} />
+            <span className="hidden sm:inline">{rec ? 'RECORDING' : 'Recording enabled'}</span>
             <span className="sm:hidden">REC</span>
           </span>
+        )}
+
+        {isHost && meeting?.recording_enabled && (
+          <button onClick={() => record(!rec)} disabled={busy}
+            className="rounded-full border px-3 py-1.5 text-[12px] font-bold disabled:opacity-40"
+            style={rec
+              ? { borderColor: '#DC2626', background: '#FEF2F2', color: '#B91C1C' }
+              : { borderColor: SURFACE.line, background: SURFACE.bg, color: SURFACE.ink }}>
+            {busy ? '…' : rec ? 'Stop recording' : 'Record'}
+          </button>
         )}
 
         {tab('people', 'People', count)}

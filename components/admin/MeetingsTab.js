@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { aGet, aPost, aDel } from './adminApi';
 import { Card } from './ui';
 import MeetingEditor from './meetings/MeetingEditor';
+import MeetingRecord from './meetings/MeetingRecord';
 import {
   MEETING_TYPES, STATUS_LABEL, STATUS_TONE, typeLabel, typeIcon,
   fmtDateTime, relativeTime,
@@ -23,6 +24,7 @@ export default function MeetingsTab({ toast }) {
   const [type, setType] = useState('');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null);   // meeting object or {} for new
+  const [record, setRecord] = useState(null);     // meeting whose record is open
   const [busyId, setBusyId] = useState(null);
 
   const load = useCallback(() => {
@@ -90,6 +92,14 @@ export default function MeetingsTab({ toast }) {
   });
 
   const S = d?.stats || {};
+
+  /* The record page replaces the list rather than opening over it. Attendance,
+   * minutes and documents are a workspace, not a dialog — a secretary writing
+   * up a session is in there for twenty minutes. */
+  if (record) return (
+    <MeetingRecord meeting={record} toast={toast}
+      onBack={() => { setRecord(null); load(); }} />
+  );
 
   return (
     <div className="space-y-4">
@@ -185,8 +195,10 @@ export default function MeetingsTab({ toast }) {
                     </td>
                     <td className="whitespace-nowrap px-3 py-2.5">
                       <div className="flex gap-2.5 text-xs">
+                        <button onClick={() => setRecord(m)}
+                          className="text-tnr-goldLight hover:underline">Record</button>
                         <button onClick={() => setEditing(m)} disabled={busyId === m.id}
-                          className="text-tnr-goldLight hover:underline disabled:opacity-40">Edit</button>
+                          className="text-tnr-cream/70 hover:underline disabled:opacity-40">Edit</button>
                         {m.state === 'scheduled' && (
                           <button onClick={() => cancel(m)} disabled={busyId === m.id}
                             className="text-amber-300 hover:underline disabled:opacity-40">Cancel</button>
@@ -209,9 +221,7 @@ export default function MeetingsTab({ toast }) {
         </div>
       )}
 
-      {/* Attendance, minutes, documents and the recording live on the meeting
-          record page — Phase 4 and 5. The actions above are the ones this
-          phase can honestly carry out. */}
+
 
       {editing && (
         <MeetingEditor meeting={editing.id ? editing : null} toast={toast}

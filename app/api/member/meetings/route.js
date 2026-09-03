@@ -3,7 +3,7 @@ import { ok, fail, readJson } from '@/lib/api';
 import { supabaseAdmin } from '@/lib/supabaseServer';
 import { tabFor, joinability, roleInMeeting, isHostLike } from '@/lib/meetings';
 import {
-  loadMeetingFor, hostsOf, participantsOf, sweepLifecycle, withDerived, MEMBER_FIELDS,
+  loadMeetingFor, hostsOf, participantsOf, sweepLifecycle, sendMeetingReminders, withDerived, MEMBER_FIELDS,
 } from '@/lib/meetingsServer';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +28,9 @@ export async function GET(req) {
   const sb = supabaseAdmin();
 
   await sweepLifecycle().catch(() => {});
+  // Opportunistic, because this project has no scheduler. See
+  // sendMeetingReminders() for the honest limitation that comes with that.
+  await sendMeetingReminders().catch(() => {});
 
   // ── One meeting ──
   if (one) {

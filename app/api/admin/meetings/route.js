@@ -8,7 +8,7 @@ import {
 } from '@/lib/meetings';
 import {
   newRoomId, resolveAudience, inviteMembers, participantsOf, hostsOf,
-  notifyMeeting, sweepLifecycle, withDerived, MEMBER_FIELDS,
+  notifyMeeting, sweepLifecycle, sendMeetingReminders, withDerived, MEMBER_FIELDS,
 } from '@/lib/meetingsServer';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +37,9 @@ export async function GET(req) {
   // Correct anything the clock has overtaken before counting it. See
   // sweepLifecycle for why this happens on read rather than on a schedule.
   await sweepLifecycle().catch(() => {});
+  // Opportunistic, because this project has no scheduler. See
+  // sendMeetingReminders() for the honest limitation that comes with that.
+  await sendMeetingReminders().catch(() => {});
 
   // ── One meeting, in full ──
   if (one) {

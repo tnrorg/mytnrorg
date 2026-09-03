@@ -172,6 +172,64 @@ export async function POST(req) {
     return ok({ count: muted, message: `${muted} participant(s) muted.` });
   }
 
+  /* ── Recording ──
+   *
+   * Host-only, and only when the meeting was CREATED with recording allowed.
+   * A host cannot decide mid-session to record a committee that was told it
+   * would not be — the setting is part of what the invitation promised. */
+  if (b.action === 'start_recording' || b.action === 'stop_recording') {
+    if (!meeting.recording_enabled)
+      return fail('NOT_ALLOWED', 403, {
+        message: 'Recording was not enabled for this meeting. Edit the meeting to allow it.',
+      });
+
+    const lk = await import('@/lib/livekit');
+    if (!lk.livekitConfig().configured)
+      return fail('VIDEO_NOT_CONFIGURED', 503, { message: 'Recording needs the LiveKit credentials.' });
+
+    if (b.action === 'start_recording') {
+      // Never two at once: a second egress would bill twice and produce two
+      // half-useful files of the same meeting.
+      const already = await lk.activeRecording(meeting.room_id).catch(() => null);
+      if (already?.egressId)
+        return ok({ egress_id: already.egressId, unchanged: true, message: 'Already recording.' });
+
+      let started;
+      try { started = await lk.startRecording(meeting.room_id, id); }
+      catch (e) {
+        return fail('RECORDING_FAILED', 502, {
+          message: 'The meeting server refused to start recording. '
+            + 'Recording usually has to be enabled on the LiveKit project first.',
+          detail: String(e?.message || '').slice(0, 160),
+        });
+      }
+
+      await sb.from('meeting_recordings').insert({
+        meeting_id: id, provider: 'livekit',
+        provider_egress_id: started.egressId,
+        status: 'processing',
+        started_by: member.id, started_at: new Date().toISOString(),
+        created_by: member.full_name || member.membership_id,
+      });
+      return ok({ egress_id: started.egressId, message: 'Recording started. Everyone can see the indicator.' });
+    }
+
+    const { data: live } = await sb.from('meeting_recordings')
+      .select('id, provider_egress_id').eq('meeting_id', id).eq('status', 'processing')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (!live?.provider_egress_id) return ok({ unchanged: true, message: 'Nothing is recording.' });
+
+    try { await lk.stopRecording(live.provider_egress_id); }
+    catch { /* already stopped its end; the webhook will still close the row */ }
+
+    await sb.from('meeting_recordings')
+      .update({ stopped_at: new Date().toISOString() }).eq('id', live.id);
+
+    // The file is NOT ready yet — LiveKit finishes encoding and calls the
+    // webhook. Saying so avoids an admin refreshing an empty Recording tab.
+    return ok({ message: 'Recording stopped. The file appears on the meeting record once it has processed.' });
+  }
+
   if (b.action === 'lock') {
     await sb.from('meetings').update({ locked: !!b.locked }).eq('id', id);
     return ok({ message: b.locked ? 'Meeting locked.' : 'Meeting unlocked.' });
