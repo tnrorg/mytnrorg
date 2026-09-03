@@ -26,8 +26,14 @@ const securityHeaders = [
   // site a member clicks through to.
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
 
-  // Nothing here needs these.
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
+  /* Permissions-Policy is NOT here — it is set per-path in headers() below.
+   *
+   * It has to be, because the meeting room needs camera and microphone and
+   * the rest of the site must not have them. Setting it here as well would
+   * put TWO Permissions-Policy headers on every response, and repeated
+   * headers are concatenated by the browser rather than replaced — which
+   * makes the effective policy something you have to derive instead of read.
+   * One header, one source of truth. */
 
   // Two years, subdomains included. Safe: the site is HTTPS-only on Vercel.
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
@@ -94,6 +100,58 @@ const nextConfig = {
   async headers() {
     return [
       { source: '/:path*', headers: securityHeaders },
+
+      /* ── Camera and microphone ──────────────────────────────────────────
+       *
+       * THIS IS WHY THE MEETING ROOM COULD NOT PUBLISH AUDIO OR VIDEO.
+       *
+       * The site-wide policy used to be `camera=(), microphone=()`. An EMPTY
+       * allowlist does not mean "no third parties" — it means NO ORIGINS AT
+       * ALL, including this one. Chrome therefore refused every
+       * getUserMedia() call on mytnr.org with NotAllowedError, so the LiveKit
+       * room connected happily over WebSocket, the toolbar rendered, and the
+       * camera and microphone buttons did nothing. The avatar stayed up
+       * because there was never a track to render.
+       *
+       * That header was correct when it was written — nothing on the site
+       * used these devices. The meeting module changed that fact and the
+       * header was not revisited.
+       *
+       * Now: `(self)` on the two paths that hold the meeting room, and the
+       * same closed policy everywhere else. A page that has no business
+       * reaching for a camera still cannot, and no third-party frame can
+       * anywhere — the grant is this origin only. */
+      {
+        source: '/member/meetings/:path*',
+        headers: [{
+          key: 'Permissions-Policy',
+          value: 'camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=(), usb=()',
+        }],
+      },
+      {
+        // The public landing page, so a member can be told their browser has
+        // blocked the devices before they are standing in a live meeting.
+        source: '/virtual-hall',
+        headers: [{
+          key: 'Permissions-Policy',
+          value: 'camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=(), usb=()',
+        }],
+      },
+      {
+        /* Everywhere else: still fully denied, as before.
+         *
+         * This has to be a NEGATIVE match rather than a blanket rule plus an
+         * override. Two Permissions-Policy headers on one response are
+         * combined by the browser and the MOST RESTRICTIVE value wins, so a
+         * site-wide `camera=()` would silently defeat the `camera=(self)`
+         * above and put the meeting room straight back where it was. The two
+         * rules must not overlap. */
+        source: '/((?!member/meetings|virtual-hall).*)',
+        headers: [{
+          key: 'Permissions-Policy',
+          value: 'camera=(), microphone=(), display-capture=(), geolocation=(), payment=(), usb=()',
+        }],
+      },
 
       // Admin and member portals must never be cached by a shared proxy.
       {
