@@ -4,6 +4,7 @@ import { ok, fail, readJson } from '@/lib/api';
 import { aiConfigured } from '@/lib/ai/provider';
 import { answer as aiAnswer, trimHistory, MAX_QUESTION_CHARS } from '@/lib/ai/tnrChat';
 import { allowAsk } from '@/lib/ai/rateLimit';
+import { asksAboutLeadership, lookupLeadership, leadershipContext } from '@/lib/ai/leadershipLookup';
 import { clientIp } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
@@ -87,6 +88,25 @@ export async function POST(req) {
       });
     }
 
+    /* Who holds a position — from the live leadership table.
+     *
+     * The handbook describes what the CEC and the Advisory Council ARE; it
+     * contains no names, deliberately, because names change and a name baked
+     * into the code goes stale the day someone is elected. So "who is the
+     * Technical Coordinator" used to fall all the way through to "I could not
+     * find that", which is the most obvious question to ask an organisation's
+     * assistant.
+     *
+     * Answered from the database, not the model: an office bearer is a fact
+     * the site already publishes, and a fact should never be paraphrased by
+     * something that might get it wrong. */
+    if (asksAboutLeadership(q)) {
+      const found = await lookupLeadership(q);
+      if (found) return ok(found);
+      // No match — fall through. The handbook may still explain the role, and
+      // the AI can say plainly that the post is not listed.
+    }
+
     const ranked = ENTRIES.map(e => ({ e, s: score(e, q) })).sort((a, b) => b.s - a.s);
     const best = ranked[0];
 
@@ -154,8 +174,21 @@ async function tryAi(req, q, history, ranked) {
     .join('\n')
     .slice(0, 4000);
 
+  /* The roster goes to the model as well.
+   *
+   * The lookup above handles a clean match; this covers the awkward phrasings
+   * it misses — "kis ka naam hai jo technical dekhta hai". Without it the
+   * model is under a blanket instruction never to name an office holder, and
+   * would refuse a question the site answers on a public page. With it, the
+   * names are source material like any other. */
+  const roster = await leadershipContext().catch(() => '');
+
   try {
-    const text = await aiAnswer({ question: q, history: trimHistory(history), reference });
+    const text = await aiAnswer({
+      question: q,
+      history: trimHistory(history),
+      reference: roster ? `${reference}\n\nCURRENT TNR OFFICE BEARERS:\n${roster}` : reference,
+    });
     if (!text) return null;
     return {
       answer: text,
