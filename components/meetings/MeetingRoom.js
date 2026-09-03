@@ -1,11 +1,13 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  LiveKitRoom, RoomAudioRenderer, StartAudio, GridLayout, ParticipantTile,
-  Chat, MediaDeviceMenu, useTracks, useLocalParticipant, useRoomContext,
+  LiveKitRoom, RoomAudioRenderer, StartAudio, GridLayout,
+  MediaDeviceMenu, useTracks, useLocalParticipant, useRoomContext,
   useConnectionState, useParticipants, useDataChannel,
 } from '@livekit/components-react';
 import { RoomEvent } from 'livekit-client';
+import TnrTile, { readMeta } from './TnrTile';
+import TnrChat from './TnrChat';
 import { Track, ConnectionState } from 'livekit-client';
 import '@livekit/components-styles';
 import { mGet, mPost } from '@/components/member/memberApi';
@@ -66,12 +68,16 @@ export default function MeetingRoom({ id, data }) {
   return (
     <div className="flex h-[100dvh] flex-col" data-lk-theme="default"
       style={{
-        background: C.deep,
+        /* A deep radial wash rather than a flat fill. Faces sit on it far
+           better — a solid block of one green makes every tile look pasted on,
+           which was most of what read as "generic embed". */
+        background: `radial-gradient(1200px 600px at 50% -10%, #0B5540 0%, ${C.deep} 55%, #041E16 100%)`,
         // LiveKit's own tokens, repointed at the TNR palette — their layout
         // and accessibility work is kept, the colours are ours.
         '--lk-bg': C.deep, '--lk-bg2': '#0A4A35',
         '--lk-accent-bg': C.green, '--lk-accent2': C.gold,
         '--lk-danger': '#B91C1C', '--lk-border-color': 'rgba(255,255,255,.10)',
+        '--lk-grid-gap': '12px',
       }}>
       <LiveKitRoom
         token={data.token}
@@ -121,11 +127,11 @@ function RoomShell({ id, data, onLeave }) {
       <UnmuteRequest onError={setMediaError} />
 
       <div className="flex min-h-0 flex-1">
-        <div className="min-h-0 flex-1 p-2">
+        <div className="min-h-0 flex-1 p-3">
           <GridLayout tracks={tracks} style={{ height: '100%' }}>
-            {/* ParticipantTile attaches the real track to a real <video>.
-                Its own placeholder covers the no-camera case. */}
-            <ParticipantTile />
+            {/* Our tile: a real <video> when the camera is live, the member's
+                own TNR photograph when it is not. See TnrTile. */}
+            <TnrTile />
           </GridLayout>
         </div>
 
@@ -134,9 +140,8 @@ function RoomShell({ id, data, onLeave }) {
             somewhere else is one people leave open and then complain about. */}
         {panel === 'chat' && data.meeting?.chat_enabled && (
           <aside className="flex w-full max-w-sm flex-col border-l"
-            style={{ borderColor: 'rgba(255,255,255,.10)', background: '#0A4A35' }}>
-            <PanelHead title="Chat" onClose={() => setPanel('')} />
-            <div className="min-h-0 flex-1"><Chat /></div>
+            style={{ borderColor: 'rgba(255,255,255,.10)', background: '#08402F' }}>
+            <TnrChat onClose={() => setPanel('')} />
           </aside>
         )}
         {panel === 'people' && (
@@ -221,8 +226,13 @@ function MediaBar({ meeting, onError }) {
   const canShare = meeting?.screen_share_enabled !== false;
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2 border-t px-3 py-2.5"
-      style={{ background: C.deep, borderColor: 'rgba(255,255,255,.10)' }}>
+    <div className="flex flex-wrap items-center justify-center gap-2 border-t px-3 py-3"
+      style={{
+        // A hair lighter than the stage, so the bar reads as a surface the
+        // controls sit ON rather than a strip of the same colour.
+        background: 'linear-gradient(180deg,#08402F,#052A1F)',
+        borderColor: 'rgba(255,255,255,.08)',
+      }}>
 
       <Toggle on={isMicrophoneEnabled} busy={busy === 'microphone'}
         onLabel="Mute" offLabel="Unmute" icon={isMicrophoneEnabled ? '🎤' : '🔇'}
@@ -329,21 +339,31 @@ function PanelHead({ title, onClose }) {
   );
 }
 
-function Toggle({ on, busy, onLabel, offLabel, icon, onClick, menu }) {
+/* A control that reads as one object.
+ *
+ * The label is hidden below `sm` and the icon carries it, so the bar never
+ * wraps to two rows on a phone — which is where these controls matter most,
+ * because that is where a mis-tap unmutes you in front of the committee.
+ * aria-label keeps the name for screen readers either way. */
+function Toggle({ on, busy, onLabel, offLabel, icon, onClick, menu, danger }) {
+  const label = busy ? 'Working…' : (on ? onLabel : offLabel);
   return (
-    <span className="inline-flex items-stretch overflow-hidden rounded-xl border"
-      style={{ borderColor: on ? 'rgba(215,174,74,.55)' : 'rgba(255,255,255,.18)' }}>
-      <button onClick={onClick} disabled={busy}
-        aria-pressed={on}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-bold text-white
-          transition-colors hover:bg-white/10 disabled:opacity-40"
-        style={on ? { background: 'rgba(215,174,74,.16)' } : undefined}>
-        <span aria-hidden="true">{icon}</span>
-        {busy ? 'Working…' : (on ? onLabel : offLabel)}
+    <span className="inline-flex items-stretch overflow-hidden rounded-full border transition-colors"
+      style={{
+        borderColor: on ? 'rgba(215,174,74,.5)' : 'rgba(255,255,255,.14)',
+        background: on ? 'rgba(215,174,74,.14)' : 'rgba(255,255,255,.05)',
+      }}>
+      <button onClick={onClick} disabled={busy} aria-pressed={on} aria-label={label}
+        title={label}
+        className={`inline-flex items-center gap-2 px-3.5 py-2 text-[12.5px] font-bold
+          transition-colors hover:bg-white/10 disabled:opacity-40
+          ${danger ? 'text-red-300' : 'text-white'}`}>
+        <span aria-hidden="true" className="text-[15px] leading-none">{icon}</span>
+        <span className="hidden sm:inline">{label}</span>
       </button>
       {menu && (
-        <span className="grid place-items-center border-l px-1 text-white/70"
-          style={{ borderColor: 'rgba(255,255,255,.18)' }}>{menu}</span>
+        <span className="grid place-items-center border-l px-1 text-white/60 hover:text-white"
+          style={{ borderColor: 'rgba(255,255,255,.14)' }}>{menu}</span>
       )}
     </span>
   );
@@ -605,8 +625,7 @@ function PeoplePanel({ id, participants, isHost, meHostId, onClose }) {
       <ul className="space-y-1.5">
         {ordered.map(p => {
           // Set by the SERVER when the token was minted — see lib/livekit.js.
-          let meta = {};
-          try { meta = JSON.parse(p.metadata || '{}'); } catch { /* not ours */ }
+          const meta = readMeta(p);
           const isMe = String(p.identity) === String(meHostId);
           const theyAreHost = meta.role === 'host' || meta.role === 'co_host';
 
@@ -615,6 +634,16 @@ function PeoplePanel({ id, participants, isHost, meHostId, onClose }) {
               style={{ background: raised(p) ? 'rgba(215,174,74,.14)' : 'rgba(255,255,255,.05)' }}>
               <div className="flex items-center gap-2.5">
                 {raised(p) && <span className="text-[15px]" title="Hand raised">✋</span>}
+                {meta.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={meta.photo_url} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover"
+                    style={{ boxShadow: '0 0 0 1.5px rgba(255,255,255,.18)' }} />
+                ) : (
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[12px] font-black text-white"
+                    style={{ background: 'linear-gradient(150deg,#0F6B4E,#083527)' }}>
+                    {String(p.name || 'M').trim().charAt(0).toUpperCase()}
+                  </span>
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-semibold text-white">
                     {p.name || 'Member'}{isMe ? ' (you)' : ''}
@@ -719,50 +748,74 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
     window.location.href = `/member/meetings/${id}`;
   };
 
-  const tab = (key, label) => (
-    <button onClick={() => setPanel(panel === key ? '' : key)}
-      className={`rounded-lg border px-2.5 py-1.5 text-[12px] font-bold text-white transition-colors
-        hover:bg-white/10 ${panel === key ? 'bg-white/15' : ''}`}
-      style={{ borderColor: 'rgba(255,255,255,.20)' }}>
-      {label}
-    </button>
-  );
+  const tab = (key, label, badge) => {
+    const on = panel === key;
+    return (
+      <button onClick={() => setPanel(on ? '' : key)} aria-pressed={on}
+        className="relative rounded-full border px-3 py-1.5 text-[12px] font-bold text-white
+          transition-colors hover:bg-white/10"
+        style={{
+          borderColor: on ? 'rgba(215,174,74,.5)' : 'rgba(255,255,255,.14)',
+          background: on ? 'rgba(215,174,74,.14)' : 'rgba(255,255,255,.05)',
+        }}>
+        {label}
+        {badge > 0 && (
+          <span className="ml-1.5 rounded-full px-1.5 text-[10px] font-black"
+            style={{ background: C.gold, color: C.deep }}>{badge}</span>
+        )}
+      </button>
+    );
+  };
+
+  const state = connection === ConnectionState.Connected ? ['bg-emerald-400', 'TNR Virtual Hall']
+    : connection === ConnectionState.Reconnecting ? ['animate-pulse bg-amber-400', 'Reconnecting…']
+      : ['bg-red-400', String(connection)];
 
   return (
     <>
-      <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2.5"
-        style={{ background: C.deep, borderColor: 'rgba(255,255,255,.10)' }}>
+      <header className="flex flex-wrap items-center gap-2 border-b px-3.5 py-2.5"
+        style={{
+          background: 'linear-gradient(180deg,#052A1F,#08402F)',
+          borderColor: 'rgba(255,255,255,.08)',
+        }}>
+        {/* A small gold rule as the mark — a full logo in a meeting header
+            competes with the faces, which are the point of the screen. */}
+        <span aria-hidden="true" className="h-7 w-1 shrink-0 rounded-full"
+          style={{ background: `linear-gradient(${C.gold}, rgba(215,174,74,.15))` }} />
+
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13.5px] font-bold text-white">{meeting?.title}</div>
+          <div className="truncate text-[13.5px] font-black text-white">{meeting?.title}</div>
           <div className="flex items-center gap-1.5 text-[11px] text-white/45">
-            <span className={`h-1.5 w-1.5 rounded-full ${connection === ConnectionState.Connected
-              ? 'bg-green-400' : connection === ConnectionState.Reconnecting
-                ? 'animate-pulse bg-amber-400' : 'bg-red-400'}`} />
-            {connection === ConnectionState.Connected ? 'TNR Virtual Hall'
-              : connection === ConnectionState.Reconnecting ? 'Reconnecting…' : String(connection)}
+            <span className={`h-1.5 w-1.5 rounded-full ${state[0]}`} />
+            {state[1]}
           </div>
         </div>
 
         {meeting?.recording_enabled && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600/20 px-2.5 py-1
-            text-[11px] font-bold text-red-300">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-            Recording enabled
+          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1
+            text-[11px] font-bold text-red-200"
+            style={{ background: 'rgba(220,38,38,.22)' }}>
+            <span className="h-2 w-2 animate-pulse rounded-full bg-red-400" />
+            <span className="hidden sm:inline">Recording enabled</span>
+            <span className="sm:hidden">REC</span>
           </span>
         )}
 
-        {tab('people', `People ${count}`)}
+        {tab('people', 'People', count)}
         {meeting?.chat_enabled && tab('chat', 'Chat')}
         {tab('diag', 'Diagnostics')}
 
         {isHost && meeting?.waiting_room_enabled && (
           <button onClick={() => setLobby(!lobby)}
-            className="relative rounded-lg border px-2.5 py-1.5 text-[12px] font-bold text-white hover:bg-white/10"
-            style={{ borderColor: 'rgba(255,255,255,.20)' }}>
+            className="relative rounded-full border px-3 py-1.5 text-[12px] font-bold text-white hover:bg-white/10"
+            style={{
+              borderColor: waiting.length ? 'rgba(215,174,74,.55)' : 'rgba(255,255,255,.14)',
+              background: waiting.length ? 'rgba(215,174,74,.14)' : 'rgba(255,255,255,.05)',
+            }}>
             Waiting room
             {waiting.length > 0 && (
               <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full
-                px-1 text-[10px] font-black" style={{ background: C.gold, color: C.deep }}>
+                px-1 text-[10px] font-black shadow" style={{ background: C.gold, color: C.deep }}>
                 {waiting.length}
               </span>
             )}
@@ -771,14 +824,14 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
 
         {isHost && (
           <button onClick={end} disabled={busy}
-            className="rounded-lg bg-red-600 px-2.5 py-1.5 text-[12px] font-bold text-white
-              hover:bg-red-700 disabled:opacity-40">
+            className="rounded-full bg-red-600 px-3 py-1.5 text-[12px] font-bold text-white
+              shadow-sm transition hover:bg-red-700 disabled:opacity-40">
             End for all
           </button>
         )}
         <button onClick={onLeave}
-          className="rounded-lg border px-2.5 py-1.5 text-[12px] font-bold text-white hover:bg-white/10"
-          style={{ borderColor: 'rgba(255,255,255,.20)' }}>
+          className="rounded-full border px-3 py-1.5 text-[12px] font-bold text-white hover:bg-white/10"
+          style={{ borderColor: 'rgba(255,255,255,.14)', background: 'rgba(255,255,255,.05)' }}>
           Leave
         </button>
       </header>
