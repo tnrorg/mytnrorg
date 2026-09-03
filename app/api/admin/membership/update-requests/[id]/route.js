@@ -10,8 +10,9 @@ export const dynamic = 'force-dynamic';
 
 // PATCH { action: 'approve' | 'reject', admin_note }
 // Approving APPLIES the change to membership_members; rejecting changes nothing.
-export async function PATCH(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function PATCH(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const b = await readJson(req);
   const ip = clientIp(req);

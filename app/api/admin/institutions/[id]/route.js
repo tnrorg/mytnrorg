@@ -11,8 +11,9 @@ export const fetchCache = 'force-no-store';
 
 const HINT = 'Run supabase/migration_institutions.sql in the Supabase SQL Editor.';
 
-export async function PATCH(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function PATCH(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const b = await readJson(req);
 
   // Partial: publishing or hiding cannot blank out the staffing figures.
@@ -38,8 +39,9 @@ export async function PATCH(req, { params }) {
   return ok({ institution: data, message: 'Saved.' });
 }
 
-export async function DELETE(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function DELETE(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
 
   const { data: before } = await sb.from('tnr_institutions').select('name').eq('id', params.id).maybeSingle();

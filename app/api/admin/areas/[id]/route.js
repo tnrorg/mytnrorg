@@ -38,8 +38,9 @@ async function renameOnMembers(sb, { field, from, to, councilName }) {
   return hits.length;
 }
 
-export async function PATCH(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function PATCH(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const b = await readJson(req);
   const isVillage = b.type === 'village';
@@ -92,8 +93,9 @@ export async function PATCH(req, { params }) {
   });
 }
 
-export async function DELETE(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function DELETE(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const type = new URL(req.url).searchParams.get('type');
 

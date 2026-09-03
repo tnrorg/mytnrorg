@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, use } from 'react';
 import MemberShell from '@/components/member/MemberShell';
 import CvPreview from '@/components/member/CvPreview';
 import { printSheet } from '@/components/member/printSheet';
@@ -17,7 +17,8 @@ function countOf(content, key) {
   return String(v || '').trim() ? 1 : 0;
 }
 
-export default function CvEditor({ params }) {
+export default function CvEditor(props) {
+  const params = use(props.params);
   const [cv, setCv] = useState(null);
   const [saved, setSaved] = useState('');
   const timer = useRef(null);

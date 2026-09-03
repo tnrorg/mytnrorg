@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, use } from 'react';
 import MemberShell from '@/components/member/MemberShell';
 import { printSheet } from '@/components/member/printSheet';
 import { mGet, mPatch, mPost } from '@/components/member/memberApi';
@@ -9,7 +9,8 @@ const C = { deep: '#063D2B', green: '#0B6B4F' };
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
 const base = 'w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm outline-none focus:border-[#0B6B4F]';
 
-export default function LetterEditor({ params }) {
+export default function LetterEditor(props) {
+  const params = use(props.params);
   const [l, setL] = useState(null);
   const [me, setMe] = useState(null);
   const [saved, setSaved] = useState('');

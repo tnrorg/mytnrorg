@@ -6,16 +6,18 @@ export const dynamic = 'force-dynamic';
 const FIELDS = ['title', 'template', 'content', 'visible_sections', 'section_order', 'show_photo'];
 
 // Every query is scoped by member_id — a member can only reach their own CVs.
-export async function GET(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function GET(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   const { data } = await supabaseAdmin().from('cv_documents')
     .select('*').eq('id', params.id).eq('member_id', member.id).maybeSingle();
   if (!data) return fail('NOT_FOUND', 404, { message: 'CV not found.' });
   return ok({ cv: data });
 }
 
-export async function PATCH(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function PATCH(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   const b = await readJson(req);
   const patch = { updated_at: new Date().toISOString() };
   FIELDS.forEach(f => { if (b[f] !== undefined) patch[f] = b[f]; });
@@ -27,8 +29,9 @@ export async function PATCH(req, { params }) {
   return ok({ cv: data });
 }
 
-export async function DELETE(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function DELETE(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   const { error } = await supabaseAdmin().from('cv_documents')
     .delete().eq('id', params.id).eq('member_id', member.id);
   if (error) return fail('DELETE_FAILED', 500, { message: 'Could not delete.' });
@@ -36,8 +39,9 @@ export async function DELETE(req, { params }) {
 }
 
 // POST — duplicate this CV.
-export async function POST(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function POST(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   const sb = supabaseAdmin();
   const { data: src } = await sb.from('cv_documents')
     .select('*').eq('id', params.id).eq('member_id', member.id).maybeSingle();

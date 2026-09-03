@@ -4,8 +4,9 @@ import { ok, fail, readJson } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 
 // Thread — ownership enforced, internal admin notes never returned.
-export async function GET(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function GET(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   const sb = supabaseAdmin();
   const { data: t } = await sb.from('support_tickets')
     .select('*').eq('id', params.id).eq('member_id', member.id).maybeSingle();
@@ -17,8 +18,9 @@ export async function GET(req, { params }) {
 }
 
 // Reply or close.
-export async function POST(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function POST(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   const b = await readJson(req);
   const sb = supabaseAdmin();
   const { data: t } = await sb.from('support_tickets')

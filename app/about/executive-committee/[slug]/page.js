@@ -1,10 +1,12 @@
-'use client';
+'use client';;
+import { use } from "react";
 import DocPage, { Section, TickList, C } from '@/components/site/DocPage';
 import { ExecutivePhoto } from '@/components/site/ExecutiveCard';
 import { execBySlug } from '@/content/executiveCommittee';
 import { useLeadership } from '@/components/site/useLeadership';
 
-export default function ExecutiveMemberPage({ params }) {
+export default function ExecutiveMemberPage(props) {
+  const params = use(props.params);
   const { executive } = useLeadership();
   const m = executive.find(x => x.slug === params?.slug) || execBySlug(params?.slug);
 

@@ -4,8 +4,9 @@ import { logAudit, clientIp } from '@/lib/audit';
 import { ok, fail, readJson } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 
-export async function PATCH(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function PATCH(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const b = await readJson(req);
   const patch = {};
@@ -16,8 +17,9 @@ export async function PATCH(req, { params }) {
   await logAudit({ action: 'POSITION_UPDATED', actor: admin.username, details: data?.title || params.id, ip: clientIp(req) });
   return ok({ position: data });
 }
-export async function DELETE(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function DELETE(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   // Candidates keep existing (their position_id is set null by FK). Block if the election has votes for this position.
   const { count } = await sb.from('votes').select('*', { count: 'exact', head: true }).eq('position_id', params.id);

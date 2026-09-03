@@ -11,8 +11,9 @@ export const fetchCache = 'force-no-store';
 
 const HINT = 'Run supabase/migration_projects_v2.sql in the Supabase SQL Editor.';
 
-export async function PATCH(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function PATCH(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const b = await readJson(req);
 
   // Partial: only what was sent is written, so publishing or hiding a project
@@ -39,8 +40,9 @@ export async function PATCH(req, { params }) {
   return ok({ project: data, message: 'Saved.' });
 }
 
-export async function DELETE(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function DELETE(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
 
   const { data: before } = await sb.from('tnr_projects').select('title').eq('id', params.id).maybeSingle();

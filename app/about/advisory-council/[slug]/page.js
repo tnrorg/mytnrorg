@@ -1,10 +1,12 @@
-'use client';
+'use client';;
+import { use } from "react";
 import DocPage, { Section, P, C } from '@/components/site/DocPage';
 import { CouncilPhoto } from '@/components/site/CouncilCard';
 import { bySlug } from '@/content/advisoryCouncil';
 import { useLeadership } from '@/components/site/useLeadership';
 
-export default function CouncilMemberPage({ params }) {
+export default function CouncilMemberPage(props) {
+  const params = use(props.params);
   const { advisory } = useLeadership();
   const m = advisory.find(x => x.slug === params?.slug) || bySlug(params?.slug);
 

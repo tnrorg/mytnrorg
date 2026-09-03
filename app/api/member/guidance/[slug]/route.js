@@ -12,7 +12,8 @@ const DAILY_LIMIT = 5;   // stops one member flooding the council
 // A signed-in TNR member requests guidance from a council member. Nothing here
 // exposes contact details in either direction — the council member reviews the
 // request in their dashboard and decides whether to engage.
-export async function POST(req, { params }) {
+export async function POST(req, props) {
+  const params = await props.params;
   const { member, res } = await requireMember(req);
   if (res) return res;
 
@@ -59,7 +60,8 @@ export async function POST(req, { params }) {
 
 // A member's own requests to this council member, so the profile page can show
 // "you already have a pending request" rather than inviting a duplicate.
-export async function GET(req, { params }) {
+export async function GET(req, props) {
+  const params = await props.params;
   const { member, res } = await requireMember(req);
   if (res) return res;
 

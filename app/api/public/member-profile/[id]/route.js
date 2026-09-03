@@ -34,7 +34,8 @@ const PROFILE_FIELDS =
   'headline, summary, country, linkedin_url, portfolio_url, github_url, ' +
   'tnr_contributions, awards';
 
-export async function GET(_req, { params }) {
+export async function GET(_req, props) {
+  const params = await props.params;
   const sb = supabaseAdmin();
 
   const { data: m, error } = await sb.from('membership_members')

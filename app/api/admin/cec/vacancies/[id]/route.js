@@ -7,8 +7,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
-export async function PATCH(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function PATCH(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const b = await readJson(req);
 
   const { data, error } = await supabaseAdmin().from('cec_vacancies')
@@ -20,8 +21,9 @@ export async function PATCH(req, { params }) {
   return ok({ vacancy: data, message: 'Saved.' });
 }
 
-export async function DELETE(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function DELETE(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
 
   // Applications are never deleted with the advert — the FK is ON DELETE SET

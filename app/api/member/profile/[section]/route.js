@@ -8,8 +8,9 @@ export const dynamic = 'force-dynamic';
 const resolve = (section) => SECTIONS[section] ? { table: SECTIONS[section].table, allow: ALLOWED[section] } : null;
 
 // POST — add a row to a repeatable section.
-export async function POST(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function POST(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   const cfg = resolve(params.section);
   if (!cfg) return fail('BAD_SECTION', 400, { message: 'Unknown profile section.' });
 
@@ -21,8 +22,9 @@ export async function POST(req, { params }) {
 }
 
 // PATCH — edit one row. IDOR-safe: the update is scoped to this member's id.
-export async function PATCH(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function PATCH(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   const cfg = resolve(params.section);
   if (!cfg) return fail('BAD_SECTION', 400, { message: 'Unknown profile section.' });
 
@@ -39,8 +41,9 @@ export async function PATCH(req, { params }) {
 }
 
 // DELETE — remove one row, again scoped to the owner.
-export async function DELETE(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function DELETE(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   const cfg = resolve(params.section);
   if (!cfg) return fail('BAD_SECTION', 400, { message: 'Unknown profile section.' });
 

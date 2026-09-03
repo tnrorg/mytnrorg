@@ -7,16 +7,18 @@ const FIELDS = ['title','template','cv_id','target_position','company','hiring_m
   'company_address','job_description','relevant_skills','relevant_experience',
   'opening','body','closing','sign_off'];
 
-export async function GET(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function GET(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   const { data } = await supabaseAdmin().from('cover_letters')
     .select('*').eq('id', params.id).eq('member_id', member.id).maybeSingle();
   if (!data) return fail('NOT_FOUND', 404, { message: 'Letter not found.' });
   return ok({ letter: data });
 }
 
-export async function PATCH(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function PATCH(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   const b = await readJson(req);
   const patch = { updated_at: new Date().toISOString() };
   FIELDS.forEach(f => { if (b[f] !== undefined) patch[f] = b[f]; });
@@ -27,14 +29,17 @@ export async function PATCH(req, { params }) {
   return ok({ letter: data });
 }
 
-export async function DELETE(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function DELETE(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   await supabaseAdmin().from('cover_letters').delete().eq('id', params.id).eq('member_id', member.id);
   return ok({ deleted: true });
 }
 
-export async function POST(req, { params }) {          // duplicate
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function POST(req, props) {
+  const params = await props.params;
+  // duplicate
+  const { member, res } = await requireMember(req);if (res) return res;
   const sb = supabaseAdmin();
   const { data: src } = await sb.from('cover_letters')
     .select('*').eq('id', params.id).eq('member_id', member.id).maybeSingle();

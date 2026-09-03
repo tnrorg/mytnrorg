@@ -16,8 +16,9 @@ export const dynamic = 'force-dynamic';
  *   reject           — not for publication; final, and needs a reason
  *   unpublish        — take a live piece down without deleting it
  */
-export async function PATCH(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function PATCH(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const b = await readJson(req);
   const action = b.action;
 
@@ -115,8 +116,9 @@ export async function PATCH(req, { params }) {
  * action and it is reversible; removing the piece entirely is not, so it sits
  * behind the higher rank and leaves an audit entry naming who did it.
  */
-export async function DELETE(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function DELETE(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   if (!isSuperAdmin(admin)) {
     return fail('FORBIDDEN', 403, {
       message: 'Only a Super Admin can delete an opinion. Unpublish it instead.',

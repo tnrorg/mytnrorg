@@ -7,8 +7,9 @@ export const dynamic = 'force-dynamic';
 
 // Clears all votes for an election so it can be run again.
 // Candidates, positions and members are NEVER touched.
-export async function POST(req, { params }) {
-  const { admin, res } = requireSuperAdmin(req); if (res) return res;
+export async function POST(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireSuperAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const id = params.id;
   const b = await readJson(req);

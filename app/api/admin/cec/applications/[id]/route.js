@@ -44,8 +44,9 @@ const NOTIFY = {
   }),
 };
 
-export async function PATCH(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function PATCH(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const b = await readJson(req);
 
   // Only a Super Admin may change the outcome. Any admin — and any CEC member
@@ -84,8 +85,9 @@ export async function PATCH(req, { params }) {
   return ok({ application: data, message: 'Saved.' });
 }
 
-export async function DELETE(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function DELETE(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
 
   const { data: before } = await sb.from('cec_applications')

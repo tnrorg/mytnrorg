@@ -10,8 +10,9 @@ export const fetchCache = 'force-no-store';
 
 const HINT = 'Run supabase/migration_hero_slides.sql in the Supabase SQL Editor.';
 
-export async function PATCH(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function PATCH(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const b = await readJson(req);
 
   // Partial: only the fields actually sent are written, so toggling a slide on
@@ -37,8 +38,9 @@ export async function PATCH(req, { params }) {
   return ok({ slide: data, message: 'Saved.' });
 }
 
-export async function DELETE(req, { params }) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+export async function DELETE(req, props) {
+  const params = await props.params;
+  const { admin, res } = requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
 
   const { data: before } = await sb.from('hero_slides').select('title').eq('id', params.id).maybeSingle();

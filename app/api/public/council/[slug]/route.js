@@ -24,7 +24,8 @@ const CHILD_TABLES = [
   ['gallery',        'council_gallery',        'sort_order,taken_on'],
 ];
 
-export async function GET(_req, { params }) {
+export async function GET(_req, props) {
+  const params = await props.params;
   const sb = supabaseAdmin();
 
   // Any published leadership profile, not just the Advisory Council: an

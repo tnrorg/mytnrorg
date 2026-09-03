@@ -21,8 +21,9 @@ export const dynamic = 'force-dynamic';
 const KEEP = ['full_name', 'headline', 'email', 'phone', 'location',
               'linkedin', 'portfolio', 'github', 'summary'];
 
-export async function POST(req, { params }) {
-  const { member, res } = await requireMember(req); if (res) return res;
+export async function POST(req, props) {
+  const params = await props.params;
+  const { member, res } = await requireMember(req);if (res) return res;
   const sb = supabaseAdmin();
 
   const { data: cv } = await sb.from('cv_documents')

@@ -19,23 +19,35 @@
     "critters": "^0.0.23",
     "framer-motion": "^12.43.0",
     "jsonwebtoken": "^9.0.2",
-    "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.28.0",
-    "next": "14.2.35",
-    "nodemailer": "^6.9.14",
+    "next": "15.5.25",
+    "nodemailer": "^9.1.1",
     "papaparse": "^5.4.1",
     "qrcode-generator": "^2.0.4",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "recharts": "^2.12.7",
     "server-only": "^0.0.1",
     "twilio": "^5.3.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.19",
-    "postcss": "^8.4.41",
+    "postcss": "^8.5.28",
     "tailwindcss": "^3.4.10"
+  },
+  "//overrides": [
+    "Next 15.5.25 ships its own nested copy of postcss 8.4.x, which carries four",
+    "advisories (the sourceMappingURL path-traversal chain and the </style> XSS).",
+    "npm's only offered fix was next@16 — a second major upgrade for one nested",
+    "dependency. postcss 8.4 to 8.5 is a minor with no API break, so forcing the",
+    "nested copy up is the smaller change. Verified against a production build.",
+    "",
+    "Revisit when moving to Next 16, at which point this override can be deleted."
+  ],
+  "overrides": {
+    "postcss": "^8.5.28"
   }
 }
