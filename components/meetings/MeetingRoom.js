@@ -8,7 +8,7 @@ import {
 import { RoomEvent } from 'livekit-client';
 import TnrTile, { readMeta } from './TnrTile';
 import TnrChat from './TnrChat';
-import { Track, ConnectionState } from 'livekit-client';
+import { Track, ConnectionState, AudioPresets } from 'livekit-client';
 import '@livekit/components-styles';
 import { mGet, mPost } from '@/components/member/memberApi';
 
@@ -28,6 +28,50 @@ const SURFACE = {
   ink: '#15231D',
   soft: '#6B7280',
   hover: 'rgba(11,107,79,.07)',
+};
+
+/* ── Making voices clearer ────────────────────────────────────────────────
+ *
+ * The browser has a good speech processor built in and it is NOT reliably on
+ * by default — Chrome usually enables it, Safari and some Android builds do
+ * not, and once a device has been asked for raw audio it stays raw. Asking
+ * for it explicitly is the single biggest improvement available for free:
+ *
+ *   echoCancellation  — stops the loop when someone uses laptop speakers
+ *                       instead of a headset, which is most of the howling
+ *                       and most of the "I can hear myself" complaints
+ *   noiseSuppression  — removes fans, traffic, and the hiss of a cheap mic
+ *   autoGainControl   — evens out the member sitting too far from their
+ *                       laptop against the one shouting into a phone
+ *
+ * DTX stops sending packets during silence, so a room of thirty listeners
+ * costs almost nothing until somebody speaks. RED sends each audio packet
+ * twice; on the mobile connections most of this membership is on, that turns
+ * a dropped packet from a gap in a sentence into nothing at all. It roughly
+ * doubles audio bandwidth — trivial next to video, and worth it here.
+ *
+ * The `speech` preset caps audio at 24 kbps, which is plenty for talking and
+ * leaves headroom on a weak connection. Music would need a different preset,
+ * and a committee meeting is not music.
+ *
+ * Beyond this there is Krisp — LiveKit's AI noise cancellation, a paid Cloud
+ * add-on and a separate package. Worth it if members regularly call in from
+ * noisy places; not installed, and this gets most of the way there.
+ */
+const AUDIO_OPTIONS = {
+  audioCaptureDefaults: {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+    channelCount: 1,          // mono: voice gains nothing from stereo
+  },
+  publishDefaults: {
+    audioPreset: AudioPresets.speech,
+    dtx: true,
+    red: true,
+  },
+  // Recover faster than the default after a phone switches cell tower.
+  stopLocalTrackOnUnpublish: true,
 };
 
 /* The live meeting.
@@ -103,6 +147,7 @@ export default function MeetingRoom({ id, data }) {
          * applied once on connect; the buttons own the state afterwards. */
         video={false}
         audio={false}
+        options={AUDIO_OPTIONS}
         onDisconnected={() => leave('disconnected')}
         className="flex min-h-0 flex-1 flex-col">
         <RoomShell id={id} data={data} onLeave={() => leave('left')} />
@@ -506,6 +551,14 @@ function Diagnostics({ room, connection, onClose }) {
   const mic = pubs.find(p => p.source === Track.Source.Microphone);
   const cam = pubs.find(p => p.source === Track.Source.Camera);
 
+  // Reads the live MediaStreamTrack. '—' while the microphone is off, since
+  // there is no track to report on yet.
+  const dsp = (key) => {
+    const s = mic?.track?.mediaStreamTrack?.getSettings?.();
+    if (!s) return '—';
+    return key in s ? !!s[key] : 'not reported';
+  };
+
   const rows = [
     ['Secure context (HTTPS)', window.isSecureContext],
     ['getUserMedia available', !!navigator.mediaDevices?.getUserMedia],
@@ -522,6 +575,16 @@ function Diagnostics({ room, connection, onClose }) {
     ['Cameras found', devices.videoinput],
     ['Speakers found', devices.audiooutput],
     ['Audio playback allowed', room ? !!room.canPlaybackAudio : '—'],
+
+    /* What the browser ACTUALLY applied, not what we asked for.
+     *
+     * Requesting echoCancellation is a constraint, not a guarantee — a device
+     * or platform can quietly ignore it, and then a member is howling and
+     * nobody can tell why. getSettings() reports what the track really has, so
+     * "why does this call echo" has an answer on screen instead of a guess. */
+    ['Echo cancellation', dsp('echoCancellation')],
+    ['Noise suppression', dsp('noiseSuppression')],
+    ['Auto gain control', dsp('autoGainControl')],
   ];
 
   return (
