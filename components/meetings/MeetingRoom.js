@@ -12,7 +12,23 @@ import { Track, ConnectionState } from 'livekit-client';
 import '@livekit/components-styles';
 import { mGet, mPost } from '@/components/member/memberApi';
 
-const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#D7AE4A' };
+const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#D7AE4A', goldInk: '#7A5D10' };
+
+/* Light chrome, dark stage.
+ *
+ * The header, the toolbar and the side panels are white; only the area the
+ * faces live in stays deep green. That is the arrangement every serious
+ * meeting product converges on, and for a reason: video looks its best
+ * against a dark field, while controls and text are read faster on white.
+ * A single wash of green everywhere made the tiles and the buttons compete.
+ */
+const SURFACE = {
+  bg: '#FFFFFF',
+  line: '#E7EAE8',
+  ink: '#15231D',
+  soft: '#6B7280',
+  hover: 'rgba(11,107,79,.07)',
+};
 
 /* The live meeting.
  *
@@ -68,15 +84,14 @@ export default function MeetingRoom({ id, data }) {
   return (
     <div className="flex h-[100dvh] flex-col" data-lk-theme="default"
       style={{
-        /* A deep radial wash rather than a flat fill. Faces sit on it far
-           better — a solid block of one green makes every tile look pasted on,
-           which was most of what read as "generic embed". */
-        background: `radial-gradient(1200px 600px at 50% -10%, #0B5540 0%, ${C.deep} 55%, #041E16 100%)`,
-        // LiveKit's own tokens, repointed at the TNR palette — their layout
-        // and accessibility work is kept, the colours are ours.
-        '--lk-bg': C.deep, '--lk-bg2': '#0A4A35',
+        background: SURFACE.bg,
+        /* LiveKit's own tokens. The only LiveKit-rendered chrome left is the
+           device menus and the Start Audio button, and both now sit on white
+           chrome — so these are light. */
+        '--lk-bg': SURFACE.bg, '--lk-bg2': '#F4F6F5',
+        '--lk-fg': SURFACE.ink, '--lk-fg-secondary': SURFACE.soft,
         '--lk-accent-bg': C.green, '--lk-accent2': C.gold,
-        '--lk-danger': '#B91C1C', '--lk-border-color': 'rgba(255,255,255,.10)',
+        '--lk-danger': '#B91C1C', '--lk-border-color': SURFACE.line,
         '--lk-grid-gap': '12px',
       }}>
       <LiveKitRoom
@@ -127,20 +142,34 @@ function RoomShell({ id, data, onLeave }) {
       <UnmuteRequest onError={setMediaError} />
 
       <div className="flex min-h-0 flex-1">
+        {/* THE STAGE is the one dark surface: a deep radial wash, because
+            video and faces sit far better on it than on white, and a rounded
+            card so it reads as a distinct object rather than a filled area. */}
         <div className="min-h-0 flex-1 p-3">
-          <GridLayout tracks={tracks} style={{ height: '100%' }}>
-            {/* Our tile: a real <video> when the camera is live, the member's
-                own TNR photograph when it is not. See TnrTile. */}
-            <TnrTile />
-          </GridLayout>
+          <div className="h-full overflow-hidden rounded-2xl p-2"
+            style={{
+              background: `radial-gradient(1200px 600px at 50% -10%, #0B5540 0%, ${C.deep} 55%, #041E16 100%)`,
+              boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.06)',
+            }}>
+            <GridLayout tracks={tracks} style={{ height: '100%' }}>
+              {/* Our tile: a real <video> when the camera is live, the
+                  member's own TNR photograph when it is not. See TnrTile. */}
+              <TnrTile />
+            </GridLayout>
+          </div>
         </div>
 
-        {/* Chat sits BESIDE the speaker rather than over them, and closes from
-            its own header — a panel you can only dismiss from a toolbar button
-            somewhere else is one people leave open and then complain about. */}
-        {panel === 'chat' && data.meeting?.chat_enabled && (
-          <aside className="flex w-full max-w-sm flex-col border-l"
-            style={{ borderColor: 'rgba(255,255,255,.10)', background: '#08402F' }}>
+        {/* ── Chat ──
+         *
+         * MOUNTED FOR THE WHOLE MEETING, hidden rather than unmounted when
+         * closed. useChat() keeps its messages in React state inside the hook,
+         * so unmounting the panel threw the entire conversation away — close
+         * the chat to see a face, reopen it, and the meeting's discussion was
+         * gone. Hiding costs one offscreen element and keeps every message
+         * until the member leaves. */}
+        {data.meeting?.chat_enabled && (
+          <aside className={`w-full max-w-sm flex-col border-l ${panel === 'chat' ? 'flex' : 'hidden'}`}
+            style={{ borderColor: SURFACE.line, background: SURFACE.bg }}>
             <TnrChat onClose={() => setPanel('')} />
           </aside>
         )}
@@ -163,9 +192,9 @@ function RoomShell({ id, data, onLeave }) {
           LiveKit's own handler: it resumes the audio context and disappears
           once playback is allowed. */}
       <StartAudio label="Click to enable sound"
-        className="lk-button absolute left-1/2 top-20 z-20 -translate-x-1/2 rounded-xl px-4 py-2
-          text-sm font-bold shadow-lg"
-        style={{ background: C.gold, color: C.deep }} />
+        className="lk-button absolute left-1/2 top-24 z-20 -translate-x-1/2 rounded-xl px-4 py-2
+          text-sm font-bold text-white shadow-lg"
+        style={{ background: C.green }} />
     </>
   );
 }
@@ -227,12 +256,7 @@ function MediaBar({ meeting, onError }) {
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-2 border-t px-3 py-3"
-      style={{
-        // A hair lighter than the stage, so the bar reads as a surface the
-        // controls sit ON rather than a strip of the same colour.
-        background: 'linear-gradient(180deg,#08402F,#052A1F)',
-        borderColor: 'rgba(255,255,255,.08)',
-      }}>
+      style={{ background: SURFACE.bg, borderColor: SURFACE.line }}>
 
       <Toggle on={isMicrophoneEnabled} busy={busy === 'microphone'}
         onLabel="Mute" offLabel="Unmute" icon={isMicrophoneEnabled ? '🎤' : '🔇'}
@@ -260,15 +284,15 @@ function MediaBar({ meeting, onError }) {
           arrives four seconds late is worse than one that never arrives. */}
       <span className="relative">
         <button onClick={() => setEmoji(!emoji)}
-          className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[12.5px]
-            font-bold text-white transition-colors hover:bg-white/10"
-          style={{ borderColor: 'rgba(255,255,255,.18)' }}>
+          className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[12.5px]
+            font-bold transition-colors hover:bg-[rgba(11,107,79,.07)]"
+          style={{ borderColor: SURFACE.line, background: SURFACE.bg, color: SURFACE.ink }}>
           <span aria-hidden="true">😀</span> React
         </button>
         {emoji && (
           <div className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 gap-1 rounded-xl border
             p-1.5 shadow-lg"
-            style={{ background: '#0A4A35', borderColor: 'rgba(255,255,255,.18)' }}>
+            style={{ background: SURFACE.bg, borderColor: SURFACE.line }}>
             {REACTIONS.map(g => (
               <button key={g} onClick={() => react(g)} aria-label={`React ${g}`}
                 className="rounded-lg px-1.5 py-1 text-xl transition-transform hover:scale-125">
@@ -280,8 +304,8 @@ function MediaBar({ meeting, onError }) {
       </span>
 
       {/* Speaker choice, where the browser supports setSinkId. */}
-      <span className="hidden items-center gap-1 rounded-xl border px-2 py-1.5 text-[12px] text-white/70 sm:inline-flex"
-        style={{ borderColor: 'rgba(255,255,255,.18)' }}>
+      <span className="hidden items-center gap-1 rounded-full border px-2.5 py-2 text-[12px] sm:inline-flex"
+        style={{ borderColor: SURFACE.line, background: SURFACE.bg, color: SURFACE.soft }}>
         🔊 <MediaDeviceMenu kind="audiooutput" />
       </span>
     </div>
@@ -330,11 +354,12 @@ function Reactions() {
 /* A panel header that can close itself. */
 function PanelHead({ title, onClose }) {
   return (
-    <div className="flex items-center justify-between gap-2 border-b px-3 py-2"
-      style={{ borderColor: 'rgba(255,255,255,.10)' }}>
-      <h3 className="text-[12px] font-black uppercase tracking-wider text-white/60">{title}</h3>
+    <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5"
+      style={{ borderColor: SURFACE.line, background: SURFACE.bg }}>
+      <h3 className="text-[12px] font-black uppercase tracking-wider" style={{ color: SURFACE.soft }}>{title}</h3>
       <button onClick={onClose} aria-label={`Close ${title}`}
-        className="rounded-md px-2 py-0.5 text-white/50 hover:bg-white/10 hover:text-white">✕</button>
+        className="rounded-md px-2 py-0.5 hover:bg-[rgba(11,107,79,.08)]"
+        style={{ color: SURFACE.soft }}>✕</button>
     </div>
   );
 }
@@ -350,20 +375,20 @@ function Toggle({ on, busy, onLabel, offLabel, icon, onClick, menu, danger }) {
   return (
     <span className="inline-flex items-stretch overflow-hidden rounded-full border transition-colors"
       style={{
-        borderColor: on ? 'rgba(215,174,74,.5)' : 'rgba(255,255,255,.14)',
-        background: on ? 'rgba(215,174,74,.14)' : 'rgba(255,255,255,.05)',
+        borderColor: on ? C.green : SURFACE.line,
+        background: on ? 'rgba(11,107,79,.10)' : SURFACE.bg,
       }}>
       <button onClick={onClick} disabled={busy} aria-pressed={on} aria-label={label}
         title={label}
-        className={`inline-flex items-center gap-2 px-3.5 py-2 text-[12.5px] font-bold
-          transition-colors hover:bg-white/10 disabled:opacity-40
-          ${danger ? 'text-red-300' : 'text-white'}`}>
+        className="inline-flex items-center gap-2 px-3.5 py-2 text-[12.5px] font-bold
+          transition-colors hover:bg-[rgba(11,107,79,.07)] disabled:opacity-40"
+        style={{ color: danger ? '#B91C1C' : (on ? C.green : SURFACE.ink) }}>
         <span aria-hidden="true" className="text-[15px] leading-none">{icon}</span>
         <span className="hidden sm:inline">{label}</span>
       </button>
       {menu && (
-        <span className="grid place-items-center border-l px-1 text-white/60 hover:text-white"
-          style={{ borderColor: 'rgba(255,255,255,.14)' }}>{menu}</span>
+        <span className="grid place-items-center border-l px-1"
+          style={{ borderColor: SURFACE.line, color: SURFACE.soft }}>{menu}</span>
       )}
     </span>
   );
@@ -411,14 +436,14 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 function MediaError({ err, onDismiss }) {
   return (
     <div className="flex items-start gap-3 border-b px-4 py-3"
-      style={{ background: 'rgba(185,28,28,.15)', borderColor: 'rgba(255,255,255,.10)' }}>
+      style={{ background: '#FEF2F2', borderColor: '#FECACA' }}>
       <span aria-hidden="true">⚠️</span>
       <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-bold text-red-200">{err.title}</div>
-        <div className="text-[12.5px] leading-relaxed text-white/70">{err.body}</div>
+        <div className="text-[13px] font-bold text-red-700">{err.title}</div>
+        <div className="text-[12.5px] leading-relaxed text-red-900/80">{err.body}</div>
       </div>
       <button onClick={onDismiss} aria-label="Dismiss"
-        className="text-white/50 hover:text-white">✕</button>
+        className="text-red-400 hover:text-red-700">✕</button>
     </div>
   );
 }
@@ -480,19 +505,19 @@ function Diagnostics({ room, connection, onClose }) {
 
   return (
     <aside className="flex w-full max-w-sm flex-col border-l"
-      style={{ borderColor: 'rgba(255,255,255,.10)', background: '#0A4A35' }}>
+      style={{ borderColor: SURFACE.line, background: SURFACE.bg }}>
       <PanelHead title="Connection diagnostics" onClose={onClose} />
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
       <dl className="space-y-1">
         {rows.map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-3 border-b py-1 text-[12px]"
-            style={{ borderColor: 'rgba(255,255,255,.07)' }}>
-            <dt className="text-white/60">{k}</dt>
+          <div key={k} className="flex justify-between gap-3 border-b py-1.5 text-[12px]"
+            style={{ borderColor: SURFACE.line }}>
+            <dt style={{ color: SURFACE.soft }}>{k}</dt>
             <dd className={`font-bold ${tone(v)}`}>{show(v)}</dd>
           </div>
         ))}
       </dl>
-      <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+      <p className="mt-3 text-[11px] leading-relaxed" style={{ color: SURFACE.soft }}>
         Device and track state only. No tokens, keys or member details are shown here.
       </p>
       </div>
@@ -500,8 +525,9 @@ function Diagnostics({ room, connection, onClose }) {
   );
 }
 const show = (v) => v === true ? 'yes' : v === false ? 'no' : String(v);
-const tone = (v) => v === true || v === 'granted' ? 'text-green-300'
-  : v === false || v === 'denied' ? 'text-red-300' : 'text-white/70';
+// On the white panel: green for good, red for blocked, grey for unknown.
+const tone = (v) => v === true || v === 'granted' ? 'text-emerald-700'
+  : v === false || v === 'denied' ? 'text-red-600' : 'text-gray-600';
 
 /* ── "The host would like you to speak" ──────────────────────────────────── */
 /* A PROMPT, NOT A COMMAND — see the long note in lib/livekit.js. The host can
@@ -534,17 +560,17 @@ function UnmuteRequest({ onError }) {
 
   return (
     <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3"
-      style={{ background: 'rgba(215,174,74,.16)', borderColor: 'rgba(255,255,255,.10)' }}>
+      style={{ background: 'rgba(215,174,74,.14)', borderColor: SURFACE.line }}>
       <span aria-hidden="true">🎤</span>
-      <p className="min-w-0 flex-1 text-[13px] text-white">
+      <p className="min-w-0 flex-1 text-[13px]" style={{ color: SURFACE.ink }}>
         <strong>{ask.from || 'The host'}</strong> has asked you to unmute.
       </p>
       <button onClick={accept}
-        className="rounded-lg px-3 py-1.5 text-[12.5px] font-black"
-        style={{ background: C.gold, color: C.deep }}>Unmute</button>
+        className="rounded-lg px-3 py-1.5 text-[12.5px] font-black text-white"
+        style={{ background: C.green }}>Unmute</button>
       <button onClick={() => setAsk(null)}
-        className="rounded-lg border px-3 py-1.5 text-[12.5px] font-bold text-white/80"
-        style={{ borderColor: 'rgba(255,255,255,.25)' }}>Stay muted</button>
+        className="rounded-lg border px-3 py-1.5 text-[12.5px] font-bold"
+        style={{ borderColor: SURFACE.line, background: SURFACE.bg, color: SURFACE.ink }}>Stay muted</button>
     </div>
   );
 }
@@ -602,22 +628,22 @@ function PeoplePanel({ id, participants, isHost, meHostId, onClose }) {
 
   return (
     <aside className="flex w-full max-w-sm flex-col border-l"
-      style={{ borderColor: 'rgba(255,255,255,.10)', background: '#0A4A35' }}>
+      style={{ borderColor: SURFACE.line, background: SURFACE.bg }}>
       <PanelHead title={`In the room (${participants.length})`} onClose={onClose} />
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {hands > 0 && (
           <p className="mb-2 rounded-lg px-2.5 py-1.5 text-[12px] font-bold"
-            style={{ background: 'rgba(215,174,74,.16)', color: C.gold }}>
+            style={{ background: 'rgba(215,174,74,.16)', color: C.goldInk }}>
             ✋ {hands} {hands === 1 ? 'hand' : 'hands'} raised
           </p>
         )}
 
         {isHost && others.length > 0 && (
           <button onClick={() => act('mute_all', [], 'all')} disabled={!!busy}
-            className="mb-2 w-full rounded-lg border px-2.5 py-1.5 text-[11.5px] font-bold text-white/85
-              hover:bg-white/10 disabled:opacity-40"
-            style={{ borderColor: 'rgba(255,255,255,.25)' }}>
+            className="mb-2 w-full rounded-lg border px-2.5 py-1.5 text-[11.5px] font-bold
+              hover:bg-[rgba(11,107,79,.07)] disabled:opacity-40"
+            style={{ borderColor: SURFACE.line, color: SURFACE.ink }}>
             {busy === 'all' ? 'Muting…' : 'Mute everyone'}
           </button>
         )}
@@ -630,14 +656,17 @@ function PeoplePanel({ id, participants, isHost, meHostId, onClose }) {
           const theyAreHost = meta.role === 'host' || meta.role === 'co_host';
 
           return (
-            <li key={p.identity} className="rounded-lg px-2.5 py-1.5"
-              style={{ background: raised(p) ? 'rgba(215,174,74,.14)' : 'rgba(255,255,255,.05)' }}>
+            <li key={p.identity} className="rounded-xl border px-2.5 py-2"
+              style={{
+                background: raised(p) ? 'rgba(215,174,74,.12)' : SURFACE.bg,
+                borderColor: raised(p) ? 'rgba(215,174,74,.45)' : SURFACE.line,
+              }}>
               <div className="flex items-center gap-2.5">
                 {raised(p) && <span className="text-[15px]" title="Hand raised">✋</span>}
                 {meta.photo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={meta.photo_url} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover"
-                    style={{ boxShadow: '0 0 0 1.5px rgba(255,255,255,.18)' }} />
+                    style={{ boxShadow: `0 0 0 1.5px ${SURFACE.line}` }} />
                 ) : (
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[12px] font-black text-white"
                     style={{ background: 'linear-gradient(150deg,#0F6B4E,#083527)' }}>
@@ -645,10 +674,10 @@ function PeoplePanel({ id, participants, isHost, meHostId, onClose }) {
                   </span>
                 )}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-semibold text-white">
+                  <span className="block truncate text-[13px] font-semibold" style={{ color: SURFACE.ink }}>
                     {p.name || 'Member'}{isMe ? ' (you)' : ''}
                   </span>
-                  <span className="block font-mono text-[10.5px] text-white/40">
+                  <span className="block font-mono text-[10.5px]" style={{ color: SURFACE.soft }}>
                     {meta.membership_id || ''}
                     {meta.role && meta.role !== 'participant' ? ` · ${meta.role.replace('_', '-')}` : ''}
                   </span>
@@ -668,16 +697,16 @@ function PeoplePanel({ id, participants, isHost, meHostId, onClose }) {
                   {p.isMicrophoneEnabled ? (
                     <button onClick={() => act('mute_participant', [p.identity], p.identity)}
                       disabled={!!busy}
-                      className="rounded-md border px-2 py-0.5 text-[11px] font-bold text-white/80
-                        hover:bg-white/10 disabled:opacity-40"
-                      style={{ borderColor: 'rgba(255,255,255,.25)' }}>
+                      className="rounded-md border px-2 py-0.5 text-[11px] font-bold
+                        hover:bg-[rgba(11,107,79,.07)] disabled:opacity-40"
+                      style={{ borderColor: SURFACE.line, color: SURFACE.ink }}>
                       {busy === p.identity ? '…' : 'Mute'}
                     </button>
                   ) : (
                     <button onClick={() => act('ask_unmute', [p.identity], p.identity)}
                       disabled={!!busy}
                       className="rounded-md px-2 py-0.5 text-[11px] font-bold disabled:opacity-40"
-                      style={{ background: 'rgba(215,174,74,.2)', color: C.gold }}
+                      style={{ background: 'rgba(215,174,74,.18)', color: C.goldInk }}
                       title="They will be asked — only they can switch their microphone on">
                       {busy === p.identity ? '…' : 'Ask to unmute'}
                     </button>
@@ -685,9 +714,9 @@ function PeoplePanel({ id, participants, isHost, meHostId, onClose }) {
 
                   {raised(p) && (
                     <button onClick={() => lowerHand(p.identity)}
-                      className="rounded-md border px-2 py-0.5 text-[11px] font-bold text-white/80
-                        hover:bg-white/10"
-                      style={{ borderColor: 'rgba(255,255,255,.25)' }}>
+                      className="rounded-md border px-2 py-0.5 text-[11px] font-bold
+                        hover:bg-[rgba(11,107,79,.07)]"
+                      style={{ borderColor: SURFACE.line, color: SURFACE.ink }}>
                       Lower hand
                     </button>
                   )}
@@ -695,9 +724,9 @@ function PeoplePanel({ id, participants, isHost, meHostId, onClose }) {
                   {/* Last, and red. A destructive action should not sit next to
                       Mute where a mis-tap costs someone their seat. */}
                   <button onClick={() => eject(p)} disabled={!!busy}
-                    className="rounded-md border px-2 py-0.5 text-[11px] font-bold text-red-300
-                      hover:bg-red-500/15 disabled:opacity-40"
-                    style={{ borderColor: 'rgba(248,113,113,.4)' }}>
+                    className="rounded-md border px-2 py-0.5 text-[11px] font-bold text-red-600
+                      hover:bg-red-50 disabled:opacity-40"
+                    style={{ borderColor: 'rgba(220,38,38,.35)' }}>
                     Remove
                   </button>
                 </div>
@@ -708,7 +737,7 @@ function PeoplePanel({ id, participants, isHost, meHostId, onClose }) {
       </ul>
 
         {isHost && (
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <p className="mt-3 text-[11px] leading-relaxed" style={{ color: SURFACE.soft }}>
             Muting takes effect immediately. Unmuting is a request — only the
             member can switch their own microphone on. Removing disconnects
             them at once.
@@ -752,16 +781,18 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
     const on = panel === key;
     return (
       <button onClick={() => setPanel(on ? '' : key)} aria-pressed={on}
-        className="relative rounded-full border px-3 py-1.5 text-[12px] font-bold text-white
-          transition-colors hover:bg-white/10"
+        className="relative rounded-full border px-3 py-1.5 text-[12px] font-bold transition-colors"
         style={{
-          borderColor: on ? 'rgba(215,174,74,.5)' : 'rgba(255,255,255,.14)',
-          background: on ? 'rgba(215,174,74,.14)' : 'rgba(255,255,255,.05)',
+          borderColor: on ? C.green : SURFACE.line,
+          background: on ? C.green : SURFACE.bg,
+          color: on ? '#fff' : SURFACE.ink,
         }}>
         {label}
         {badge > 0 && (
           <span className="ml-1.5 rounded-full px-1.5 text-[10px] font-black"
-            style={{ background: C.gold, color: C.deep }}>{badge}</span>
+            style={on
+              ? { background: 'rgba(255,255,255,.22)', color: '#fff' }
+              : { background: 'rgba(11,107,79,.12)', color: C.green }}>{badge}</span>
         )}
       </button>
     );
@@ -774,18 +805,17 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
   return (
     <>
       <header className="flex flex-wrap items-center gap-2 border-b px-3.5 py-2.5"
-        style={{
-          background: 'linear-gradient(180deg,#052A1F,#08402F)',
-          borderColor: 'rgba(255,255,255,.08)',
-        }}>
-        {/* A small gold rule as the mark — a full logo in a meeting header
+        style={{ background: SURFACE.bg, borderColor: SURFACE.line }}>
+        {/* A small green rule as the mark — a full logo in a meeting header
             competes with the faces, which are the point of the screen. */}
         <span aria-hidden="true" className="h-7 w-1 shrink-0 rounded-full"
-          style={{ background: `linear-gradient(${C.gold}, rgba(215,174,74,.15))` }} />
+          style={{ background: `linear-gradient(${C.green}, ${C.gold})` }} />
 
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13.5px] font-black text-white">{meeting?.title}</div>
-          <div className="flex items-center gap-1.5 text-[11px] text-white/45">
+          <div className="truncate text-[13.5px] font-black" style={{ color: C.deep }}>
+            {meeting?.title}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: SURFACE.soft }}>
             <span className={`h-1.5 w-1.5 rounded-full ${state[0]}`} />
             {state[1]}
           </div>
@@ -793,9 +823,9 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
 
         {meeting?.recording_enabled && (
           <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1
-            text-[11px] font-bold text-red-200"
-            style={{ background: 'rgba(220,38,38,.22)' }}>
-            <span className="h-2 w-2 animate-pulse rounded-full bg-red-400" />
+            text-[11px] font-bold text-red-700"
+            style={{ background: 'rgba(220,38,38,.10)' }}>
+            <span className="h-2 w-2 animate-pulse rounded-full bg-red-600" />
             <span className="hidden sm:inline">Recording enabled</span>
             <span className="sm:hidden">REC</span>
           </span>
@@ -807,15 +837,16 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
 
         {isHost && meeting?.waiting_room_enabled && (
           <button onClick={() => setLobby(!lobby)}
-            className="relative rounded-full border px-3 py-1.5 text-[12px] font-bold text-white hover:bg-white/10"
+            className="relative rounded-full border px-3 py-1.5 text-[12px] font-bold"
             style={{
-              borderColor: waiting.length ? 'rgba(215,174,74,.55)' : 'rgba(255,255,255,.14)',
-              background: waiting.length ? 'rgba(215,174,74,.14)' : 'rgba(255,255,255,.05)',
+              borderColor: waiting.length ? C.goldInk : SURFACE.line,
+              background: waiting.length ? 'rgba(215,174,74,.16)' : SURFACE.bg,
+              color: waiting.length ? C.goldInk : SURFACE.ink,
             }}>
             Waiting room
             {waiting.length > 0 && (
               <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full
-                px-1 text-[10px] font-black shadow" style={{ background: C.gold, color: C.deep }}>
+                px-1 text-[10px] font-black text-white shadow" style={{ background: C.goldInk }}>
                 {waiting.length}
               </span>
             )}
@@ -830,47 +861,51 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
           </button>
         )}
         <button onClick={onLeave}
-          className="rounded-full border px-3 py-1.5 text-[12px] font-bold text-white hover:bg-white/10"
-          style={{ borderColor: 'rgba(255,255,255,.14)', background: 'rgba(255,255,255,.05)' }}>
+          className="rounded-full border px-3 py-1.5 text-[12px] font-bold"
+          style={{ borderColor: SURFACE.line, background: SURFACE.bg, color: SURFACE.ink }}>
           Leave
         </button>
       </header>
 
       {lobby && isHost && (
-        <div className="border-b px-4 py-3" style={{ background: '#0A4A35', borderColor: 'rgba(255,255,255,.10)' }}>
+        <div className="border-b px-4 py-3" style={{ background: '#FBFAF6', borderColor: SURFACE.line }}>
           {!waiting.length ? (
-            <p className="text-[12.5px] text-white/50">Nobody is waiting.</p>
+            <p className="text-[12.5px]" style={{ color: SURFACE.soft }}>Nobody is waiting.</p>
           ) : (
             <>
               <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="text-[12px] font-bold text-white/70">{waiting.length} waiting to join</span>
+                <span className="text-[12px] font-bold" style={{ color: SURFACE.ink }}>
+                  {waiting.length} waiting to join
+                </span>
                 <button onClick={() => decide('admit', waiting.map(p => p.member_id))} disabled={busy}
-                  className="rounded-lg px-3 py-1.5 text-[12px] font-black disabled:opacity-40"
-                  style={{ background: C.gold, color: C.deep }}>Admit all</button>
+                  className="rounded-lg px-3 py-1.5 text-[12px] font-black text-white disabled:opacity-40"
+                  style={{ background: C.green }}>Admit all</button>
               </div>
               <ul className="space-y-1.5">
                 {waiting.map(p => (
-                  <li key={p.id} className="flex items-center gap-2.5 rounded-lg bg-white/5 px-2.5 py-1.5">
+                  <li key={p.id} className="flex items-center gap-2.5 rounded-lg border px-2.5 py-1.5"
+                    style={{ background: SURFACE.bg, borderColor: SURFACE.line }}>
                     {p.member?.photo_url
                       // eslint-disable-next-line @next/next/no-img-element
                       ? <img src={p.member.photo_url} alt="" className="h-7 w-7 rounded-full object-cover" />
-                      : <span className="grid h-7 w-7 place-items-center rounded-full bg-white/15 text-[11px] font-bold text-white">
+                      : <span className="grid h-7 w-7 place-items-center rounded-full text-[11px] font-bold text-white"
+                        style={{ background: 'linear-gradient(150deg,#0F6B4E,#083527)' }}>
                         {(p.member?.full_name || '?').charAt(0).toUpperCase()}
                       </span>}
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-semibold text-white">
+                      <span className="block truncate text-[13px] font-semibold" style={{ color: SURFACE.ink }}>
                         {p.member?.full_name || 'Member'}
                       </span>
-                      <span className="block font-mono text-[10.5px] text-white/40">
+                      <span className="block font-mono text-[10.5px]" style={{ color: SURFACE.soft }}>
                         {p.member?.membership_id}
                       </span>
                     </span>
                     <button onClick={() => decide('admit', [p.member_id])} disabled={busy}
-                      className="rounded-md px-2.5 py-1 text-[11.5px] font-bold disabled:opacity-40"
-                      style={{ background: C.gold, color: C.deep }}>Admit</button>
+                      className="rounded-md px-2.5 py-1 text-[11.5px] font-bold text-white disabled:opacity-40"
+                      style={{ background: C.green }}>Admit</button>
                     <button onClick={() => decide('reject', [p.member_id])} disabled={busy}
-                      className="rounded-md border border-white/25 px-2.5 py-1 text-[11.5px] font-bold text-white/80
-                        disabled:opacity-40">Reject</button>
+                      className="rounded-md border px-2.5 py-1 text-[11.5px] font-bold disabled:opacity-40"
+                      style={{ borderColor: SURFACE.line, color: SURFACE.ink }}>Reject</button>
                   </li>
                 ))}
               </ul>

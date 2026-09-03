@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useChat, useLocalParticipant } from '@livekit/components-react';
 import { readMeta } from './TnrTile';
 
-const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#D7AE4A' };
+const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#D7AE4A', goldInk: '#7A5D10' };
+const S = { bg: '#FFFFFF', line: '#E7EAE8', ink: '#15231D', soft: '#6B7280', wash: '#F6F8F7' };
 
 /* Meeting chat, TNR's own.
  *
@@ -59,20 +60,21 @@ export default function TnrChat({ onClose }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-2"
-        style={{ borderColor: 'rgba(255,255,255,.10)' }}>
-        <h3 className="text-[12px] font-black uppercase tracking-wider text-white/60">Chat</h3>
+      <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5"
+        style={{ borderColor: S.line, background: S.bg }}>
+        <h3 className="text-[12px] font-black uppercase tracking-wider" style={{ color: S.soft }}>Chat</h3>
         <button onClick={onClose} aria-label="Close chat"
-          className="rounded-md px-2 py-0.5 text-white/50 hover:bg-white/10 hover:text-white">✕</button>
+          className="rounded-md px-2 py-0.5 hover:bg-[rgba(11,107,79,.08)]"
+          style={{ color: S.soft }}>✕</button>
       </div>
 
       {/* ── Messages ── */}
-      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3">
+      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3" style={{ background: S.wash }}>
         {!grouped.length && (
           <div className="grid h-full place-items-center px-6 text-center">
             <div>
-              <div className="text-3xl opacity-40">💬</div>
-              <p className="mt-2 text-[12.5px] text-white/40">
+              <div className="text-3xl opacity-30">💬</div>
+              <p className="mt-2 text-[12.5px]" style={{ color: S.soft }}>
                 No messages yet. Anything typed here is visible to everyone in the meeting.
               </p>
             </div>
@@ -91,14 +93,14 @@ export default function TnrChat({ onClose }) {
 
       {/* ── Composer ── */}
       <form onSubmit={submit} className="border-t p-2.5"
-        style={{ borderColor: 'rgba(255,255,255,.10)' }}>
+        style={{ borderColor: S.line, background: S.bg }}>
         {picker && (
           <div className="mb-2 grid grid-cols-8 gap-0.5 rounded-xl border p-2"
-            style={{ background: 'rgba(255,255,255,.04)', borderColor: 'rgba(255,255,255,.12)' }}>
+            style={{ background: S.wash, borderColor: S.line }}>
             {CHAT_EMOJI.map(g => (
               <button key={g} type="button" onClick={() => insert(g)}
                 aria-label={`Insert ${g}`}
-                className="rounded-lg py-1 text-lg transition-transform hover:scale-125">
+                className="rounded-lg py-1 text-lg transition-transform hover:scale-125 hover:bg-white">
                 {g}
               </button>
             ))}
@@ -106,11 +108,11 @@ export default function TnrChat({ onClose }) {
         )}
 
         <div className="flex items-end gap-1.5 rounded-xl border px-2 py-1.5 transition-colors
-          focus-within:border-[rgba(215,174,74,.55)]"
-          style={{ background: 'rgba(255,255,255,.06)', borderColor: 'rgba(255,255,255,.12)' }}>
+          focus-within:border-[#0B6B4F]"
+          style={{ background: S.bg, borderColor: S.line }}>
           <button type="button" onClick={() => setPicker(!picker)}
             aria-label="Emoji" aria-expanded={picker}
-            className="shrink-0 rounded-lg px-1.5 py-0.5 text-lg opacity-70 hover:opacity-100">
+            className="shrink-0 rounded-lg px-1.5 py-0.5 text-lg opacity-60 hover:opacity-100">
             😀
           </button>
 
@@ -124,13 +126,14 @@ export default function TnrChat({ onClose }) {
             rows={1}
             placeholder="Message everyone…"
             className="max-h-24 min-h-[24px] flex-1 resize-none bg-transparent py-1 text-[13px]
-              text-white outline-none placeholder:text-white/35" />
+              outline-none placeholder:text-gray-400"
+            style={{ color: S.ink }} />
 
           <button type="submit" disabled={!text.trim() || isSending}
             aria-label="Send"
-            className="shrink-0 rounded-lg px-2.5 py-1 text-[12px] font-black transition
+            className="shrink-0 rounded-lg px-2.5 py-1 text-[12px] font-black text-white transition
               disabled:opacity-30"
-            style={{ background: C.gold, color: C.deep }}>
+            style={{ background: C.green }}>
             {isSending ? '…' : 'Send'}
           </button>
         </div>
@@ -154,22 +157,26 @@ function Bubble({ m, mine, meta }) {
       <div className={`min-w-0 max-w-[78%] ${mine ? 'items-end text-right' : ''}`}>
         {!m.grouped && (
           <div className={`mb-0.5 flex items-baseline gap-1.5 ${mine ? 'justify-end' : ''}`}>
-            <span className="truncate text-[11.5px] font-bold text-white/85">
+            <span className="truncate text-[11.5px] font-bold" style={{ color: S.ink }}>
               {mine ? 'You' : (m.from?.name || 'Member')}
             </span>
             {meta.role === 'host' && (
               <span className="rounded px-1 text-[8.5px] font-black uppercase tracking-wider"
-                style={{ background: 'rgba(215,174,74,.22)', color: C.gold }}>Host</span>
+                style={{ background: 'rgba(215,174,74,.2)', color: C.goldInk }}>Host</span>
             )}
-            <span className="text-[10px] text-white/35">{time}</span>
+            <span className="text-[10px]" style={{ color: S.soft }}>{time}</span>
           </div>
         )}
 
-        <div className={`inline-block whitespace-pre-wrap break-words rounded-2xl px-3 py-1.5
-          text-left text-[13px] leading-relaxed ${mine ? 'text-[#05271C]' : 'text-white/90'}`}
+        {/* Own messages in TNR green with white text; everyone else on a
+            light card. Both measured over 4.5:1, which the old white-on-gold
+            was nowhere near. */}
+        <div className="inline-block whitespace-pre-wrap break-words rounded-2xl px-3 py-1.5
+          text-left text-[13px] leading-relaxed"
           style={mine
-            ? { background: C.gold, borderBottomRightRadius: m.grouped ? 16 : 4 }
-            : { background: 'rgba(255,255,255,.09)', borderBottomLeftRadius: m.grouped ? 16 : 4 }}>
+            ? { background: C.green, color: '#fff', borderBottomRightRadius: m.grouped ? 16 : 4 }
+            : { background: S.bg, color: S.ink, border: `1px solid ${S.line}`,
+                borderBottomLeftRadius: m.grouped ? 16 : 4 }}>
           {/* Plain text. React escapes it, so a message containing markup is
               shown as the characters someone typed rather than rendered. */}
           {m.message}
@@ -183,7 +190,7 @@ function Face({ meta, name }) {
   if (meta.photo_url) return (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={meta.photo_url} alt="" className="h-7 w-7 rounded-full object-cover"
-      style={{ boxShadow: '0 0 0 1.5px rgba(255,255,255,.18)' }} />
+      style={{ boxShadow: `0 0 0 1.5px ${S.line}` }} />
   );
   return (
     <span className="grid h-7 w-7 place-items-center rounded-full text-[11px] font-black text-white"
