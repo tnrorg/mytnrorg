@@ -72,6 +72,22 @@ export const NAV = [
     live('Member Portal', '/member/opportunities'),
   ]},
 
+  /* TNR Virtual Hall — the online meeting hall.
+   *
+   * The top-level link goes to the PUBLIC page, which describes the facility.
+   * It does not and must not list meetings: a visitor should not be able to
+   * learn that the Advisory Council sits on Friday, who was invited, or what
+   * is on the agenda. Members reach their own invitations through the portal
+   * link below, where the server checks who they are.
+   *
+   * Same lesson as Opportunities above — the main navigation points at
+   * something a visitor can actually read, not at a sign-in wall. */
+  { label: 'TNR Virtual Hall', href: '/virtual-hall', items: [
+    live('About the Virtual Hall', '/virtual-hall'),
+    live('My Meetings (Member Portal)', '/member/meetings'),
+    live('Member Login', '/member/login'),
+  ]},
+
   // The first entry is live and computed from membership records. The rest are
   // district-level facts about Roundu that member data cannot answer — they
   // need official sources, so they stay marked as planned.
