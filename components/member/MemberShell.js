@@ -24,6 +24,8 @@ export const NAV = [
   ['Membership Card', '/member/membership-card', '🪪'],
   ['Documents & Certificates', '/member/certificates', '🎓'],
   ['Jobs & Scholarships', '/member/opportunities', '💼'],
+  // Directly under Events: both answer "where do I need to be, and when".
+  ['My Meetings', '/member/meetings', '🎥'],
   ['Events & Programs', '/member/events', '📅'],
   ['Volunteer Activities', '/member/volunteer', '🤝'],
   // Open to every member — the point of the section is that anyone can write.

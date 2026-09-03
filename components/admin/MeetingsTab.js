@@ -1,0 +1,192 @@
+'use client';
+import { useCallback, useEffect, useState } from 'react';
+import { aGet, aPost, aDel } from './adminApi';
+import { Card } from './ui';
+import MeetingEditor from './meetings/MeetingEditor';
+import {
+  MEETING_TYPES, STATUS_LABEL, STATUS_TONE, typeLabel, typeIcon,
+  fmtDateTime, relativeTime,
+} from '@/lib/meetings';
+
+const input = 'w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm text-tnr-cream';
+const LIGHT = { deep: '#063D2B', green: '#0B6B4F' };
+
+/* TNR Meetings — admin.
+ *
+ * Reached under the `meetings` permission area. This screen shows attendance
+ * counts and invitation lists for Advisory Council and CEC sessions, which is
+ * why it is its own area rather than part of Website Content.
+ */
+export default function MeetingsTab({ toast }) {
+  const [d, setD] = useState(null);
+  const [status, setStatus] = useState('');
+  const [type, setType] = useState('');
+  const [search, setSearch] = useState('');
+  const [editing, setEditing] = useState(null);   // meeting object or {} for new
+  const [busyId, setBusyId] = useState(null);
+
+  const load = useCallback(() => {
+    const p = new URLSearchParams();
+    if (status) p.set('status', status);
+    if (type) p.set('type', type);
+    aGet(`/api/admin/meetings?${p}`).then(r => setD(r?.ok ? r : { meetings: [], stats: {} }));
+  }, [status, type]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function cancel(m) {
+    const reason = prompt(
+      `Cancel "${m.title}"?\n\nEveryone invited will be notified. Give a short reason:`,
+      '');
+    if (reason === null) return;               // dismissed, not confirmed
+    setBusyId(m.id);
+    const r = await aPost('/api/admin/meetings', { action: 'cancel', id: m.id, reason });
+    setBusyId(null);
+    toast?.(r.ok ? r.message : (r.message || 'Could not cancel.'), r.ok ? 'ok' : 'err');
+    if (r.ok) load();
+  }
+
+  async function remove(m) {
+    if (!confirm(`Delete "${m.title}" permanently?\n\nThis is only possible for meetings that never ran.`)) return;
+    setBusyId(m.id);
+    const r = await aDel(`/api/admin/meetings?id=${m.id}`);
+    setBusyId(null);
+    toast?.(r.ok ? r.message : (r.message || 'Could not delete.'), r.ok ? 'ok' : 'err');
+    if (r.ok) load();
+  }
+
+  const rows = (d?.meetings || []).filter(m => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [m.title, m.host?.full_name, m.host?.membership_id]
+      .some(v => String(v || '').toLowerCase().includes(q));
+  });
+
+  const S = d?.stats || {};
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-tnr-cream">TNR Meetings</h2>
+          <p className="text-sm text-tnr-cream/50">Schedule sessions, invite members, track attendance.</p>
+        </div>
+        <button onClick={() => setEditing({})}
+          className="rounded-xl px-4 py-2 text-sm font-bold text-white"
+          style={{ background: LIGHT.green }}>
+          + Schedule meeting
+        </button>
+      </div>
+
+      {/* ── Dashboard cards. Each one filters the table. ── */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+        {[
+          ['Total', S.total, null],
+          ['Upcoming', S.scheduled, 'scheduled'],
+          ['Live', S.live, 'live'],
+          ['Completed', S.completed, 'completed'],
+          ['Cancelled', S.cancelled, 'cancelled'],
+        ].map(([label, n, key]) => (
+          <button key={label} onClick={() => setStatus(key === status ? '' : (key || ''))}
+            className={`rounded-xl border px-3 py-2.5 text-left transition ${status && status === key
+              ? 'border-tnr-gold/50 bg-tnr-gold/10' : 'border-tnr-line hover:bg-white/5'}`}>
+            <div className="text-xl font-black text-tnr-cream">{n ?? 0}</div>
+            <div className="text-[10px] uppercase tracking-wider text-tnr-cream/50">{label}</div>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Search by title or host…" className={`${input} min-w-[200px] flex-1`} />
+        <select value={type} onChange={e => setType(e.target.value)}
+          className={`${input} w-auto`}>
+          <option value="">All types</option>
+          {MEETING_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+        </select>
+      </div>
+
+      {!rows.length && (
+        <Card><div className="py-10 text-center text-sm text-tnr-cream/40">
+          {d ? 'No meetings match.' : 'Loading…'}
+        </div></Card>
+      )}
+
+      {/* ── Table ── */}
+      {rows.length > 0 && (
+        <div className="overflow-x-auto rounded-2xl border border-tnr-line">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-tnr-line text-left text-[10px] uppercase tracking-wider text-tnr-cream/40">
+                {['Title', 'Type', 'Host', 'When', 'Invited', 'Attended', 'Status', ''].map(h => (
+                  <th key={h} className="whitespace-nowrap px-3 py-2.5 font-semibold">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(m => {
+                const tone = STATUS_TONE[m.state] || STATUS_TONE.scheduled;
+                const past = m.state === 'completed' || m.state === 'cancelled';
+                return (
+                  <tr key={m.id} className="border-b border-tnr-line/50 hover:bg-white/5">
+                    <td className="px-3 py-2.5 font-semibold text-tnr-cream">
+                      <span className="mr-1.5">{typeIcon(m.meeting_type)}</span>{m.title}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-tnr-cream/60">
+                      {typeLabel(m.meeting_type)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-tnr-cream/60">
+                      {m.host?.full_name || '—'}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-tnr-cream/60">
+                      {fmtDateTime(m.scheduled_at)}
+                      <span className="ml-1.5 text-[11px] text-tnr-cream/40">
+                        {relativeTime(m.scheduled_at)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 tabular-nums text-tnr-cream/80">{m.participant_count}</td>
+                    {/* Blank rather than 0 for a meeting that has not run —
+                        "0 attended" reads as a failure, not as "not yet". */}
+                    <td className="px-3 py-2.5 tabular-nums text-tnr-cream/80">
+                      {past ? m.joined_count : '—'}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className="whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                        style={{ background: tone.bg, color: tone.fg }}>
+                        {STATUS_LABEL[m.state]}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5">
+                      <div className="flex gap-2.5 text-xs">
+                        <button onClick={() => setEditing(m)} disabled={busyId === m.id}
+                          className="text-tnr-goldLight hover:underline disabled:opacity-40">Edit</button>
+                        {m.state === 'scheduled' && (
+                          <button onClick={() => cancel(m)} disabled={busyId === m.id}
+                            className="text-amber-300 hover:underline disabled:opacity-40">Cancel</button>
+                        )}
+                        {(m.state === 'scheduled' || m.state === 'cancelled') && (
+                          <button onClick={() => remove(m)} disabled={busyId === m.id}
+                            className="text-red-300 hover:underline disabled:opacity-40">Delete</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Attendance, minutes, documents and the recording live on the meeting
+          record page — Phase 4 and 5. The actions above are the ones this
+          phase can honestly carry out. */}
+
+      {editing && (
+        <MeetingEditor meeting={editing.id ? editing : null} toast={toast}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load(); }} />
+      )}
+    </div>
+  );
+}
