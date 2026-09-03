@@ -118,6 +118,29 @@ function RoomShell({ id, data, onLeave }) {
   const participants = useParticipants();
   const [panel, setPanel] = useState('');          // '' | 'chat' | 'people' | 'diag'
   const [mediaError, setMediaError] = useState(null);
+  const [reactions, setReactions] = useState([]);
+
+  /* Reactions live HERE, not inside the overlay that draws them.
+   *
+   * LiveKit forwards published data to the OTHER participants — a sender never
+   * receives their own message back. So an overlay that only listened to the
+   * data channel showed everyone else's reactions and never yours, which
+   * looks exactly like a broken button (and is completely invisible when you
+   * are testing alone in the room). The send path now feeds the same list the
+   * receive path does. */
+  const pushReaction = useCallback((glyph, who) => {
+    if (!REACTIONS.includes(glyph)) return;
+    const item = { key: `${Date.now()}-${Math.random()}`, glyph, who: who || '' };
+    setReactions(l => [...l.slice(-11), item]);        // never more than 12 on screen
+    setTimeout(() => setReactions(l => l.filter(x => x.key !== item.key)), 3200);
+  }, []);
+
+  useDataChannel('tnr-reaction', (msg) => {
+    try {
+      const p = JSON.parse(new TextDecoder().decode(msg.payload));
+      if (p?.type === 'reaction') pushReaction(p.glyph, msg.from?.name);
+    } catch { /* not ours */ }
+  });
 
   /* Camera and screen share, with a placeholder entry for anyone who has
    * neither. That placeholder is what renders the avatar — so the avatar
@@ -141,7 +164,7 @@ function RoomShell({ id, data, onLeave }) {
       {/* The host's nudge lands here, on the participant's own screen. */}
       <UnmuteRequest onError={setMediaError} />
 
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
         {/* THE STAGE is the one dark surface: a deep radial wash, because
             video and faces sit far better on it than on white, and a rounded
             card so it reads as a distinct object rather than a filled area. */}
@@ -183,10 +206,14 @@ function RoomShell({ id, data, onLeave }) {
         {panel === 'diag' && (
           <Diagnostics room={room} connection={connection} onClose={() => setPanel('')} />
         )}
+
+        {/* Inside the stage container, which is `relative` — an absolutely
+            positioned overlay with no positioned ancestor lands against the
+            document instead, and drifts the moment anything scrolls. */}
+        <Reactions items={reactions} />
       </div>
 
-      <Reactions />
-      <MediaBar meeting={data.meeting} onError={setMediaError} />
+      <MediaBar meeting={data.meeting} onError={setMediaError} onReact={pushReaction} />
 
       {/* Mounted ONCE. Without it a member is connected and hears nobody. */}
       <RoomAudioRenderer />
@@ -206,7 +233,7 @@ function RoomShell({ id, data, onLeave }) {
 /* Each toggle calls the LiveKit LocalParticipant directly and reads its state
  * back from the participant, so the button cannot say "on" while the track is
  * off. Errors are raised to the banner rather than swallowed. */
-function MediaBar({ meeting, onError }) {
+function MediaBar({ meeting, onError, onReact }) {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
     useLocalParticipant();
   const [busy, setBusy] = useState('');
@@ -247,6 +274,9 @@ function MediaBar({ meeting, onError }) {
 
   const react = async (glyph) => {
     setEmoji(false);
+    // Show it to yourself first: the publish below reaches everyone EXCEPT
+    // you, and a reaction you cannot see is a button that appears dead.
+    onReact?.(glyph, localParticipant?.name || 'You');
     try {
       await localParticipant.publishData(
         new TextEncoder().encode(JSON.stringify({ type: 'reaction', glyph })),
@@ -322,24 +352,12 @@ const REACTIONS = ['👍', '👏', '❤️', '😂', '🎉', '🤔', '👋'];
  * Ephemeral by design — nothing is stored, nothing is in the minutes, and a
  * reaction that arrives after the moment has passed is dropped rather than
  * queued. This is the one part of the room that does not need to be reliable. */
-function Reactions() {
-  const [live, setLive] = useState([]);
-
-  useDataChannel('tnr-reaction', (msg) => {
-    try {
-      const p = JSON.parse(new TextDecoder().decode(msg.payload));
-      if (p?.type !== 'reaction' || !REACTIONS.includes(p.glyph)) return;   // only our own set
-      const item = { key: `${Date.now()}-${Math.random()}`, glyph: p.glyph, who: msg.from?.name || '' };
-      setLive(l => [...l.slice(-11), item]);                                 // never more than 12
-      setTimeout(() => setLive(l => l.filter(x => x.key !== item.key)), 3200);
-    } catch { /* not ours */ }
-  });
-
-  if (!live.length) return null;
+function Reactions({ items }) {
+  if (!items.length) return null;
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-24 z-10 flex
+    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex
       flex-wrap items-end justify-center gap-3">
-      {live.map(r => (
+      {items.map(r => (
         <span key={r.key} className="flex flex-col items-center"
           style={{ animation: 'tnrFloat 3.2s ease-out forwards' }}>
           <span className="text-3xl">{r.glyph}</span>
