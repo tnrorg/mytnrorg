@@ -211,19 +211,43 @@ export async function POST(req) {
         started_by: member.id, started_at: new Date().toISOString(),
         created_by: member.full_name || member.membership_id,
       });
+
+      /* A SECOND, audio-only egress, for transcription.
+       *
+       * Groq's speech endpoint takes about 25 MB; an hour of composite MP4 is
+       * far past that, and Vercel's runtime has no ffmpeg to extract the audio
+       * from it. Capturing audio AS audio is the only way transcription works
+       * at all — see startAudioRecording().
+       *
+       * Best-effort: if it fails, the video recording still succeeds and the
+       * meeting is simply not transcribable. Losing the recording because the
+       * transcription track would not start would be the worse trade. */
+      try {
+        const a = await lk.startAudioRecording(meeting.room_id, id);
+        await sb.from('meeting_recordings').insert({
+          meeting_id: id, provider: 'livekit',
+          provider_egress_id: a.egressId,
+          status: 'processing', is_audio_only: true,
+          started_by: member.id, started_at: new Date().toISOString(),
+          created_by: member.full_name || member.membership_id,
+        });
+      } catch { /* video is recording; transcription just will not be available */ }
+
       return ok({ egress_id: started.egressId, message: 'Recording started. Everyone can see the indicator.' });
     }
 
+    // BOTH egresses — the video and the audio-only track started alongside it.
     const { data: live } = await sb.from('meeting_recordings')
-      .select('id, provider_egress_id').eq('meeting_id', id).eq('status', 'processing')
-      .order('created_at', { ascending: false }).limit(1).maybeSingle();
-    if (!live?.provider_egress_id) return ok({ unchanged: true, message: 'Nothing is recording.' });
+      .select('id, provider_egress_id').eq('meeting_id', id).eq('status', 'processing');
+    if (!live?.length) return ok({ unchanged: true, message: 'Nothing is recording.' });
 
-    try { await lk.stopRecording(live.provider_egress_id); }
-    catch { /* already stopped its end; the webhook will still close the row */ }
+    for (const r of live) {
+      try { await lk.stopRecording(r.provider_egress_id); }
+      catch { /* already stopped its end; the webhook will still close the row */ }
+    }
 
     await sb.from('meeting_recordings')
-      .update({ stopped_at: new Date().toISOString() }).eq('id', live.id);
+      .update({ stopped_at: new Date().toISOString() }).in('id', live.map(r => r.id));
 
     // The file is NOT ready yet — LiveKit finishes encoding and calls the
     // webhook. Saying so avoids an admin refreshing an empty Recording tab.

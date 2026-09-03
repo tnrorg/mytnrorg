@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { aGet, aPost } from '../adminApi';
 import { Card } from '../ui';
 import { exportAttendanceCsv, exportAttendancePdf } from './attendanceExport';
+import AiMinutes from './AiMinutes';
 import {
   ATTENDANCE_TONE, STATUS_LABEL, STATUS_TONE, typeLabel, typeIcon,
   fmtDateTime, fmtDuration,
@@ -13,7 +14,8 @@ const input =
   'w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#0B6B4F]';
 
 const TABS = [
-  ['overview', 'Overview'], ['attendance', 'Attendance'], ['minutes', 'Minutes'],
+  ['overview', 'Overview'], ['attendance', 'Attendance'],
+  ['ai', 'AI Minutes'], ['minutes', 'Minutes'],
   ['actions', 'Action Items'], ['documents', 'Documents'],
   ['recording', 'Recording'], ['chat', 'Chat History'],
 ];
@@ -86,6 +88,7 @@ export default function MeetingRecord({ meeting, onBack, toast }) {
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         {tab === 'overview' && <Overview d={d} />}
         {tab === 'attendance' && <Attendance d={d} post={post} busy={busy} toast={toast} />}
+        {tab === 'ai' && <AiMinutes meetingId={meeting.id} toast={toast} onApplied={load} />}
         {tab === 'minutes' && <Minutes d={d} post={post} busy={busy} />}
         {tab === 'actions' && <Actions d={d} post={post} busy={busy} />}
         {tab === 'documents' && <Documents d={d} post={post} busy={busy} toast={toast} />}
