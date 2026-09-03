@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { aGet, aPost } from '../adminApi';
 import { Card } from '../ui';
+import { exportApplicationsExcel, exportApplicationsPdf } from './applicationExports';
 import {
   APP_STATUSES, APP_STATUS_LABEL, APP_STATUS_TONE, INTERVIEW_MODES,
   FELLOWSHIP_QUESTIONS, fmtDate,
@@ -85,6 +86,7 @@ export default function ApplicationsView({ opportunity, onBack, toast }) {
   const [sel, setSel] = useState(() => new Set());          // bulk selection
   const [bulkInterview, setBulkInterview] = useState(false);
   const [run, setRun] = useState(null);                     // bulk progress + report
+  const [exporting, setExporting] = useState('');
 
   const load = () => aGet(
     `/api/admin/opportunities/applications?opportunity_id=${opportunity.id}${status ? `&status=${status}` : ''}`
@@ -190,6 +192,28 @@ export default function ApplicationsView({ opportunity, onBack, toast }) {
     load();
   }
 
+  /* ── Export ──
+   *
+   * Ticked rows if there are any, otherwise whatever the search and status
+   * filter are currently showing. One pair of buttons rather than four:
+   * "export what I am looking at" is what an admin means either way, and a
+   * separate "export all" button is the one people click by mistake and then
+   * email to a reviewer. */
+  async function runExport(kind) {
+    const data = selected.length ? selected : rows;
+    if (!data.length) return toast?.('Nothing to export.', 'err');
+    setExporting(kind);
+    try {
+      const fn = kind === 'pdf' ? exportApplicationsPdf : exportApplicationsExcel;
+      await fn(data, opportunity.title);
+      toast?.(`${data.length} application(s) exported.`, 'ok');
+    } catch (e) {
+      toast?.(e?.message || 'Could not build the file.', 'err');
+    } finally {
+      setExporting('');
+    }
+  }
+
   function startBulk(to, label) {
     if (!selected.length) return;
     if (to === 'interview_invited') { setBulkInterview(true); return; }
@@ -209,9 +233,21 @@ export default function ApplicationsView({ opportunity, onBack, toast }) {
           <h2 className="text-xl font-bold text-tnr-cream truncate">{opportunity.title}</h2>
           <p className="text-sm text-tnr-cream/50">Applications</p>
         </div>
-        <button onClick={onBack} className="text-sm text-tnr-cream/60 hover:underline">
-          ← All opportunities
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Both files carry mobile numbers and email addresses — the count
+              in the label is there so nobody exports 31 records thinking they
+              are sending 3. */}
+          {[['excel', 'Excel'], ['pdf', 'PDF']].map(([kind, label]) => (
+            <button key={kind} onClick={() => runExport(kind)} disabled={!!exporting}
+              className="px-3 py-1.5 rounded-xl border border-tnr-line text-xs font-semibold
+                text-tnr-cream/80 hover:bg-white/5 disabled:opacity-40 whitespace-nowrap">
+              {exporting === kind ? 'Building…' : `${label} (${selected.length || rows.length})`}
+            </button>
+          ))}
+          <button onClick={onBack} className="text-sm text-tnr-cream/60 hover:underline">
+            ← All opportunities
+          </button>
+        </div>
       </div>
 
       {/* ── Statistics ── */}

@@ -72,6 +72,25 @@ export async function GET(req) {
     ]);
     members = Object.fromEntries((mem || []).map(m => [m.id, m]));
     opps = Object.fromEntries((op || []).map(o => [o.id, o]));
+
+    /* Referral source, fetched SEPARATELY and allowed to fail.
+     *
+     * heard_about arrived in a later migration than the rest of the member
+     * table. Postgres rejects an entire explicit select when one named column
+     * is missing, so folding these two into MEMBER_COLUMNS would mean that on
+     * any deployment where migration_heard_about.sql has not been run, the
+     * whole applications list returns empty — the exact trap that took the
+     * hero carousel and the public opportunities feed down before.
+     *
+     * On its own it costs one small query and degrades to "not recorded". */
+    const { data: heard } = await sb.from('membership_members')
+      .select('id, heard_about, heard_about_detail')
+      .in('id', Object.keys(members));
+    for (const h of (heard || [])) {
+      if (members[h.id]) Object.assign(members[h.id], {
+        heard_about: h.heard_about, heard_about_detail: h.heard_about_detail,
+      });
+    }
   }
 
   const stats = { total: rows.length };
