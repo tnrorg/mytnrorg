@@ -6,7 +6,7 @@ import { mGet } from '@/components/member/memberApi';
 import Avatar from '@/components/ui/Avatar';
 import {
   MEMBER_TABS, STATUS_TONE, STATUS_LABEL, typeLabel, typeIcon,
-  fmtDateTime, relativeTime,
+  fmtDateTime, relativeTime, fmtMeetingTime, browserTz, TNR_TZ,
 } from '@/lib/meetings';
 
 const C = { deep: '#063D2B', green: '#0B6B4F' };
@@ -152,6 +152,12 @@ function MeetingCard({ m }) {
 
           <p className="mt-1 text-[13px] text-gray-500">
             {typeLabel(m.meeting_type)} · {fmtDateTime(m.scheduled_at)}
+            {/* Members abroad get their own clock from fmtDateTime, which
+                renders in the browser, plus the organisation's — the number
+                everyone else in the room will be quoting. */}
+            {browserTz() !== TNR_TZ && (
+              <span className="text-gray-400"> · Roundu {fmtMeetingTime(m.scheduled_at, { withZone: false })}</span>
+            )}
             {soon && <span className="ml-1.5 font-semibold" style={{ color: C.green }}>
               ({relativeTime(m.scheduled_at)})
             </span>}

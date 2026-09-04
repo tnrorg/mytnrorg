@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react';
 import { aGet, aPost } from '../adminApi';
 import AudiencePicker from './AudiencePicker';
 import {
-  MEETING_TYPES, toLocalInput, fromLocalInput, DURATION_MIN, DURATION_MAX,
+  MEETING_TYPES, DURATION_MIN, DURATION_MAX,
+  zonedToUtc, utcToZonedInput, fmtMeetingTime, browserTz,
+  SCHEDULE_ZONES, TNR_TZ,
 } from '@/lib/meetings';
 
 const LIGHT = { deep: '#063D2B', green: '#0B6B4F' };
@@ -16,11 +18,13 @@ const input =
  * meeting's agenda and its invitation list, and is read carefully rather than
  * glanced at.
  *
- * The date/time field is a native picker and its value is converted with
- * fromLocalInput before it leaves the browser. A datetime-local input yields a
- * naive string with no zone; sending that straight to a timestamptz column is
- * exactly what made news posts invisible for five hours, and would put a
- * meeting scheduled for 8pm into the following morning.
+ * WHICH CLOCK THE TIME IS TYPED IN is chosen explicitly, and defaults to TNR
+ * time rather than the admin's own. A datetime-local input yields a naive
+ * string with no zone. Reading that as the browser's zone is the obvious
+ * implementation and it is wrong for this organisation: office bearers
+ * schedule from Malaysia, the Gulf and the UK for a committee sitting in
+ * Roundu, and "8pm" means 8pm there. Silently using the laptop's clock put a
+ * meeting three hours early with nothing on screen to reveal it.
  */
 const BLANK = {
   title: '', description: '', agenda: '', meeting_type: 'general',
@@ -43,6 +47,15 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
   const [emailInvites, setEmailInvites] = useState(true);
   const [sending, setSending] = useState(null);
 
+  /* WHICH CLOCK THE TIME IS TYPED IN.
+   *
+   * Defaults to TNR time, not the admin's own. An office bearer scheduling
+   * from Malaysia almost always means "8pm for the committee", and a picker
+   * that silently used their laptop's clock put the meeting three hours early
+   * with nothing on screen to reveal it. */
+  const [tz, setTz] = useState(TNR_TZ);
+  const [here] = useState(() => browserTz());
+
   /* An EDIT that moved the time is a reschedule, not a fresh invitation —
    * different subject, and an .ics that replaces the calendar entry rather
    * than adding a second one. */
@@ -57,7 +70,7 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
       const m = r.meeting;
       setF({
         ...BLANK, ...m,
-        scheduled_at: toLocalInput(m.scheduled_at),
+        scheduled_at: utcToZonedInput(m.scheduled_at, tz),
         // Undefined, not '': the server treats an absent password as "leave it
         // alone" and an empty string as "remove it". Editing the agenda must
         // not silently clear a passcode nobody meant to touch.
@@ -65,6 +78,10 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
       });
       setHost(r.host || null);
     });
+    // `tz` is deliberately not a dependency: this runs once on mount, when tz
+    // is still TNR_TZ. Later zone changes are handled by the select itself,
+    // which re-labels the same instant instead of re-fetching.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing, meeting?.id]);
 
   // Host search — the same debounce as the participant picker.
@@ -86,7 +103,7 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
     const r = await aPost('/api/admin/meetings', {
       ...(editing ? { id: meeting.id } : {}),
       ...f,
-      scheduled_at: fromLocalInput(f.scheduled_at),
+      scheduled_at: zonedToUtc(f.scheduled_at, tz),
       duration_minutes: Number(f.duration_minutes) || 60,
       audience, member_ids: memberIds,
     });
@@ -182,16 +199,41 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
             <input type="datetime-local" value={f.scheduled_at}
               onChange={e => set('scheduled_at', e.target.value)} className={input} />
             <Err k="scheduled_at" />
-            {/* Written out in full, in the admin's own timezone, so a wrong
-                month is caught before 293 people are told about it. */}
-            {f.scheduled_at && (
-              <p className="mt-1 text-[12px] text-gray-500">
-                {new Date(f.scheduled_at).toLocaleString(undefined, {
-                  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-                  hour: 'numeric', minute: '2-digit',
-                })}
-              </p>
-            )}
+
+            <select value={tz} onChange={e => {
+              /* Keep the same INSTANT when the zone changes, so switching the
+                 dropdown re-labels the meeting rather than moving it. */
+              const iso = zonedToUtc(f.scheduled_at, tz);
+              setTz(e.target.value);
+              if (iso) set('scheduled_at', utcToZonedInput(iso, e.target.value));
+            }} className={`${input} mt-1.5 text-[12.5px]`}>
+              {SCHEDULE_ZONES.map(([z, label]) => (
+                <option key={z} value={z}>{label}</option>
+              ))}
+              {!SCHEDULE_ZONES.some(([z]) => z === here) && (
+                <option value={here}>Where I am ({here})</option>
+              )}
+            </select>
+
+            {/* BOTH clocks, whenever they differ — the number the committee
+                will see, and the number on the admin's own wall. */}
+            {f.scheduled_at && (() => {
+              const iso = zonedToUtc(f.scheduled_at, tz);
+              if (!iso) return null;
+              return (
+                <div className="mt-1.5 space-y-0.5 text-[12px]">
+                  <p className="font-semibold" style={{ color: LIGHT.deep }}>
+                    Members in Roundu will see: {fmtMeetingTime(iso)}
+                  </p>
+                  {here !== TNR_TZ && (
+                    <p className="text-gray-500">
+                      For you in {here.split('/').pop().replace(/_/g, ' ')}: {' '}
+                      {fmtMeetingTime(iso, { tz: here })}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
           </label>
 
           <label className="block">

@@ -6,6 +6,7 @@ import { mGet, mPost } from '@/components/member/memberApi';
 import Avatar from '@/components/ui/Avatar';
 import {
   STATUS_TONE, STATUS_LABEL, typeLabel, typeIcon, fmtDateTime, relativeTime,
+  fmtMeetingTime, browserTz, TNR_TZ,
 } from '@/lib/meetings';
 
 const C = { deep: '#063D2B', green: '#0B6B4F' };
@@ -96,6 +97,15 @@ export default function MeetingDetail(props) {
             {m.state === 'scheduled' && ` · ${relativeTime(m.scheduled_at)}`}
             {' · '}{m.duration_minutes} min
           </p>
+          {/* A member abroad needs BOTH: their own clock, which fmtDateTime
+              already gives, and the organisation's, which is what everyone
+              else in the meeting will be quoting. Shown only when they
+              actually differ — otherwise it is noise. */}
+          {browserTz() !== TNR_TZ && (
+            <p className="mt-1 text-white/60 text-[12.5px]">
+              In Roundu: {fmtMeetingTime(m.scheduled_at)}
+            </p>
+          )}
         </div>
 
         {/* ── Join ── */}
