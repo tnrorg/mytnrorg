@@ -148,6 +148,12 @@ export async function POST(req) {
   return ok({
     token, url: cfg.url, room: current.room_id,
     role, is_host: host,
+    /* Host-LIKE (can admit, mute, eject) and host-EXACTLY (can also end the
+     * meeting for everyone) are different permissions, so the room is told
+     * both. Collapsing them put an "End for all" button in front of every
+     * co-host — which, once interview panellists became co-hosts, was six
+     * people who could clear a room of thirty candidates by mistake. */
+    is_owner: role === 'host',
     meeting: {
       id: current.id, title: current.title, chat_enabled: current.chat_enabled,
       recording_enabled: current.recording_enabled,

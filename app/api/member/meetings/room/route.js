@@ -272,18 +272,66 @@ export async function POST(req) {
        * far past that, and Vercel's runtime has no ffmpeg to extract the audio
        * from it. Capturing audio AS audio is the only way transcription works
        * at all — see startAudioRecording(). */
-      if (process.env.MEETINGS_AI_AUDIO === '1') try {
-        const a = await lk.startAudioRecording(meeting.room_id, id);
-        await sb.from('meeting_recordings').insert({
-          meeting_id: id, provider: 'livekit',
-          provider_egress_id: a.egressId,
-          status: 'processing', is_audio_only: true,
-          started_by: member.id, started_at: new Date().toISOString(),
-          created_by: member.full_name || member.membership_id,
-        });
-      } catch { /* video is recording; transcription just will not be available */ }
+      /* WHY THE AUDIO TRACK FAILED, IF IT DID.
+       *
+       * This used to be `catch { }` — the failure was swallowed whole. The
+       * host saw "Recording started", every meeting recorded video only, and
+       * there was no trace anywhere of why. That is the exact silent-failure
+       * pattern this codebase has been bitten by four times, and I wrote it
+       * here myself.
+       *
+       * The audio track is NOT essential — the video recording is already
+       * running and must not be rolled back because transcription is
+       * unavailable. So the failure is reported, not thrown: the host is told
+       * plainly, in the same toast, that the meeting is recording but will not
+       * be transcribable, and why. */
+      let audioNote = null;
+      if (process.env.MEETINGS_AI_AUDIO !== '1') {
+        audioNote = 'Audio-only capture is off, so this meeting cannot be transcribed. '
+          + 'Set MEETINGS_AI_AUDIO=1 to enable it.';
+      } else {
+        try {
+          const a = await lk.startAudioRecording(meeting.room_id, id);
+          const { error: insErr } = await sb.from('meeting_recordings').insert({
+            meeting_id: id, provider: 'livekit',
+            provider_egress_id: a.egressId,
+            status: 'processing', is_audio_only: true,
+            started_by: member.id, started_at: new Date().toISOString(),
+            created_by: member.full_name || member.membership_id,
+          });
+          /* A failed INSERT is its own silent failure: the egress runs, the
+           * file lands in the bucket, and nothing in the database points at
+           * it — so the AI screen reports no audio for a meeting that has
+           * some. `is_audio_only` arrives in migration_meetings_ai.sql, and
+           * without that migration this is exactly what happens. */
+          if (insErr) {
+            audioNote = 'The audio track started but could not be recorded in the database'
+              + (/is_audio_only/.test(insErr.message || '')
+                ? ' — run supabase/migration_meetings_ai.sql.'
+                : `: ${String(insErr.message || '').slice(0, 120)}`);
+          }
+        } catch (e) {
+          const why = String(e?.message || '').slice(0, 160);
+          audioNote = e?.name === 'RecordingNotConfigured'
+            ? 'The audio track for transcription could not start: recording storage is not '
+              + 'configured.'
+            : /concurren|too many|in use/i.test(why)
+              ? 'The audio track could not start — LiveKit allows only two recordings at once, '
+                + 'and the video recording is using one. A paid plan raises this limit.'
+              : /quota|limit|exceed|allowance|billing/i.test(why)
+                ? 'The audio track could not start — the LiveKit transcode allowance has run out. '
+                  + 'Audio and video are billed separately, so recording with transcription '
+                  + 'spends it twice as fast.'
+                : `The audio track for transcription could not start: ${why}`;
+        }
+      }
 
-      return ok({ egress_id: started.egressId, message: 'Recording started. Everyone can see the indicator.' });
+      return ok({
+        egress_id: started.egressId,
+        audio_warning: audioNote || undefined,
+        message: 'Recording started. Everyone can see the indicator.'
+          + (audioNote ? ` ${audioNote}` : ''),
+      });
     }
 
     // BOTH egresses — the video and the audio-only track started alongside it.
@@ -311,6 +359,23 @@ export async function POST(req) {
 
   // ── End for everyone ──
   if (b.action === 'end') {
+    /* THE HOST ALONE, not any co-host.
+     *
+     * Every other host power — admit, mute, eject — is shared with co-hosts on
+     * purpose, so the day keeps running if the chair's connection drops. But
+     * ENDING is different in kind: it is irreversible, it finalises everyone's
+     * attendance, and it throws every person out of the room at once.
+     *
+     * This became urgent when interview panels were made co-hosts: a panel of
+     * six meant six people could end a session in front of thirty waiting
+     * candidates, and any one of them could do it by mis-tapping on a phone.
+     * Nobody should hold that by accident. */
+    if (role !== 'host') {
+      return fail('HOST_ONLY', 403, {
+        message: 'Only the meeting host can end the meeting for everyone. '
+          + 'You can leave the meeting yourself, and it will carry on.',
+      });
+    }
     const now = new Date().toISOString();
     const { data: ended } = await sb.from('meetings')
       .update({ status: 'completed', ended_at: now }).eq('id', id).select('*').single();

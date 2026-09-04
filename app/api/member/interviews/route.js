@@ -42,6 +42,72 @@ export async function GET(req) {
   const sb = supabaseAdmin();
   const url = new URL(req.url);
   const sessionId = url.searchParams.get('session_id');
+  const meetingId = url.searchParams.get('meeting_id');
+
+  /* ── The scoring pad inside the Virtual Hall ────────────────────────────
+   *
+   * The panel interviews in the room; making them keep a second window open
+   * for the scoring page meant, on a phone, that they could not see the
+   * candidate and the form at the same time. So the room asks this question
+   * instead: "I am in meeting X — am I on its panel, and who is in front of
+   * me right now?"
+   *
+   * DELIBERATELY NARROW. It answers for the ONE candidate the chair has
+   * called, and nothing else: not the queue, not the other candidates'
+   * applications, not anyone's scores but the caller's own. A meeting room is
+   * open on more screens, in more places, for longer than a portal page — the
+   * less it holds, the less there is to leak from it. */
+  if (meetingId) {
+    const { data: session } = await sb.from('interview_sessions')
+      .select('id, title, status, criteria')
+      .eq('meeting_id', meetingId).eq('status', 'open')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+    // Not an interview meeting, or the session is closed. Silence, not an
+    // error: an ordinary committee meeting must not show an error because it
+    // is not an interview.
+    if (!session) return ok({ pad: null });
+
+    const { seat } = await seatOf(sb, session.id, member.id);
+    if (!seat) return ok({ pad: null });        // in the room, but not judging
+
+    const { data: row } = await sb.from('interview_queue')
+      .select('id, application_id, member_id, state, started_at')
+      .eq('session_id', session.id).eq('state', 'in_progress').maybeSingle();
+
+    if (!row) {
+      return ok({
+        pad: { session_id: session.id, title: session.title,
+          criteria: cleanCriteria(session.criteria), current: null },
+      });
+    }
+
+    const [{ data: cand }, { data: app }, { data: mine }] = await Promise.all([
+      sb.from('membership_members').select(CANDIDATE_FIELDS).eq('id', row.member_id).maybeSingle(),
+      sb.from('opportunity_applications').select('answers').eq('id', row.application_id).maybeSingle(),
+      sb.from('interview_evaluations')
+        .select('scores, notes, recommendation')
+        .eq('session_id', session.id).eq('application_id', row.application_id)
+        .eq('panellist_member_id', member.id).maybeSingle(),
+    ]);
+
+    return ok({
+      pad: {
+        session_id: session.id,
+        title: session.title,
+        criteria: cleanCriteria(session.criteria),
+        my_role: seat.role,
+        current: {
+          queue_id: row.id,
+          application_id: row.application_id,
+          started_at: row.started_at,
+          candidate: cand || null,
+          answers: app?.answers || {},
+          my_evaluation: mine || null,
+        },
+      },
+    });
+  }
 
   // ── Which panels am I on? ────────────────────────────────────────────────
   const { data: seats, error: sErr } = await sb.from('interview_panellists')

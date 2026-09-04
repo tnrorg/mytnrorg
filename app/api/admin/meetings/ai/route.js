@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '@/lib/supabaseServer';
+import { supabaseAdmin, signedRecordingUrl } from '@/lib/supabaseServer';
 import { requireAdmin } from '@/lib/guard';
 import { logAudit, clientIp } from '@/lib/audit';
 import { ok, fail, readJson } from '@/lib/api';
@@ -32,13 +32,21 @@ export async function GET(req) {
   if (!id) return fail('INVALID', 400, { message: 'Missing meeting.' });
 
   const sb = supabaseAdmin();
-  const [{ data: transcript }, { data: summaries }, { data: audio }] = await Promise.all([
+  const [{ data: transcript }, { data: summaries }, { data: audio }, { data: anyRec }] = await Promise.all([
     sb.from('meeting_transcripts').select('*').eq('meeting_id', id).maybeSingle(),
     sb.from('meeting_ai_summaries').select('*').eq('meeting_id', id)
       .order('created_at', { ascending: false }).limit(5),
     sb.from('meeting_recordings').select('id, file_url, status, is_audio_only, duration_seconds')
       .eq('meeting_id', id).eq('is_audio_only', true)
       .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    /* ANY recording, audio-only or not.
+     *
+     * Without this the screen could not tell "no recording was ever made"
+     * apart from "recorded, but before audio capture existed" — and it told
+     * an administrator the second when the truth was the first, sending them
+     * to look for an AI fault when recording had never started. */
+    sb.from('meeting_recordings').select('id, status, is_audio_only')
+      .eq('meeting_id', id).order('created_at', { ascending: false }).limit(5),
   ]);
 
   return ok({
@@ -50,6 +58,13 @@ export async function GET(req) {
       : null,
     summaries: summaries || [],
     audio: audio || null,
+    /* Enough for the screen to name the ACTUAL reason there is nothing to
+     * transcribe. Booleans, not secrets: whether a variable is set, never its
+     * value. */
+    recordings: (anyRec || []).length,
+    audio_capture_enabled: process.env.MEETINGS_AI_AUDIO === '1',
+    recording_storage_configured: !!(process.env.LIVEKIT_S3_BUCKET
+      && process.env.LIVEKIT_S3_ACCESS_KEY && process.env.LIVEKIT_S3_SECRET),
     languages: SUMMARY_LANGUAGES,
     models: { transcribe: MODELS.transcribe, summary: MODELS.reasoning },
   });
@@ -262,7 +277,9 @@ async function audioUrlFor(sb, meetingId, override) {
     .select('file_url, status').eq('meeting_id', meetingId).eq('is_audio_only', true)
     .eq('status', 'ready').order('created_at', { ascending: false }).limit(1).maybeSingle();
 
-  if (data?.file_url) return data.file_url;
+  /* Signed, or the download 403s against the private bucket and the member
+   * is told "the recording could not be downloaded" — true, but useless. */
+  if (data?.file_url) return await signedRecordingUrl(data.file_url);
 
   const { data: any } = await sb.from('meeting_recordings')
     .select('status').eq('meeting_id', meetingId).limit(1).maybeSingle();

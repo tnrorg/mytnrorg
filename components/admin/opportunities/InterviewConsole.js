@@ -35,6 +35,7 @@ export default function InterviewConsole({ opportunity, session: initial, onBack
   const [busy, setBusy] = useState(null);
   const [openId, setOpenId] = useState(null);      // candidate being viewed
   const [tab, setTab] = useState('panel');         // panel | results
+  const [mailing, setMailing] = useState(null);
 
   const load = useCallback(() => {
     if (!sessionId) return;
@@ -69,6 +70,29 @@ export default function InterviewConsole({ opportunity, session: initial, onBack
     if (!r?.ok) return toast?.(r?.message || 'Could not update the queue.', 'err');
     if (state === 'in_progress') setOpenId(row.id);
     load();
+  }
+
+  /* A reminder is the same details, sent again.
+   *
+   * THE PLATFORM HAS NO SCHEDULER — no cron, no queue, no background worker —
+   * so nothing can fire this by itself the night before. Rather than pretend
+   * otherwise with an automatic reminder that would silently never send, this
+   * is a button the chair presses. Honest, and it actually works. */
+  async function remind() {
+    const n = queue.length;
+    if (!confirm(`Email the reminder to all ${n} candidate(s) and the panel?\n\n`
+      + 'Everyone gets the details again, including people already emailed.')) return;
+
+    setMailing('Sending…');
+    const e = await runEmails({
+      sessionId, reminder: true,
+      onProgress: (sent, total) => setMailing(`Sent ${sent}${total ? ` of ${total}` : ''}…`),
+    });
+    setMailing(null);
+    toast?.(
+      e.ended === 'error' ? (e.detail || 'The reminders could not be sent.')
+        : [`Reminder: ${e.tally}.`, e.detail, e.warning].filter(Boolean).join(' '),
+      e.ended === 'done' && e.sent ? 'ok' : 'err');
   }
 
   async function closeSession() {
@@ -110,6 +134,13 @@ export default function InterviewConsole({ opportunity, session: initial, onBack
               style={{ background: LIGHT.green }}>
               Open the Virtual Hall ↗
             </a>
+          )}
+          {!closed && (
+            <button onClick={remind} disabled={!!mailing}
+              className="rounded-xl border border-tnr-line px-4 py-2 text-sm font-bold text-tnr-cream disabled:opacity-40"
+              title="Email everyone the details again — use this the day before">
+              {mailing || 'Send reminder'}
+            </button>
           )}
           {!closed && (
             <button onClick={closeSession}
@@ -365,6 +396,53 @@ function ScoreCard({ row, session, closed }) {
       )}
     </Card>
   );
+}
+
+
+/* Sending the emails.
+ *
+ * Same shape as every other bulk send in this codebase, and for the same
+ * reasons: accumulate across rounds because each response carries only its own
+ * tally, stop the moment a round makes no progress, and cap the rounds so a
+ * spinner can never run for ever.
+ */
+async function runEmails({ sessionId, reminder, onProgress }) {
+  let sent = 0, failed = 0, noEmail = 0, offset = 0;
+  let detail = null, warning = null, lastRemaining = Infinity, guard = 0;
+  let ended = 'done';
+
+  for (;;) {
+    if (guard++ > 200) { ended = 'stalled'; break; }
+
+    const r = await aPost('/api/admin/opportunities/interviews', {
+      action: 'email', session_id: sessionId, reminder: !!reminder, offset,
+    });
+    if (!r?.ok) {
+      ended = 'error';
+      detail = [r?.message, r?.detail].filter(Boolean).join(' ');
+      break;
+    }
+
+    sent += r.sent || 0;
+    failed += r.failed || 0;
+    noEmail += r.no_email || 0;
+    detail = r.detail || detail;
+    warning = warning || r.warning || null;
+    onProgress?.(sent, r.total || 0);
+
+    if (r.done) break;
+    if (!(r.remaining < lastRemaining)) { ended = 'stalled'; break; }
+    lastRemaining = r.remaining;
+    offset = r.next_offset;
+  }
+
+  const tally = [
+    sent ? `${sent} emailed` : null,
+    failed ? `${failed} failed` : null,
+    noEmail ? `${noEmail} have no email address` : null,
+  ].filter(Boolean).join(', ') || 'nothing to send';
+
+  return { ended, sent, tally, detail, warning };
 }
 
 /* ── Who sits on the panel ───────────────────────────────────────────────── */
@@ -655,6 +733,7 @@ function SetupPanel({ opportunity, toast, onBack, onCreated }) {
   const [host, setHost] = useState(null);
   const [when, setWhen] = useState('');
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(null);
   const [eligible, setEligible] = useState(null);
   const [panel, setPanel] = useState(() => new Set());
 
@@ -696,6 +775,27 @@ function SetupPanel({ opportunity, toast, onBack, onCreated }) {
     setSaving(false);
     if (!r?.ok) return toast?.([r?.message, r?.detail, r?.hint].filter(Boolean).join(' '), 'err');
     toast?.([r.message, r.warning].filter(Boolean).join(' '), 'ok');
+
+    /* Tell everyone straight away.
+     *
+     * An interview nobody was told about is not an interview. This runs
+     * immediately after the session exists rather than waiting for someone to
+     * remember a second button — and it reports honestly if it could not
+     * reach people, because "created successfully" while thirty candidates
+     * heard nothing is the worst possible outcome. */
+    setSending({ sent: 0, total: 0 });
+    const e = await runEmails({
+      sessionId: r.session.id,
+      onProgress: (sent, total) => setSending({ sent, total }),
+    });
+    setSending(null);
+
+    toast?.(
+      e.ended === 'error'
+        ? `The panel was created, but the invitations could not be sent. ${e.detail || ''}`
+        : [`Invitations: ${e.tally}.`, e.detail, e.warning].filter(Boolean).join(' '),
+      e.ended === 'done' && e.sent ? 'ok' : 'err');
+
     onCreated(r.session.id);
   }
 
@@ -869,10 +969,12 @@ function SetupPanel({ opportunity, toast, onBack, onCreated }) {
         </p>
       </Card>
 
-      <button onClick={create} disabled={saving || !picked.size || !host}
+      <button onClick={create} disabled={saving || !!sending || !picked.size || !host}
         className="w-full rounded-xl px-5 py-3 text-sm font-bold text-white disabled:opacity-40"
         style={{ background: LIGHT.green }}>
-        {saving ? 'Creating…' : `Create the panel room for ${picked.size} candidate(s)`}
+        {sending ? `Emailing… ${sending.sent}${sending.total ? ` of ${sending.total}` : ''}`
+          : saving ? 'Creating…'
+            : `Create the room and email ${picked.size} candidate(s) + the panel`}
       </button>
     </div>
   );

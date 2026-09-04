@@ -8,6 +8,7 @@ import {
 import { RoomEvent } from 'livekit-client';
 import TnrTile, { readMeta } from './TnrTile';
 import TnrChat from './TnrChat';
+import InterviewPad from '@/components/meetings/InterviewPad';
 import { Track, ConnectionState, AudioPresets } from 'livekit-client';
 import '@livekit/components-styles';
 import { mGet, mPost } from '@/components/member/memberApi';
@@ -201,6 +202,7 @@ function RoomShell({ id, data, onLeave }) {
   return (
     <>
       <TopBar id={id} meeting={data.meeting} isHost={data.is_host}
+        isOwner={data.is_owner}
         connection={connection} count={participants.length}
         panel={panel} setPanel={setPanel} onLeave={onLeave} />
 
@@ -257,6 +259,16 @@ function RoomShell({ id, data, onLeave }) {
             document instead, and drifts the moment anything scrolls. */}
         <Reactions items={reactions} />
       </div>
+
+      {/* ── Interview scoring ──
+       *
+       * Renders itself only for members who are on this meeting's interview
+       * panel; for an ordinary committee meeting, or for a candidate sitting
+       * in this very room, it returns null and does not exist.
+       *
+       * It follows whichever candidate the chair has called, so a panellist
+       * scores without leaving the Hall or opening a second window. */}
+      <InterviewPad meetingId={id} />
 
       <MediaBar meeting={data.meeting} onError={setMediaError} onReact={pushReaction} />
 
@@ -833,7 +845,7 @@ function PeoplePanel({ id, participants, isHost, meHostId, onClose }) {
 }
 
 /* ── The TNR bar ─────────────────────────────────────────────────────────── */
-function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLeave }) {
+function TopBar({ id, meeting, isHost, isOwner, connection, count, panel, setPanel, onLeave }) {
   const [waiting, setWaiting] = useState([]);
   const [busy, setBusy] = useState(false);
   const [lobby, setLobby] = useState(false);
@@ -866,14 +878,32 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
     setRec(on && r?.ok);
     // The provider's own error is appended. "Refused to start recording" on
     // its own sends an administrator hunting for a setting that may not exist.
-    if (!r?.ok) alert([r?.message || 'Could not change recording.', r?.detail]
-      .filter(Boolean).join('\n\n'));
+    if (!r?.ok) {
+      alert([r?.message || 'Could not change recording.', r?.detail]
+        .filter(Boolean).join('\n\n'));
+      return;
+    }
+
+    /* A SUCCESS CAN STILL CARRY BAD NEWS.
+     *
+     * The video recording started, so the response is ok:true — but the
+     * audio-only track for transcription may not have. Only alerting on
+     * failure meant that warning was computed on the server, sent to the
+     * browser, and thrown away: the host saw "Recording started", every
+     * meeting came out video-only, and nothing ever said why. Reporting the
+     * failure server-side is worth nothing if the screen ignores it. */
+    if (on && r.audio_warning) alert(`Recording started.\n\n${r.audio_warning}`);
   };
 
   const end = async () => {
-    if (!confirm('End this meeting for everyone?\n\nAttendance will be finalised and cannot be reopened.')) return;
+    if (!confirm('End this meeting for everyone?\n\nEveryone is removed from the room and '
+      + 'attendance is finalised. This cannot be undone.')) return;
     setBusy(true);
-    await mPost('/api/member/meetings/room', { meeting_id: id, action: 'end' });
+    const r = await mPost('/api/member/meetings/room', { meeting_id: id, action: 'end' });
+    setBusy(false);
+    /* The server refuses a co-host. Saying so beats navigating away as though
+     * it worked — which is what happened when the result was never read. */
+    if (!r?.ok) { alert(r?.message || 'Could not end the meeting.'); return; }
     window.location.href = `/member/meetings/${id}`;
   };
 
@@ -966,7 +996,10 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
           </button>
         )}
 
-        {isHost && (
+        {/* ENDING IS THE HOST'S ALONE — co-hosts get Leave, like everyone else.
+            A panellist mis-tapping this would clear a room of thirty waiting
+            candidates, and it cannot be undone. */}
+        {isOwner && (
           <button onClick={end} disabled={busy}
             className="rounded-full bg-red-600 px-3 py-1.5 text-[12px] font-bold text-white
               shadow-sm transition hover:bg-red-700 disabled:opacity-40">

@@ -81,12 +81,15 @@ export default function AiMinutes({ meetingId, toast, onApplied }) {
             )}
           </div>
         ) : !d.audio ? (
-          /* The honest explanation, not a disabled button with no reason. */
-          <p className="mt-2 text-[13px] text-gray-500">
-            No audio track for this meeting. Audio is captured automatically when a host records a
-            meeting — but only for meetings recorded after this feature was added. Older recordings
-            are video only and cannot be transcribed.
-          </p>
+          /* THE ACTUAL REASON, not one plausible reason for all three cases.
+           *
+           * This used to say "older recordings are video only" whatever had
+           * happened, which is wrong two times out of three — and it is the
+           * wrong kind of wrong, because it describes a situation nobody can
+           * fix and hides two that are fixed in five minutes. An administrator
+           * read it and concluded the AI was broken when nothing had ever been
+           * recorded at all. */
+          <NoAudio d={d} />
         ) : d.audio.status !== 'ready' ? (
           <p className="mt-2 text-[13px] text-gray-500">
             The audio is still being processed by the meeting server. This usually takes a few
@@ -302,6 +305,61 @@ function List({ label, items, editing, onChange, empty = 'Nothing recorded.' }) 
         </ul>
       )}
     </div>
+  );
+}
+
+/* Why there is no audio to transcribe — ONE MESSAGE PER REAL CAUSE.
+ *
+ * The three cases look identical from the screen (no audio row) and are
+ * completely different to fix. A single catch-all describing the one that
+ * cannot be fixed sent an administrator looking for a fault in the AI when
+ * nothing had ever been recorded.
+ */
+function NoAudio({ d }) {
+  if (!d.recordings) {
+    return (
+      <div className="mt-2 space-y-1.5 text-[13px] text-gray-600">
+        <p><strong>This meeting was never recorded</strong>, so there is no audio and no video.</p>
+        {!d.recording_storage_configured ? (
+          <p className="text-gray-500">
+            Recording is not set up yet — LiveKit needs somewhere to put the file, and has no
+            storage of its own. Add{' '}
+            <code className="rounded bg-gray-100 px-1">LIVEKIT_S3_BUCKET</code>,{' '}
+            <code className="rounded bg-gray-100 px-1">LIVEKIT_S3_ACCESS_KEY</code>,{' '}
+            <code className="rounded bg-gray-100 px-1">LIVEKIT_S3_SECRET</code> and{' '}
+            <code className="rounded bg-gray-100 px-1">LIVEKIT_S3_ENDPOINT</code> in Vercel.
+            Supabase Storage works: create a private bucket, then Storage → S3 Access Keys.
+          </p>
+        ) : (
+          <p className="text-gray-500">
+            Storage is configured, so the host simply did not press Record. Transcription needs a
+            recording; there is nothing to work from for a meeting that was not recorded.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (!d.audio_capture_enabled) {
+    return (
+      <div className="mt-2 space-y-1.5 text-[13px] text-gray-600">
+        <p><strong>This meeting was recorded, but only as video.</strong></p>
+        <p className="text-gray-500">
+          A separate audio-only track is what gets transcribed, and capturing it is off by default
+          because it spends the LiveKit transcode allowance a second time. Set{' '}
+          <code className="rounded bg-gray-100 px-1">MEETINGS_AI_AUDIO=1</code> in Vercel and
+          meetings recorded from then on will have one. This meeting cannot be transcribed
+          retrospectively.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <p className="mt-2 text-[13px] text-gray-500">
+      Audio capture is switched on, but this meeting has no audio track — most likely it was
+      recorded before the setting was enabled. Meetings recorded from now on will have one.
+    </p>
   );
 }
 

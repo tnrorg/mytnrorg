@@ -7,6 +7,7 @@ import {
   rankCandidates, coverage,
 } from '@/lib/interviews';
 import { newRoomId, inviteMembers } from '@/lib/meetingsServer';
+import { sendInterviewEmail, INTERVIEW_EMAIL_CHUNK } from '@/lib/interviewEmail';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -220,6 +221,7 @@ export async function POST(req) {
    * in. See app/api/member/interviews/route.js. */
   if (b.action === 'state') return setState(sb, admin, b, req);
   if (b.action === 'panel') return setPanel(sb, admin, b, req);
+  if (b.action === 'email') return sendEmails(sb, admin, b, req);
 
   // ── action: create ───────────────────────────────────────────────────────
   const opportunityId = String(b.opportunity_id || '').trim();
@@ -607,4 +609,140 @@ export async function PATCH(req) {
     details: `${b.id}: ${Object.keys(patch).join(', ')}`, ip: clientIp(req),
   });
   return ok({ session: data, message: patch.status === 'closed' ? 'Session closed.' : 'Updated.' });
+}
+
+// ── Telling everyone ───────────────────────────────────────────────────────
+/**
+ * Email the candidates and the panel about an interview session.
+ *
+ * Chunked, and safe to press twice: whoever has already been emailed for this
+ * meeting is skipped, using the same `invite_emailed_at` flag the meetings
+ * module already keeps on meeting_participants. Reusing it rather than adding
+ * a second tracking column means there is ONE answer to "has this person been
+ * told about this meeting", instead of two that disagree.
+ *
+ * `resend: true` ignores the flag — which is what a reminder is.
+ */
+async function sendEmails(sb, admin, b, req) {
+  if (!b.session_id) return fail('INVALID', 400, { message: 'Missing session.' });
+
+  const { data: session } = await sb.from('interview_sessions')
+    .select('id, title, meeting_id, opportunity_id').eq('id', b.session_id).maybeSingle();
+  if (!session) return fail('NOT_FOUND', 404, { message: 'Interview session not found.' });
+  if (!session.meeting_id) {
+    return fail('NO_ROOM', 400, {
+      message: 'This session has no Virtual Hall room, so there is nothing to invite anyone to.',
+    });
+  }
+
+  const [{ data: meeting }, { data: opportunity }] = await Promise.all([
+    sb.from('meetings').select('id, title, scheduled_at, duration_minutes')
+      .eq('id', session.meeting_id).maybeSingle(),
+    sb.from('opportunities').select('id, title').eq('id', session.opportunity_id).maybeSingle(),
+  ]);
+
+  /* Read the participant list, and SURVIVE invite_emailed_at not existing.
+   *
+   * Postgres rejects the whole select when one named column is missing, so
+   * before migration_meetings_ai.sql has been run this returned nothing and the
+   * route would have cheerfully reported "nobody to email". The same trap that
+   * has taken down three other features in this codebase. */
+  let rows = null;
+  let tracking = true;
+
+  const full = await sb.from('meeting_participants')
+    .select('member_id, invite_emailed_at').eq('meeting_id', session.meeting_id)
+    .order('created_at');
+
+  if (full.error) {
+    tracking = false;
+    const plain = await sb.from('meeting_participants')
+      .select('member_id').eq('meeting_id', session.meeting_id).order('created_at');
+    if (plain.error) {
+      return fail('READ_FAILED', 500, {
+        message: 'Could not read who is on this interview.', detail: plain.error.message,
+      });
+    }
+    rows = plain.data || [];
+  } else {
+    rows = full.data || [];
+  }
+
+  if (!rows.length) {
+    return ok({ done: true, sent: 0, total: 0, message: 'Nobody is on this interview yet.' });
+  }
+
+  const reminder = !!b.reminder;
+  const resend = reminder || !!b.resend;
+  const pending = tracking ? rows.filter(r => resend || !r.invite_emailed_at) : rows;
+
+  /* The flag is the cursor when it is doing the filtering — an offset ON TOP of
+   * a shrinking list skips a batch every round. That bug sent 50 of 100
+   * invitations and reported success; it is not being repeated here. */
+  const useFlag = tracking && !resend;
+  const from = useFlag ? 0 : (Number(b.offset) || 0);
+  const slice = pending.slice(from, from + INTERVIEW_EMAIL_CHUNK);
+
+  if (!slice.length) {
+    return ok({
+      done: true, sent: 0, total: pending.length,
+      message: pending.length ? 'Everyone has already been emailed.' : 'Nobody left to email.',
+    });
+  }
+
+  // Who is a panellist decides which letter they get.
+  const { data: panel } = await sb.from('interview_panellists')
+    .select('member_id').eq('session_id', b.session_id);
+  const panelIds = new Set((panel || []).map(p => p.member_id));
+
+  const { count: candidateCount } = await sb.from('interview_queue')
+    .select('id', { count: 'exact', head: true }).eq('session_id', b.session_id);
+
+  const { data: people } = await sb.from('membership_members')
+    .select('id, full_name, email').in('id', slice.map(r => r.member_id));
+
+  let sent = 0, failed = 0, noEmail = 0, lastError = null;
+  for (const p of (people || [])) {
+    const r = await sendInterviewEmail({
+      kind: panelIds.has(p.id) ? 'panellist' : 'candidate',
+      session, meeting, opportunity, member: p, reminder,
+      extra: { candidateCount: candidateCount || 0 },
+    });
+    if (r.sent) {
+      sent += 1;
+      if (tracking) {
+        await sb.from('meeting_participants')
+          .update({ invite_emailed_at: new Date().toISOString() })
+          .eq('meeting_id', session.meeting_id).eq('member_id', p.id);
+      }
+    } else if (r.skipped) noEmail += 1;
+    else { failed += 1; lastError = lastError || r.error; }
+  }
+
+  const processed = from + slice.length;
+  /* Stop when a round changes nothing. A member with no address, or one whose
+   * send keeps failing, is never flagged and would otherwise be requested for
+   * ever — a spinner that cannot end. */
+  const done = useFlag
+    ? (sent === 0 || pending.length <= slice.length)
+    : processed >= pending.length;
+
+  await logAudit({
+    action: reminder ? 'INTERVIEW_REMINDER_SENT' : 'INTERVIEW_INVITES_SENT',
+    actor: admin?.username || 'admin',
+    details: `session ${b.session_id}: ${sent} sent, ${failed} failed, ${noEmail} without an address`,
+    ip: clientIp(req),
+  });
+
+  return ok({
+    sent, failed, no_email: noEmail,
+    next_offset: useFlag ? 0 : processed,
+    remaining: Math.max(0, pending.length - (useFlag ? sent : processed)),
+    total: pending.length,
+    done, tracking,
+    detail: lastError || undefined,
+    warning: tracking ? undefined
+      : 'Run supabase/migration_meetings_ai.sql — without it nobody can be tracked, '
+        + 'and pressing this again will email everyone a second time.',
+  });
 }
