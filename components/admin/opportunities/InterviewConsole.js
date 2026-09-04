@@ -5,7 +5,7 @@ import { Card } from '../ui';
 import { FELLOWSHIP_QUESTIONS } from '@/lib/opportunities';
 import {
   DEFAULT_CRITERIA, cleanCriteria, STATE_LABEL, STATE_TONE, SCORE_MIN, SCORE_MAX,
-  queueProgress, nextInQueue, fmtClock, durationMinutes,
+  queueProgress, nextInQueue, fmtClock, durationMinutes, topCut, TIE_MARGIN,
 } from '@/lib/interviews';
 
 const input = 'w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm text-tnr-cream';
@@ -34,6 +34,7 @@ export default function InterviewConsole({ opportunity, session: initial, onBack
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(null);
   const [openId, setOpenId] = useState(null);      // candidate being viewed
+  const [tab, setTab] = useState('panel');         // panel | results
 
   const load = useCallback(() => {
     if (!sessionId) return;
@@ -127,6 +128,28 @@ export default function InterviewConsole({ opportunity, session: initial, onBack
         </div>
       )}
 
+      {/* Roster. Who may score at all. */}
+      <PanelRoster sessionId={sessionId} panel={d?.panel || []}
+        missing={d?.panel_missing} closed={closed} toast={toast} onChanged={load} />
+
+      <div className="flex gap-2">
+        {[['panel', 'Interviews'], ['results', `Final list${d?.results?.ranked?.length
+          ? ` (${d.results.ranked.length})` : ''}`]].map(([k, label]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`rounded-xl border px-4 py-2 text-sm font-bold transition ${tab === k
+              ? 'border-tnr-gold/50 bg-tnr-gold/10 text-tnr-cream'
+              : 'border-tnr-line text-tnr-cream/60 hover:bg-white/5'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'results' && (
+        <Results results={d?.results} criteria={d?.session?.criteria}
+          progress={progress} title={d?.session?.title} />
+      )}
+
+      {tab === 'panel' && (
       <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
         {/* ── The queue ── */}
         <div className="space-y-2">
@@ -254,6 +277,7 @@ export default function InterviewConsole({ opportunity, session: initial, onBack
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -412,6 +436,278 @@ function ScoreCard({ row, session, closed, onSaved, toast }) {
   );
 }
 
+
+/* ── Who sits on the panel ───────────────────────────────────────────────── */
+function PanelRoster({ sessionId, panel, missing, closed, toast, onChanged }) {
+  const [admins, setAdmins] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!adding || admins) return;
+    aGet('/api/admin/opportunities/interviews?action=admins')
+      .then(r => setAdmins(r?.ok ? r.admins : []));
+  }, [adding, admins]);
+
+  async function add(id) {
+    setBusy(true);
+    const r = await aPost('/api/admin/opportunities/interviews', {
+      action: 'panel', session_id: sessionId, admin_ids: [id],
+    });
+    setBusy(false);
+    toast?.([r?.message, r?.hint].filter(Boolean).join(' '), r?.ok ? 'ok' : 'err');
+    if (r?.ok) { setAdding(false); onChanged?.(); }
+  }
+
+  async function remove(p) {
+    if (!confirm(`Remove ${p.name} from the panel?\n\nScores they have already given are kept.`)) return;
+    setBusy(true);
+    const r = await aPost('/api/admin/opportunities/interviews', {
+      action: 'panel', session_id: sessionId, admin_id: p.admin_id, remove: true,
+    });
+    setBusy(false);
+    toast?.(r?.message || 'Could not remove them.', r?.ok ? 'ok' : 'err');
+    if (r?.ok) onChanged?.();
+  }
+
+  const seated = new Set(panel.map(p => p.admin_id));
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-[11px] font-black uppercase tracking-wider text-tnr-cream/40">
+          Interview panel ({panel.length})
+        </h4>
+        {!closed && (
+          <button onClick={() => setAdding(a => !a)}
+            className="text-xs text-tnr-goldLight hover:underline">
+            {adding ? 'Cancel' : '+ Add a panellist'}
+          </button>
+        )}
+      </div>
+
+      {missing && (
+        <p className="mt-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[12.5px] text-amber-200">
+          The panel roster could not be read. Run <b>supabase/migration_interview_panel.sql</b> —
+          until then nobody can save scores.
+        </p>
+      )}
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        {panel.map(p => (
+          <span key={p.id}
+            className="inline-flex items-center gap-2 rounded-full border border-tnr-line px-3 py-1 text-[12.5px] text-tnr-cream">
+            {p.role === 'chair' && <span title="Chairs the panel">🪑</span>}
+            {p.name}
+            {!closed && panel.length > 1 && (
+              <button onClick={() => remove(p)} disabled={busy}
+                className="text-tnr-cream/40 hover:text-red-300" title="Remove">×</button>
+            )}
+          </span>
+        ))}
+        {!panel.length && !missing && (
+          <span className="text-[12.5px] text-tnr-cream/40">Nobody assigned yet.</span>
+        )}
+      </div>
+
+      {adding && (
+        <div className="mt-3 max-h-52 overflow-y-auto rounded-xl border border-tnr-line">
+          {admins === null && <p className="px-3 py-2 text-sm text-tnr-cream/40">Loading…</p>}
+          {(admins || []).filter(a => !seated.has(a.id)).map(a => (
+            <button key={a.id} onClick={() => add(a.id)} disabled={busy}
+              className="block w-full px-3 py-2 text-left text-sm text-tnr-cream hover:bg-white/5 disabled:opacity-40">
+              {a.full_name || a.username}
+              <span className="ml-1.5 text-[12px] text-tnr-cream/40">{a.username}</span>
+            </button>
+          ))}
+          {admins && !admins.filter(a => !seated.has(a.id)).length && (
+            <p className="px-3 py-2 text-sm text-tnr-cream/40">Everyone is already on the panel.</p>
+          )}
+        </div>
+      )}
+
+      <p className="mt-2 text-[11.5px] text-tnr-cream/40">
+        Only these people can record scores for this session. The chair runs the
+        room; their score carries no more weight than anyone else&apos;s.
+      </p>
+    </Card>
+  );
+}
+
+/* ── The final list ──────────────────────────────────────────────────────── */
+function Results({ results, criteria, progress, title }) {
+  const [topN, setTopN] = useState(10);
+  const ranked = results?.ranked || [];
+  const unranked = results?.unranked || [];
+  const cov = results?.coverage || {};
+  const crit = cleanCriteria(criteria);
+  const cut = useMemo(() => topCut(ranked, topN), [ranked, topN]);
+
+  function exportCsv() {
+    const esc = (v) => {
+      const s = String(v ?? '');
+      const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
+    const head = ['Rank', 'Membership ID', 'Name', 'Panel average', 'Spread',
+      'Panellists scored', ...crit.map(c => c.label),
+      'Select', 'Reject', 'Undecided', 'In top ' + topN];
+    const body = ranked.map(r => [
+      r.rank, r.candidate?.membership_id, r.candidate?.full_name,
+      r.summary.overall, r.summary.spread, r.summary.scored,
+      ...crit.map(c => r.summary.byCriterion[c.key] ?? ''),
+      r.summary.recommendations.select, r.summary.recommendations.reject,
+      r.summary.recommendations.undecided,
+      r.rank <= topN ? 'yes' : 'no',
+    ]);
+    // Not-ranked candidates are exported too, with the reason. Leaving them out
+    // of the file is how somebody gets quietly forgotten.
+    for (const u of unranked) {
+      body.push(['—', u.candidate?.membership_id, u.candidate?.full_name,
+        '', '', 0, ...crit.map(() => ''), '', '', '', u.reason]);
+    }
+    const csv = '\ufeff' + [head, ...body].map(r => r.map(esc).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `interview-results.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Is the scoring finished? Asked before a rank is shown, not after. */}
+      {!cov.complete && (
+        <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-[13px] text-amber-200">
+          <b>This list is not final yet.</b>{' '}
+          {progress.waiting + progress.in_progress > 0 &&
+            `${progress.waiting + progress.in_progress} candidate(s) still to interview. `}
+          {cov.partiallyScored > 0 &&
+            `${cov.partiallyScored} interviewed but scored by only part of the panel. `}
+          {cov.unscored > 0 && `${cov.unscored} interviewed with no score recorded at all. `}
+          Positions will move as the remaining scores come in.
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <label className="text-[12.5px] text-tnr-cream/60">Shortlist the top</label>
+          <input type="number" min="1" max={Math.max(1, ranked.length)} value={topN}
+            onChange={e => setTopN(Math.max(1, Number(e.target.value) || 1))}
+            className={`${input} w-20 text-center`} />
+          <span className="text-[12.5px] text-tnr-cream/60">of {ranked.length} scored</span>
+        </div>
+        <button onClick={exportCsv} disabled={!ranked.length}
+          className="rounded-xl border border-tnr-line px-4 py-2 text-sm font-bold text-tnr-cream disabled:opacity-40">
+          Export the list
+        </button>
+      </div>
+
+      {/* The one place a mechanical cut does real damage. */}
+      {cut.tooClose && (
+        <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-[13px] text-amber-200">
+          <b>The line falls on a near-tie.</b> Only {cut.gap} of a point separates
+          number {topN} from number {topN + 1} — smaller than the difference
+          between two panellists on the same candidate. Look at these
+          {' '}{cut.borderline.length} together before treating the cut as a decision.
+        </div>
+      )}
+
+      {!ranked.length && (
+        <Card><div className="py-10 text-center text-sm text-tnr-cream/50">
+          No scores recorded yet. The list appears as the panel scores candidates.
+        </div></Card>
+      )}
+
+      {ranked.length > 0 && (
+        <div className="overflow-x-auto rounded-2xl border border-tnr-line">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-tnr-line text-left text-[10px] uppercase tracking-wider text-tnr-cream/40">
+                <th className="px-3 py-2.5">#</th>
+                <th className="px-3 py-2.5">Candidate</th>
+                <th className="px-3 py-2.5">Panel avg</th>
+                {crit.map(c => <th key={c.key} className="px-3 py-2.5 whitespace-nowrap">{c.label}</th>)}
+                <th className="px-3 py-2.5">Scored by</th>
+                <th className="px-3 py-2.5">Recommends</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ranked.map(r => {
+                const inTop = r.rank <= topN;
+                const borderline = cut.borderline.some(x => x.id === r.id);
+                return (
+                  <tr key={r.id}
+                    className={`border-b border-tnr-line/50 ${inTop ? 'bg-tnr-gold/[0.06]' : ''} ${
+                      borderline ? 'ring-1 ring-inset ring-amber-400/30' : ''}`}>
+                    <td className="px-3 py-2.5 tabular-nums font-bold text-tnr-cream">{r.rank}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="font-semibold text-tnr-cream">{r.candidate?.full_name}</div>
+                      <div className="text-[11px] text-tnr-cream/40">{r.candidate?.membership_id}</div>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className="tabular-nums font-black text-tnr-cream">{r.summary.overall}</span>
+                      {r.summary.disagreement && (
+                        <span className="ml-1.5 text-[11px] text-amber-300"
+                          title={`Panellists differ by ${r.summary.spread} points`}>
+                          ±{r.summary.spread}
+                        </span>
+                      )}
+                    </td>
+                    {crit.map(c => (
+                      <td key={c.key} className="px-3 py-2.5 tabular-nums text-tnr-cream/70">
+                        {r.summary.byCriterion[c.key] ?? '—'}
+                      </td>
+                    ))}
+                    <td className="px-3 py-2.5 tabular-nums text-tnr-cream/60">
+                      {r.summary.scored}{cov.panelSize ? ` / ${cov.panelSize}` : ''}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-[12px] text-tnr-cream/60">
+                      {r.summary.recommendations.select > 0 && `${r.summary.recommendations.select} select`}
+                      {r.summary.recommendations.reject > 0 && ` ${r.summary.recommendations.reject} reject`}
+                      {!r.summary.recommendations.select && !r.summary.recommendations.reject && '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Never at the bottom of the ranked table. */}
+      {unranked.length > 0 && (
+        <Card>
+          <h4 className="text-[11px] font-black uppercase tracking-wider text-tnr-cream/40">
+            Not ranked ({unranked.length})
+          </h4>
+          <p className="mb-2 mt-1 text-[11.5px] text-tnr-cream/40">
+            Kept out of the order rather than placed last — none of these is a
+            poor result.
+          </p>
+          <ul className="space-y-1">
+            {unranked.map(u => (
+              <li key={u.id} className="flex justify-between gap-3 text-[13px]">
+                <span className="text-tnr-cream/80">
+                  {u.candidate?.full_name}
+                  <span className="ml-1.5 text-[11px] text-tnr-cream/40">{u.candidate?.membership_id}</span>
+                </span>
+                <span className="text-tnr-cream/50">{u.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <p className="text-[11.5px] leading-relaxed text-tnr-cream/40">
+        Ordered by panel average; ties broken by how many panellists scored the
+        candidate, then by how much they agreed. Nothing here changes an
+        application — Selected and Rejected are still set by hand on the
+        applications table, by a person, after reading this.
+      </p>
+    </div>
+  );
+}
+
 /* ── Setting the panel up ────────────────────────────────────────────────── */
 function SetupPanel({ opportunity, toast, onBack, onCreated }) {
   const [apps, setApps] = useState(null);
@@ -422,6 +718,8 @@ function SetupPanel({ opportunity, toast, onBack, onCreated }) {
   const [host, setHost] = useState(null);
   const [when, setWhen] = useState('');
   const [saving, setSaving] = useState(false);
+  const [admins, setAdmins] = useState(null);
+  const [panel, setPanel] = useState(() => new Set());
 
   useEffect(() => {
     aGet(`/api/admin/opportunities/applications?opportunity_id=${opportunity.id}&status=interview_invited`)
@@ -431,6 +729,11 @@ function SetupPanel({ opportunity, toast, onBack, onCreated }) {
         setPicked(new Set(list.map(a => a.id)));
       });
   }, [opportunity.id]);
+
+  useEffect(() => {
+    aGet('/api/admin/opportunities/interviews?action=admins')
+      .then(r => setAdmins(r?.ok ? r.admins : []));
+  }, []);
 
   useEffect(() => {
     const term = hostQ.trim();
@@ -449,6 +752,7 @@ function SetupPanel({ opportunity, toast, onBack, onCreated }) {
       opportunity_id: opportunity.id,
       application_ids: (apps || []).filter(a => picked.has(a.id)).map(a => a.id),
       criteria, host_id: host.id,
+      panellist_ids: [...panel],
       scheduled_at: when ? new Date(when).toISOString() : undefined,
       title: `${opportunity.title} — interviews`,
     });
@@ -541,6 +845,34 @@ function SetupPanel({ opportunity, toast, onBack, onCreated }) {
             + Add a criterion
           </button>
         )}
+      </Card>
+
+      <Card>
+        <h4 className="text-[11px] font-black uppercase tracking-wider text-tnr-cream/40">
+          Who is on the panel
+        </h4>
+        <p className="mb-2 mt-1 text-[11.5px] text-tnr-cream/40">
+          Only these people can score. You are added automatically as chair —
+          otherwise you would create a panel you are then refused permission to
+          score in, and you would find out mid-interview.
+        </p>
+        {admins === null && <p className="text-sm text-tnr-cream/40">Loading admin accounts…</p>}
+        <div className="max-h-48 space-y-1 overflow-y-auto">
+          {(admins || []).map(a => (
+            <label key={a.id} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-white/5">
+              <input type="checkbox" checked={panel.has(a.id)}
+                onChange={() => setPanel(p => {
+                  const n = new Set(p);
+                  if (n.has(a.id)) n.delete(a.id); else n.add(a.id);
+                  return n;
+                })} />
+              <span className="text-sm text-tnr-cream">
+                {a.full_name || a.username}
+                <span className="ml-1.5 text-[12px] text-tnr-cream/40">{a.username}</span>
+              </span>
+            </label>
+          ))}
+        </div>
       </Card>
 
       <Card>

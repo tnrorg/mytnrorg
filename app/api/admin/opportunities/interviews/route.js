@@ -4,6 +4,7 @@ import { logAudit, clientIp } from '@/lib/audit';
 import { ok, fail, readJson } from '@/lib/api';
 import {
   cleanCriteria, validateEvaluation, panelSummary, QUEUE_STATES, POSITION_STEP,
+  rankCandidates, coverage,
 } from '@/lib/interviews';
 import { newRoomId, inviteMembers } from '@/lib/meetingsServer';
 
@@ -32,6 +33,32 @@ const HINT = 'Administrator: run supabase/migration_interviews.sql.';
 
 const CANDIDATE_FIELDS = 'id, membership_id, full_name, photo_url, union_council';
 
+/* Admin accounts, for picking the panel.
+ *
+ * Only a name and a username — never the password hash, the TOTP secret, or
+ * the scope list. Listing admins is otherwise a super-admin-only action, and
+ * this narrow read exists so an Opportunities holder can seat a panel without
+ * being handed the whole Admin Accounts screen. */
+const PANEL_FIELDS = 'id, username, full_name, role';
+
+/** The roster, and whether the caller is on it. */
+async function panelOf(sb, sessionId) {
+  const { data, error } = await sb.from('interview_panellists')
+    .select('id, admin_id, role').eq('session_id', sessionId);
+  if (error) return { rows: [], error };
+
+  const ids = (data || []).map(p => p.admin_id);
+  const names = new Map();
+  if (ids.length) {
+    const { data: admins } = await sb.from('admin_users').select(PANEL_FIELDS).in('id', ids);
+    for (const a of admins || []) names.set(a.id, a.full_name || a.username);
+  }
+  return {
+    rows: (data || []).map(p => ({ ...p, name: names.get(p.admin_id) || 'Panellist' })),
+    error: null,
+  };
+}
+
 export async function GET(req) {
   const { res } = await requireAdmin(req); if (res) return res;
 
@@ -39,6 +66,13 @@ export async function GET(req) {
   const url = new URL(req.url);
   const sessionId = url.searchParams.get('session_id');
   const opportunityId = url.searchParams.get('opportunity_id');
+
+  // The list of admin accounts that can be seated on a panel.
+  if (url.searchParams.get('action') === 'admins') {
+    const { data, error } = await sb.from('admin_users').select(PANEL_FIELDS).order('full_name');
+    if (error) return fail('READ_FAILED', 500, { message: 'Could not read admin accounts.' });
+    return ok({ admins: data || [] });
+  }
 
   // ── List sessions for an opportunity ─────────────────────────────────────
   if (!sessionId) {
@@ -125,7 +159,20 @@ export async function GET(req) {
     meeting = data || null;
   }
 
-  return ok({ session: { ...session, criteria }, meeting, queue: rows });
+  const panel = await panelOf(sb, sessionId);
+
+  /* The matched, ranked result — computed here so the console and any future
+   * export cannot produce two different shortlists from the same scores. */
+  const { ranked, unranked } = rankCandidates(rows, criteria);
+
+  return ok({
+    session: { ...session, criteria },
+    meeting,
+    queue: rows,
+    panel: panel.rows,
+    panel_missing: !!panel.error,
+    results: { ranked, unranked, coverage: coverage(rows, panel.rows.length) },
+  });
 }
 
 // ── Create a session, with its room and its queue ──────────────────────────
@@ -136,6 +183,7 @@ export async function POST(req) {
 
   if (b.action === 'evaluate') return saveEvaluation(sb, admin, b, req);
   if (b.action === 'state') return setState(sb, admin, b, req);
+  if (b.action === 'panel') return setPanel(sb, admin, b, req);
 
   // ── action: create ───────────────────────────────────────────────────────
   const opportunityId = String(b.opportunity_id || '').trim();
@@ -218,6 +266,8 @@ export async function POST(req) {
     if (!invited.added) meetingWarning = 'The room was created but nobody could be invited to it.';
   }
 
+  const panelIds = [...new Set((b.panellist_ids || []).map(String).filter(Boolean))];
+
   const { data: session, error: sErr } = await sb.from('interview_sessions').insert({
     opportunity_id: opportunityId,
     meeting_id: meetingId,
@@ -252,6 +302,24 @@ export async function POST(req) {
     });
   }
 
+  /* Seat the panel.
+   *
+   * The creating admin is always on it, as chair. Without that, an office
+   * bearer who forgets to add themselves creates a session they are then
+   * refused permission to score in — and the refusal would arrive mid-panel,
+   * with a candidate sitting in the room. */
+  const seats = [
+    { session_id: session.id, admin_id: admin.sub, role: 'chair', added_by: admin.sub },
+    ...panelIds.filter(id => id !== admin.sub).map(id => ({
+      session_id: session.id, admin_id: id, role: 'panellist', added_by: admin.sub,
+    })),
+  ];
+  const { error: pErr } = await sb.from('interview_panellists')
+    .upsert(seats, { onConflict: 'session_id,admin_id', ignoreDuplicates: true });
+  const panelWarning = pErr
+    ? 'The panel roster could not be saved — run supabase/migration_interview_panel.sql.'
+    : null;
+
   await logAudit({
     action: 'INTERVIEW_SESSION_CREATED', actor: admin?.username || 'admin',
     details: `${title} — ${rows.length} candidate(s)${meetingId ? ', room created' : ''}`,
@@ -264,8 +332,62 @@ export async function POST(req) {
     queued: rows.length,
     message: `Interview session ready with ${rows.length} candidate(s).`
       + (skipped ? ` ${skipped} were left out as withdrawn or rejected.` : ''),
-    warning: meetingWarning || undefined,
+    warning: [meetingWarning, panelWarning].filter(Boolean).join(' ') || undefined,
   });
+}
+
+// ── Who sits on the panel ──────────────────────────────────────────────────
+async function setPanel(sb, admin, b, req) {
+  if (!b.session_id) return fail('INVALID', 400, { message: 'Missing session.' });
+
+  if (b.remove) {
+    /* The last seat cannot be removed.
+     *
+     * An empty roster means nobody may score, and — worse — the coverage
+     * figure becomes "3 of 0", which reads as complete. A panel of nobody is
+     * not a state this should be able to reach by clicking Remove twice. */
+    const { data: current } = await sb.from('interview_panellists')
+      .select('id').eq('session_id', b.session_id);
+    if ((current || []).length <= 1) {
+      return fail('INVALID', 400, { message: 'A panel needs at least one member.' });
+    }
+    const { error } = await sb.from('interview_panellists')
+      .delete().eq('session_id', b.session_id).eq('admin_id', b.admin_id);
+    if (error) return fail('WRITE_FAILED', 500, { message: 'Could not remove them.', detail: error.message });
+
+    /* Their scores are NOT deleted with them.
+     *
+     * Someone taken off the roster after scoring twelve candidates still sat
+     * in those interviews and formed those judgements. Erasing the scores
+     * would quietly rewrite a record of what the panel actually thought. */
+    await logAudit({
+      action: 'INTERVIEW_PANEL_REMOVED', actor: admin?.username || 'admin',
+      details: `${b.admin_id} from session ${b.session_id}`, ip: clientIp(req),
+    });
+    return ok({ message: 'Removed from the panel. Any scores they already gave are kept.' });
+  }
+
+  const ids = [...new Set((b.admin_ids || [b.admin_id]).map(String).filter(Boolean))];
+  if (!ids.length) return fail('INVALID', 400, { message: 'Choose who to add.' });
+
+  const { error } = await sb.from('interview_panellists').upsert(
+    ids.map(id => ({
+      session_id: b.session_id, admin_id: id,
+      role: b.role === 'chair' ? 'chair' : 'panellist', added_by: admin.sub,
+    })),
+    { onConflict: 'session_id,admin_id', ignoreDuplicates: true });
+  if (error) {
+    return fail('WRITE_FAILED', 500, {
+      message: 'Could not update the panel.', detail: error.message,
+      hint: 'Administrator: run supabase/migration_interview_panel.sql.',
+    });
+  }
+
+  await logAudit({
+    action: 'INTERVIEW_PANEL_ADDED', actor: admin?.username || 'admin',
+    details: `${ids.length} to session ${b.session_id}`, ip: clientIp(req),
+  });
+  return ok({ message: `${ids.length} added to the panel.` });
 }
 
 // ── One panellist's evaluation of one candidate ────────────────────────────
@@ -282,6 +404,32 @@ async function saveEvaluation(sb, admin, b, req) {
   if (!session) return fail('NOT_FOUND', 404, { message: 'Interview session not found.' });
   if (session.status === 'closed') {
     return fail('CLOSED', 400, { message: 'This interview session has been closed.' });
+  }
+
+  /* ONLY THE PANEL MAY SCORE.
+   *
+   * Holding the Opportunities permission makes you able to read applications;
+   * it does not make you a member of this panel. Without this check any of
+   * those admins could file a score, and "3 of 4 panellists have scored" would
+   * be counted against a 4 that does not describe anybody.
+   *
+   * A missing roster table (migration not yet run) is treated as "not seated"
+   * and says so, rather than silently letting everyone through — failing open
+   * on a permission check is how a permission check becomes decoration. */
+  const seat = await sb.from('interview_panellists')
+    .select('id').eq('session_id', b.session_id).eq('admin_id', admin.sub).maybeSingle();
+
+  if (seat.error) {
+    return fail('PANEL_UNAVAILABLE', 500, {
+      message: 'Could not confirm you are on this panel, so the score was not saved.',
+      hint: 'Administrator: run supabase/migration_interview_panel.sql.',
+    });
+  }
+  if (!seat.data) {
+    return fail('NOT_ON_PANEL', 403, {
+      message: 'You are not on this interview panel, so your scores cannot be recorded. '
+        + 'Ask the chair to add you.',
+    });
   }
 
   const criteria = cleanCriteria(session.criteria);
