@@ -113,9 +113,14 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
           action: 'email_invites', id: meetingId,
           kind: b_kind, offset,
         });
-        if (!e?.ok) { toast?.(e?.message || 'Invitations could not be emailed.', 'err'); break; }
+        if (!e?.ok) { toast?.([e?.message || 'Could not email invitations.', e?.detail]
+        .filter(Boolean).join(' '), 'err'); break; }
         setSending({ sent: e.next_offset || 0, total: e.total || 0 });
-        if (e.done) { toast?.(e.message, 'ok'); break; }
+        if (e.done) {
+        toast?.([e.message, e.warning].filter(Boolean).join(' '),
+          e.sent ? 'ok' : 'err');
+        break;
+      }
         offset = e.next_offset;
       }
       setSending(null);

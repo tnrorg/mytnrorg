@@ -119,13 +119,51 @@ export async function POST(req) {
     const kind = ['created', 'rescheduled', 'cancelled', 'reminder'].includes(b.kind)
       ? b.kind : 'created';
 
-    const { data: rows } = await sb.from('meeting_participants')
+    /* Read the list, and SURVIVE the column not existing.
+     *
+     * Postgres rejects an entire explicit select when one named column is
+     * missing — so before migration_meetings_ai.sql has been run, asking for
+     * invite_emailed_at returned an error, `rows` was undefined, `pending` was
+     * empty, and the route cheerfully answered "Nobody to email." Silently.
+     * The same trap that took the hero carousel and the public opportunities
+     * feed down, and I walked into it again.
+     *
+     * Now: try the full select, fall back to the plain one, and say plainly
+     * which happened. Without the column, duplicate protection is off — so the
+     * caller is told, rather than left to discover it by emailing the
+     * committee twice. */
+    let rows = null;
+    let tracking = true;
+
+    const full = await sb.from('meeting_participants')
       .select('member_id, invite_emailed_at').eq('meeting_id', b.id).order('created_at');
+
+    if (full.error) {
+      tracking = false;
+      const plain = await sb.from('meeting_participants')
+        .select('member_id').eq('meeting_id', b.id).order('created_at');
+      if (plain.error) {
+        return fail('READ_FAILED', 500, {
+          message: 'Could not read the invitation list.',
+          detail: plain.error.message,
+        });
+      }
+      rows = plain.data || [];
+    } else {
+      rows = full.data || [];
+    }
+
+    if (!rows.length) {
+      return ok({ done: true, sent: 0, remaining: 0, total: 0,
+        message: 'Nobody is invited to this meeting yet.' });
+    }
 
     /* Skip anyone already emailed for THIS meeting, unless the admin is
      * deliberately resending. Without it, a second click after a network
      * hiccup emails the whole committee twice. */
-    const pending = (rows || []).filter(r => b.resend || !r.invite_emailed_at);
+    const pending = tracking
+      ? rows.filter(r => b.resend || !r.invite_emailed_at)
+      : rows;
     const slice = pending.slice(Number(b.offset) || 0, (Number(b.offset) || 0) + EMAIL_CHUNK);
 
     if (!slice.length) {
@@ -137,16 +175,18 @@ export async function POST(req) {
       .select('id, full_name, email').in('id', slice.map(r => r.member_id));
     const { host } = await hostsOf(meeting);
 
-    let sent = 0, failed = 0, noEmail = 0;
+    let sent = 0, failed = 0, noEmail = 0, lastError = null;
     for (const p of (people || [])) {
       const r = await sendMeetingEmail({ kind, meeting, member: p, host });
       if (r.sent) {
         sent += 1;
-        await sb.from('meeting_participants')
-          .update({ invite_emailed_at: new Date().toISOString() })
-          .eq('meeting_id', b.id).eq('member_id', p.id);
+        if (tracking) {
+          await sb.from('meeting_participants')
+            .update({ invite_emailed_at: new Date().toISOString() })
+            .eq('meeting_id', b.id).eq('member_id', p.id);
+        }
       } else if (r.skipped) noEmail += 1;
-      else failed += 1;
+      else { failed += 1; lastError = lastError || r.error; }
     }
 
     const done = (Number(b.offset) || 0) + slice.length >= pending.length;
@@ -156,8 +196,22 @@ export async function POST(req) {
       remaining: Math.max(0, pending.length - ((Number(b.offset) || 0) + slice.length)),
       total: pending.length,
       done,
+      tracking,
+      /* The reason, not just the tally. "0 sent" with no explanation is what
+       * sent an administrator to ask why nothing arrived; SMTP being
+       * unconfigured is a five-second fix once it is named. */
+      detail: lastError || undefined,
+      warning: tracking ? undefined
+        : 'Run supabase/migration_meetings_ai.sql — without it, invitations cannot be tracked '
+          + 'and pressing this again will email everyone a second time.',
       message: done
-        ? `${sent} invitation(s) emailed.${failed ? ` ${failed} failed.` : ''}${noEmail ? ` ${noEmail} have no email address.` : ''}`
+        ? (sent
+          ? `${sent} invitation(s) emailed.${failed ? ` ${failed} failed.` : ''}${noEmail ? ` ${noEmail} have no email address.` : ''}`
+          : failed
+            ? `No invitations were sent. ${lastError || 'The mail server rejected them.'}`
+            : noEmail
+              ? `Nobody was emailed — ${noEmail} invited member(s) have no email address on file.`
+              : 'All invitations had already been sent.')
         : `Sending… ${(Number(b.offset) || 0) + slice.length} of ${pending.length}`,
     });
   }

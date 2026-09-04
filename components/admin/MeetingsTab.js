@@ -48,8 +48,13 @@ export default function MeetingsTab({ toast }) {
       const r = await aPost('/api/admin/meetings', {
         action: 'email_invites', id: m.id, kind: 'created', offset,
       });
-      if (!r?.ok) { toast?.(r?.message || 'Could not email invitations.', 'err'); break; }
-      if (r.done) { toast?.(r.message, 'ok'); break; }
+      if (!r?.ok) { toast?.([r?.message || 'Could not email invitations.', r?.detail]
+        .filter(Boolean).join(' '), 'err'); break; }
+      if (r.done) {
+        toast?.([r.message, r.warning].filter(Boolean).join(' '),
+          r.sent ? 'ok' : 'err');
+        break;
+      }
       offset = r.next_offset;
     }
     setBusyId(null);
