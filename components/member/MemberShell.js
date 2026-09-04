@@ -48,12 +48,17 @@ export const ROLE_NAV = {
   advisory: [
     ['My Council Profile', '/member/council-profile', '🎓'],
     ['Guidance Requests', '/member/guidance', '💡'],
+    /* Only these two roles can sit on an interview panel, so only they see the
+     * link. The page itself says "you are not on a panel at the moment" rather
+     * than 404ing, because being on one comes and goes. */
+    ['Interview Panel', '/member/interview-panel', '🗳️'],
   ],
   cec: [
     ['My Leadership Profile', '/member/council-profile', '🎓'],
     // Read-only. The decision sits with the Super Admin; committee members
     // read the answers so they can advise, not act.
     ['Executive Applications', '/member/cec-applications', '📋'],
+    ['Interview Panel', '/member/interview-panel', '🗳️'],
   ],
   uc_team: [
     ['My UC Team', '/member/uc-team', '📍'],

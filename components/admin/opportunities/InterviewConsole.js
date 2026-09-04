@@ -4,8 +4,8 @@ import { aGet, aPost, aPatch } from '../adminApi';
 import { Card } from '../ui';
 import { FELLOWSHIP_QUESTIONS } from '@/lib/opportunities';
 import {
-  DEFAULT_CRITERIA, cleanCriteria, STATE_LABEL, STATE_TONE, SCORE_MIN, SCORE_MAX,
-  queueProgress, nextInQueue, fmtClock, durationMinutes, topCut, TIE_MARGIN,
+  DEFAULT_CRITERIA, cleanCriteria, STATE_LABEL, STATE_TONE,
+  queueProgress, nextInQueue, fmtClock, durationMinutes, topCut,
 } from '@/lib/interviews';
 
 const input = 'w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm text-tnr-cream';
@@ -270,8 +270,7 @@ export default function InterviewConsole({ opportunity, session: initial, onBack
                   </dl>
                 </Card>
 
-                <ScoreCard row={open} session={d.session} closed={closed}
-                  onSaved={load} toast={toast} />
+                <ScoreCard row={open} session={d.session} closed={closed} />
               </div>
             </>
           )}
@@ -293,166 +292,97 @@ function Btn({ children, onClick, busy, primary }) {
   );
 }
 
-/* ── Scoring ─────────────────────────────────────────────────────────────── */
-function ScoreCard({ row, session, closed, onSaved, toast }) {
+/* ── What the panel said ─────────────────────────────────────────────────── */
+/* READ ONLY, on purpose.
+ *
+ * Scoring moved to the member portal when the panel became members rather than
+ * admin accounts. An admin running the room can see every score as it arrives
+ * — they need to, to know when a candidate is finished with — but they cannot
+ * enter one here. A judgement filed from an admin account would be attributed
+ * to whoever was signed in rather than to the person who sat in the interview,
+ * and that is exactly the record that has to hold up if a candidate asks why.
+ */
+function ScoreCard({ row, session, closed }) {
   const criteria = cleanCriteria(session?.criteria);
-  const [scores, setScores] = useState({});
-  const [notes, setNotes] = useState('');
-  const [rec, setRec] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-
-  /* A fresh form per candidate.
-   *
-   * Without this, the scores typed for candidate 4 are still on screen for
-   * candidate 5 and get saved against them — the single most damaging bug this
-   * screen could have, and completely silent. */
-  useEffect(() => {
-    setScores({}); setNotes(''); setRec(''); setRevealed(false);
-  }, [row?.id]);
-
   const others = row?.evaluations || [];
   const s = row?.summary;
-
-  async function save() {
-    setSaving(true);
-    const r = await aPost('/api/admin/opportunities/interviews', {
-      action: 'evaluate', session_id: session.id, application_id: row.application_id,
-      scores, notes, recommendation: rec || null,
-    });
-    setSaving(false);
-    if (!r?.ok) {
-      return toast?.(r?.errors?.empty || r?.message || 'Could not save your scores.', 'err');
-    }
-    toast?.(r.message, 'ok');
-    setRevealed(true);      // your own view is in — now the panel's is fair game
-    onSaved?.();
-  }
 
   return (
     <Card>
       <h4 className="mb-2 text-[11px] font-black uppercase tracking-wider text-tnr-cream/40">
-        Your scores
+        What the panel said
       </h4>
 
-      {closed && (
-        <p className="mb-3 rounded-xl bg-white/5 px-3 py-2 text-[12.5px] text-tnr-cream/60">
-          This session is closed. Scores can no longer be changed.
+      {!others.length && (
+        <p className="text-[12.5px] text-tnr-cream/50">
+          No scores yet. Panellists record theirs from their own member portal,
+          under <b className="text-tnr-cream/70">Interview Panel</b>.
         </p>
       )}
 
-      <div className="space-y-2.5">
-        {criteria.map(c => (
-          <div key={c.key} className="flex items-center justify-between gap-3">
-            <label className="text-[13px] text-tnr-cream/80">{c.label}</label>
-            <div className="flex items-center gap-1.5">
-              <input type="number" min={SCORE_MIN} max={SCORE_MAX} disabled={closed}
-                value={scores[c.key] ?? ''}
-                onChange={e => setScores(p => ({ ...p, [c.key]: e.target.value }))}
-                className={`${input} w-20 text-center`} placeholder="—" />
-              <span className="text-[11px] text-tnr-cream/30">/{SCORE_MAX}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <textarea rows={3} value={notes} disabled={closed}
-        onChange={e => setNotes(e.target.value)}
-        placeholder="Notes — what they actually said, not just an impression."
-        className={`${input} mt-3 resize-y`} />
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {[['select', 'Select'], ['undecided', 'Undecided'], ['reject', 'Reject']].map(([k, label]) => (
-          <button key={k} onClick={() => setRec(rec === k ? '' : k)} disabled={closed}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition disabled:opacity-40 ${
-              rec === k ? 'border-tnr-gold/50 bg-tnr-gold/10 text-tnr-cream'
-                : 'border-tnr-line text-tnr-cream/70 hover:bg-white/5'}`}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <button onClick={save} disabled={saving || closed}
-        className="mt-3 w-full rounded-xl px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"
-        style={{ background: LIGHT.green }}>
-        {saving ? 'Saving…' : 'Save my scores'}
-      </button>
-
-      {/* ── The rest of the panel, hidden until you have committed ── */}
-      <div className="mt-4 border-t border-tnr-line pt-3">
-        {!revealed && others.length > 0 && (
-          <button onClick={() => setRevealed(true)}
-            className="w-full text-left text-[12.5px] text-tnr-cream/50 hover:text-tnr-cream/80">
-            {others.length} other panellist{others.length === 1 ? ' has' : 's have'} scored this
-            candidate — <span className="underline">show anyway</span>
-            <span className="mt-0.5 block text-[11px] text-tnr-cream/30">
-              Hidden by default so your judgement is your own.
-            </span>
-          </button>
-        )}
-        {!revealed && !others.length && (
-          <p className="text-[12px] text-tnr-cream/30">Nobody else has scored this candidate yet.</p>
-        )}
-
-        {revealed && (
-          <>
-            {s?.overall !== null && s?.overall !== undefined && (
-              <p className="text-[13px] text-tnr-cream/80">
-                Panel average <b className="text-tnr-cream">{s.overall}</b>
-                <span className="text-tnr-cream/40"> · {s.scored} of {s.panellists} scored</span>
-              </p>
-            )}
-            {s?.disagreement && (
-              <p className="mt-1 rounded-lg bg-amber-400/10 px-2.5 py-1.5 text-[12px] text-amber-200">
-                The panel disagrees by {s.spread} points. Worth talking about before deciding.
-              </p>
-            )}
-            <ul className="mt-2 space-y-2">
-              {others.map(e => (
-                <li key={e.id} className="rounded-lg border border-tnr-line px-3 py-2">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[12.5px] font-semibold text-tnr-cream">{e.panellist_name}</span>
-                    {e.recommendation && (
-                      <span className="text-[11px] uppercase tracking-wide text-tnr-cream/50">
-                        {e.recommendation}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11.5px] text-tnr-cream/60">
-                    {criteria.map(c => (
-                      <span key={c.key}>{c.label}: <b>{e.scores?.[c.key] ?? '—'}</b></span>
-                    ))}
-                  </div>
-                  {e.notes && (
-                    <p className="mt-1 whitespace-pre-line text-[12.5px] text-tnr-cream/70">{e.notes}</p>
+      {others.length > 0 && (
+        <>
+          {s?.overall !== null && s?.overall !== undefined && (
+            <p className="text-[13px] text-tnr-cream/80">
+              Panel average <b className="text-tnr-cream">{s.overall}</b>
+              <span className="text-tnr-cream/40"> · {s.scored} of {s.panellists} scored</span>
+            </p>
+          )}
+          {s?.disagreement && (
+            <p className="mt-1 rounded-lg bg-amber-400/10 px-2.5 py-1.5 text-[12px] text-amber-200">
+              The panel disagrees by {s.spread} points. Worth talking about before deciding.
+            </p>
+          )}
+          <ul className="mt-2 space-y-2">
+            {others.map(e => (
+              <li key={e.id} className="rounded-lg border border-tnr-line px-3 py-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[12.5px] font-semibold text-tnr-cream">{e.panellist_name}</span>
+                  {e.recommendation && (
+                    <span className="text-[11px] uppercase tracking-wide text-tnr-cream/50">
+                      {e.recommendation}
+                    </span>
                   )}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
+                </div>
+                <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11.5px] text-tnr-cream/60">
+                  {criteria.map(c => (
+                    <span key={c.key}>{c.label}: <b>{e.scores?.[c.key] ?? '—'}</b></span>
+                  ))}
+                </div>
+                {e.notes && (
+                  <p className="mt-1 whitespace-pre-line text-[12.5px] text-tnr-cream/70">{e.notes}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {closed && (
+        <p className="mt-3 text-[11.5px] text-tnr-cream/40">
+          This session is closed — no further scores can be recorded.
+        </p>
+      )}
     </Card>
   );
 }
 
-
 /* ── Who sits on the panel ───────────────────────────────────────────────── */
 function PanelRoster({ sessionId, panel, missing, closed, toast, onChanged }) {
-  const [admins, setAdmins] = useState(null);
+  const [people, setPeople] = useState(null);
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!adding || admins) return;
-    aGet('/api/admin/opportunities/interviews?action=admins')
-      .then(r => setAdmins(r?.ok ? r.admins : []));
-  }, [adding, admins]);
+    if (!adding || people) return;
+    aGet('/api/admin/opportunities/interviews?action=panel_candidates')
+      .then(r => setPeople(r?.ok ? r.members : []));
+  }, [adding, people]);
 
   async function add(id) {
     setBusy(true);
     const r = await aPost('/api/admin/opportunities/interviews', {
-      action: 'panel', session_id: sessionId, admin_ids: [id],
+      action: 'panel', session_id: sessionId, member_ids: [id],
     });
     setBusy(false);
     toast?.([r?.message, r?.hint].filter(Boolean).join(' '), r?.ok ? 'ok' : 'err');
@@ -463,14 +393,14 @@ function PanelRoster({ sessionId, panel, missing, closed, toast, onChanged }) {
     if (!confirm(`Remove ${p.name} from the panel?\n\nScores they have already given are kept.`)) return;
     setBusy(true);
     const r = await aPost('/api/admin/opportunities/interviews', {
-      action: 'panel', session_id: sessionId, admin_id: p.admin_id, remove: true,
+      action: 'panel', session_id: sessionId, member_id: p.member_id, remove: true,
     });
     setBusy(false);
     toast?.(r?.message || 'Could not remove them.', r?.ok ? 'ok' : 'err');
     if (r?.ok) onChanged?.();
   }
 
-  const seated = new Set(panel.map(p => p.admin_id));
+  const seated = new Set(panel.map(p => p.member_id));
 
   return (
     <Card>
@@ -499,6 +429,7 @@ function PanelRoster({ sessionId, panel, missing, closed, toast, onChanged }) {
             className="inline-flex items-center gap-2 rounded-full border border-tnr-line px-3 py-1 text-[12.5px] text-tnr-cream">
             {p.role === 'chair' && <span title="Chairs the panel">🪑</span>}
             {p.name}
+            <span className="text-[11px] text-tnr-cream/40">{p.membership_id}</span>
             {!closed && panel.length > 1 && (
               <button onClick={() => remove(p)} disabled={busy}
                 className="text-tnr-cream/40 hover:text-red-300" title="Remove">×</button>
@@ -512,23 +443,29 @@ function PanelRoster({ sessionId, panel, missing, closed, toast, onChanged }) {
 
       {adding && (
         <div className="mt-3 max-h-52 overflow-y-auto rounded-xl border border-tnr-line">
-          {admins === null && <p className="px-3 py-2 text-sm text-tnr-cream/40">Loading…</p>}
-          {(admins || []).filter(a => !seated.has(a.id)).map(a => (
+          {people === null && <p className="px-3 py-2 text-sm text-tnr-cream/40">Loading…</p>}
+          {(people || []).filter(a => !seated.has(a.id)).map(a => (
             <button key={a.id} onClick={() => add(a.id)} disabled={busy}
               className="block w-full px-3 py-2 text-left text-sm text-tnr-cream hover:bg-white/5 disabled:opacity-40">
-              {a.full_name || a.username}
-              <span className="ml-1.5 text-[12px] text-tnr-cream/40">{a.username}</span>
+              {a.full_name}
+              <span className="ml-1.5 text-[12px] text-tnr-cream/40">
+                {a.membership_id} · {a.role === 'cec' ? 'CEC' : 'Advisory'}
+              </span>
             </button>
           ))}
-          {admins && !admins.filter(a => !seated.has(a.id)).length && (
-            <p className="px-3 py-2 text-sm text-tnr-cream/40">Everyone is already on the panel.</p>
+          {people && !people.filter(a => !seated.has(a.id)).length && (
+            <p className="px-3 py-2 text-sm text-tnr-cream/40">
+              Everyone eligible is already on the panel.
+            </p>
           )}
         </div>
       )}
 
       <p className="mt-2 text-[11.5px] text-tnr-cream/40">
-        Only these people can record scores for this session. The chair runs the
-        room; their score carries no more weight than anyone else&apos;s.
+        Executive Committee and Advisory Council members only. They score from
+        their own member portal, under <b>Interview Panel</b> — no admin login
+        needed. The chair runs the room; their score carries no more weight than
+        anyone else&apos;s.
       </p>
     </Card>
   );
@@ -718,7 +655,7 @@ function SetupPanel({ opportunity, toast, onBack, onCreated }) {
   const [host, setHost] = useState(null);
   const [when, setWhen] = useState('');
   const [saving, setSaving] = useState(false);
-  const [admins, setAdmins] = useState(null);
+  const [eligible, setEligible] = useState(null);
   const [panel, setPanel] = useState(() => new Set());
 
   useEffect(() => {
@@ -731,8 +668,8 @@ function SetupPanel({ opportunity, toast, onBack, onCreated }) {
   }, [opportunity.id]);
 
   useEffect(() => {
-    aGet('/api/admin/opportunities/interviews?action=admins')
-      .then(r => setAdmins(r?.ok ? r.admins : []));
+    aGet('/api/admin/opportunities/interviews?action=panel_candidates')
+      .then(r => setEligible(r?.ok ? r.members : []));
   }, []);
 
   useEffect(() => {
@@ -849,16 +786,22 @@ function SetupPanel({ opportunity, toast, onBack, onCreated }) {
 
       <Card>
         <h4 className="text-[11px] font-black uppercase tracking-wider text-tnr-cream/40">
-          Who is on the panel
+          Who is on the panel ({panel.size})
         </h4>
         <p className="mb-2 mt-1 text-[11.5px] text-tnr-cream/40">
-          Only these people can score. You are added automatically as chair —
-          otherwise you would create a panel you are then refused permission to
-          score in, and you would find out mid-interview.
+          Executive Committee and Advisory Council members. They score from
+          their own member portal, so nobody needs an admin login to judge.
+          Whoever chairs the room is marked chair automatically.
         </p>
-        {admins === null && <p className="text-sm text-tnr-cream/40">Loading admin accounts…</p>}
+        {eligible === null && <p className="text-sm text-tnr-cream/40">Loading the committee…</p>}
+        {eligible?.length === 0 && (
+          <p className="text-sm text-tnr-cream/50">
+            No active CEC or Advisory Council members were found. Set members&apos;
+            roles under Membership first, or there will be nobody able to score.
+          </p>
+        )}
         <div className="max-h-48 space-y-1 overflow-y-auto">
-          {(admins || []).map(a => (
+          {(eligible || []).map(a => (
             <label key={a.id} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-white/5">
               <input type="checkbox" checked={panel.has(a.id)}
                 onChange={() => setPanel(p => {
@@ -867,8 +810,10 @@ function SetupPanel({ opportunity, toast, onBack, onCreated }) {
                   return n;
                 })} />
               <span className="text-sm text-tnr-cream">
-                {a.full_name || a.username}
-                <span className="ml-1.5 text-[12px] text-tnr-cream/40">{a.username}</span>
+                {a.full_name}
+                <span className="ml-1.5 text-[12px] text-tnr-cream/40">
+                  {a.membership_id} · {a.role === 'cec' ? 'CEC' : 'Advisory'}
+                </span>
               </span>
             </label>
           ))}

@@ -33,28 +33,45 @@ const HINT = 'Administrator: run supabase/migration_interviews.sql.';
 
 const CANDIDATE_FIELDS = 'id, membership_id, full_name, photo_url, union_council';
 
-/* Admin accounts, for picking the panel.
+/* Panellists are MEMBERS, not admin accounts.
  *
- * Only a name and a username — never the password hash, the TOTP secret, or
- * the scope list. Listing admins is otherwise a super-admin-only action, and
- * this narrow read exists so an Opportunities holder can seat a panel without
- * being handed the whole Admin Accounts screen. */
-const PANEL_FIELDS = 'id, username, full_name, role';
+ * The Executive Committee and the Advisory Council judge candidates; most of
+ * them have no admin login. Seating admins would have meant handing office
+ * bearers admin credentials just so they could score, which grants far more
+ * than scoring. So an admin assembles the panel here, and the panellists score
+ * from their own member portal.
+ *
+ * Never their contact details — a roster needs a name and a membership number. */
+const PANEL_FIELDS = 'id, membership_id, full_name, photo_url, role, union_council';
 
-/** The roster, and whether the caller is on it. */
+/* Who may be seated.
+ *
+ * CEC and Advisory Council only. Not a hint in the UI — enforced on the
+ * server, because "who is allowed to judge a fellowship" is a constitutional
+ * question for the organisation, not a dropdown filter somebody can widen by
+ * editing a request. */
+export const PANEL_ROLES = ['cec', 'advisory'];
+
+/** The roster for a session, with names resolved. */
 async function panelOf(sb, sessionId) {
   const { data, error } = await sb.from('interview_panellists')
-    .select('id, admin_id, role').eq('session_id', sessionId);
+    .select('id, member_id, role').eq('session_id', sessionId);
   if (error) return { rows: [], error };
 
-  const ids = (data || []).map(p => p.admin_id);
-  const names = new Map();
+  const ids = (data || []).map(p => p.member_id);
+  const people = new Map();
   if (ids.length) {
-    const { data: admins } = await sb.from('admin_users').select(PANEL_FIELDS).in('id', ids);
-    for (const a of admins || []) names.set(a.id, a.full_name || a.username);
+    const { data: members } = await sb.from('membership_members')
+      .select(PANEL_FIELDS).in('id', ids);
+    for (const m of members || []) people.set(m.id, m);
   }
   return {
-    rows: (data || []).map(p => ({ ...p, name: names.get(p.admin_id) || 'Panellist' })),
+    rows: (data || []).map(p => ({
+      ...p,
+      name: people.get(p.member_id)?.full_name || 'Panellist',
+      membership_id: people.get(p.member_id)?.membership_id || null,
+      member_role: people.get(p.member_id)?.role || null,
+    })),
     error: null,
   };
 }
@@ -67,11 +84,21 @@ export async function GET(req) {
   const sessionId = url.searchParams.get('session_id');
   const opportunityId = url.searchParams.get('opportunity_id');
 
-  // The list of admin accounts that can be seated on a panel.
-  if (url.searchParams.get('action') === 'admins') {
-    const { data, error } = await sb.from('admin_users').select(PANEL_FIELDS).order('full_name');
-    if (error) return fail('READ_FAILED', 500, { message: 'Could not read admin accounts.' });
-    return ok({ admins: data || [] });
+  // Members who may be seated: active CEC and Advisory Council.
+  if (url.searchParams.get('action') === 'panel_candidates') {
+    const q = (url.searchParams.get('q') || '').trim();
+    let sel = sb.from('membership_members').select(PANEL_FIELDS)
+      .in('role', PANEL_ROLES)
+      .eq('status', 'active').is('deleted_at', null)
+      .order('full_name').limit(200);
+    if (q) sel = sel.or(`full_name.ilike.%${q}%,membership_id.ilike.%${q}%`);
+    const { data, error } = await sel;
+    if (error) {
+      return fail('READ_FAILED', 500, {
+        message: 'Could not read the committee list.', detail: error.message,
+      });
+    }
+    return ok({ members: data || [] });
   }
 
   // ── List sessions for an opportunity ─────────────────────────────────────
@@ -125,18 +152,20 @@ export async function GET(req) {
     .select('*').eq('session_id', sessionId);
 
   // Panellist names, so a score reads as "Zahid gave 7" rather than a uuid.
-  const panelIds = [...new Set((evals || []).map(e => e.panellist_id))];
+  const panelIds = [...new Set((evals || []).map(e => e.panellist_member_id).filter(Boolean))];
   const panellists = new Map();
   if (panelIds.length) {
-    const { data } = await sb.from('admin_users')
-      .select('id, username, full_name').in('id', panelIds);
-    for (const a of data || []) panellists.set(a.id, a.full_name || a.username);
+    const { data } = await sb.from('membership_members')
+      .select('id, full_name, membership_id').in('id', panelIds);
+    for (const m of data || []) panellists.set(m.id, m.full_name);
   }
 
   const byApp = new Map();
   for (const e of evals || []) {
     if (!byApp.has(e.application_id)) byApp.set(e.application_id, []);
-    byApp.get(e.application_id).push({ ...e, panellist_name: panellists.get(e.panellist_id) || 'Panellist' });
+    byApp.get(e.application_id).push({
+      ...e, panellist_name: panellists.get(e.panellist_member_id) || 'Panellist',
+    });
   }
 
   const criteria = cleanCriteria(session.criteria);
@@ -181,7 +210,14 @@ export async function POST(req) {
   const b = await readJson(req);
   const sb = supabaseAdmin();
 
-  if (b.action === 'evaluate') return saveEvaluation(sb, admin, b, req);
+  /* NO 'evaluate' ACTION HERE, deliberately.
+   *
+   * Scoring belongs to the panel, and the panel is made of members. An admin
+   * who is not a seated panellist has no business filing a judgement about a
+   * candidate they did not interview — and one who IS a panellist scores from
+   * their member portal like everybody else, so their score is attributed to
+   * the person rather than to whichever admin account happened to be signed
+   * in. See app/api/member/interviews/route.js. */
   if (b.action === 'state') return setState(sb, admin, b, req);
   if (b.action === 'panel') return setPanel(sb, admin, b, req);
 
@@ -228,6 +264,23 @@ export async function POST(req) {
    * untick.
    *
    * join_before_host is forced FALSE for the same reason. */
+  /* Who will actually sit on the panel — resolved BEFORE the room is made,
+   * because they have to go into it as co-hosts. */
+  const wanted = [...new Set((b.panellist_ids || []).map(String).filter(Boolean))];
+  let eligibleIds = [];
+  let roleWarning = null;
+  if (wanted.length) {
+    const { data: eligible } = await sb.from('membership_members')
+      .select('id').in('id', wanted)
+      .in('role', PANEL_ROLES).eq('status', 'active').is('deleted_at', null);
+    eligibleIds = (eligible || []).map(m => m.id);
+    const refused = wanted.length - eligibleIds.length;
+    if (refused) {
+      roleWarning = `${refused} of the people chosen are not active CEC or `
+        + 'Advisory Council members and were not seated.';
+    }
+  }
+
   let meetingId = null;
   let meetingWarning = null;
 
@@ -242,6 +295,14 @@ export async function POST(req) {
       scheduled_at: b.scheduled_at || new Date().toISOString(),
       duration_minutes: Math.min(600, Math.max(30, Number(b.duration_minutes) || 240)),
       host_id: hostId,
+      /* THE PANEL ARE CO-HOSTS OF THE ROOM.
+       *
+       * Not a nicety. A co-host can admit from the waiting room, mute, and
+       * remove — so if the chair's connection drops mid-morning, which on a
+       * Gilgit-Baltistan link it will, another panellist can keep the day
+       * running instead of thirty candidates sitting in a waiting room nobody
+       * can open. */
+      co_host_ids: eligibleIds.filter(id => id !== hostId),
       room_id: newRoomId(),
       status: 'scheduled',
       waiting_room_enabled: true,
@@ -259,14 +320,29 @@ export async function POST(req) {
     }
     meetingId = meeting.id;
 
-    // Candidates are invited to the meeting so they can reach the waiting
-    // room from their own portal. Invitation ≠ admission.
+    /* Everyone who needs to be in the room is invited to it.
+     *
+     * CANDIDATES as participants — invitation is not admission; they land in
+     * the waiting area and are let in one at a time.
+     *
+     * PANELLISTS as co-hosts, and this is the part that was missing: a member
+     * may only open a meeting if there is a row for them in
+     * meeting_participants or they are host/co-host. Seating someone on the
+     * panel without inviting them to the room would have produced a panellist
+     * who could score a candidate they had no way of ever seeing. */
     const invited = await inviteMembers(meetingId,
       eligible.map(a => ({ id: a.member_id, via: 'interview' })), 'participant');
-    if (!invited.added) meetingWarning = 'The room was created but nobody could be invited to it.';
-  }
+    if (!invited.added) meetingWarning = 'The room was created but no candidate could be invited to it.';
 
-  const panelIds = [...new Set((b.panellist_ids || []).map(String).filter(Boolean))];
+    const panelInvited = await inviteMembers(meetingId,
+      eligibleIds.filter(id => id !== hostId).map(id => ({ id, via: 'panel', role: 'co_host' })),
+      'co_host');
+    if (eligibleIds.length > 1 && !panelInvited.added) {
+      meetingWarning = [meetingWarning,
+        'The panel could not be added to the room — they will not be able to join it.',
+      ].filter(Boolean).join(' ');
+    }
+  }
 
   const { data: session, error: sErr } = await sb.from('interview_sessions').insert({
     opportunity_id: opportunityId,
@@ -302,23 +378,32 @@ export async function POST(req) {
     });
   }
 
-  /* Seat the panel.
+  /* Seat the panel, checking the roles server-side.
    *
-   * The creating admin is always on it, as chair. Without that, an office
-   * bearer who forgets to add themselves creates a session they are then
-   * refused permission to score in — and the refusal would arrive mid-panel,
-   * with a candidate sitting in the room. */
-  const seats = [
-    { session_id: session.id, admin_id: admin.sub, role: 'chair', added_by: admin.sub },
-    ...panelIds.filter(id => id !== admin.sub).map(id => ({
-      session_id: session.id, admin_id: id, role: 'panellist', added_by: admin.sub,
-    })),
-  ];
-  const { error: pErr } = await sb.from('interview_panellists')
-    .upsert(seats, { onConflict: 'session_id,admin_id', ignoreDuplicates: true });
-  const panelWarning = pErr
-    ? 'The panel roster could not be saved — run supabase/migration_interview_panel.sql.'
-    : null;
+   * The ids arrive from a picker that already filters to CEC and Advisory, but
+   * a request is not a picker. Re-reading the roles here is what actually
+   * enforces "only the committee judges" — the filter in the UI is a
+   * convenience, not the rule. */
+  let panelWarning = roleWarning;
+  // The host chairs by default: they run the room, and a session with a roster
+  // but no chair leaves nobody able to close it.
+  const seats = eligibleIds.map(id => ({
+    session_id: session.id, member_id: id,
+    role: id === String(b.host_id || '') ? 'chair' : 'panellist',
+    added_by: admin.sub,
+  }));
+
+  if (seats.length) {
+    const { error: pErr } = await sb.from('interview_panellists')
+      .upsert(seats, { onConflict: 'session_id,member_id', ignoreDuplicates: true });
+    if (pErr) {
+      panelWarning = 'The panel roster could not be saved — run '
+        + 'supabase/migration_interview_panel.sql. Until then nobody can score.';
+    }
+  } else if (!panelWarning) {
+    panelWarning = 'No panellists were assigned yet — add them before the interviews start, '
+      + 'or nobody will be able to record a score.';
+  }
 
   await logAudit({
     action: 'INTERVIEW_SESSION_CREATED', actor: admin?.username || 'admin',
@@ -352,8 +437,29 @@ async function setPanel(sb, admin, b, req) {
       return fail('INVALID', 400, { message: 'A panel needs at least one member.' });
     }
     const { error } = await sb.from('interview_panellists')
-      .delete().eq('session_id', b.session_id).eq('admin_id', b.admin_id);
+      .delete().eq('session_id', b.session_id).eq('member_id', b.member_id);
     if (error) return fail('WRITE_FAILED', 500, { message: 'Could not remove them.', detail: error.message });
+
+    /* Take away their control of the ROOM as well as their seat.
+     *
+     * Leaving them as a co-host would let someone who is no longer on the
+     * panel keep admitting candidates and muting people. Their participant row
+     * stays, because they were genuinely in the meeting and the attendance
+     * record should say so. */
+    const { data: sess } = await sb.from('interview_sessions')
+      .select('meeting_id').eq('id', b.session_id).maybeSingle();
+    if (sess?.meeting_id) {
+      const { data: meeting } = await sb.from('meetings')
+        .select('co_host_ids').eq('id', sess.meeting_id).maybeSingle();
+      if (meeting) {
+        await sb.from('meetings')
+          .update({ co_host_ids: (meeting.co_host_ids || []).filter(id => id !== b.member_id) })
+          .eq('id', sess.meeting_id);
+      }
+      await sb.from('meeting_participants')
+        .update({ role: 'participant' })
+        .eq('meeting_id', sess.meeting_id).eq('member_id', b.member_id);
+    }
 
     /* Their scores are NOT deleted with them.
      *
@@ -362,20 +468,61 @@ async function setPanel(sb, admin, b, req) {
      * would quietly rewrite a record of what the panel actually thought. */
     await logAudit({
       action: 'INTERVIEW_PANEL_REMOVED', actor: admin?.username || 'admin',
-      details: `${b.admin_id} from session ${b.session_id}`, ip: clientIp(req),
+      details: `${b.member_id} from session ${b.session_id}`, ip: clientIp(req),
     });
     return ok({ message: 'Removed from the panel. Any scores they already gave are kept.' });
   }
 
-  const ids = [...new Set((b.admin_ids || [b.admin_id]).map(String).filter(Boolean))];
+  const ids = [...new Set((b.member_ids || [b.member_id]).map(String).filter(Boolean))];
   if (!ids.length) return fail('INVALID', 400, { message: 'Choose who to add.' });
 
+  // Same server-side role check as at creation. A panel is not somewhere a
+  // general member can be quietly added by a hand-made request.
+  const { data: eligible } = await sb.from('membership_members')
+    .select('id').in('id', ids).in('role', PANEL_ROLES)
+    .eq('status', 'active').is('deleted_at', null);
+  const okIds = (eligible || []).map(m => m.id);
+  if (!okIds.length) {
+    return fail('NOT_ELIGIBLE', 400, {
+      message: 'Only active Executive Committee and Advisory Council members can sit on a panel.',
+    });
+  }
+
   const { error } = await sb.from('interview_panellists').upsert(
-    ids.map(id => ({
-      session_id: b.session_id, admin_id: id,
+    okIds.map(id => ({
+      session_id: b.session_id, member_id: id,
       role: b.role === 'chair' ? 'chair' : 'panellist', added_by: admin.sub,
     })),
-    { onConflict: 'session_id,admin_id', ignoreDuplicates: true });
+    { onConflict: 'session_id,member_id', ignoreDuplicates: true });
+
+  /* And put them IN THE ROOM.
+   *
+   * Seating without inviting is the bug this whole change exists to fix: a
+   * panellist added at 11am would be able to score candidates they had no way
+   * of seeing, because a member can only open a meeting they are a participant
+   * or co-host of. */
+  let roomWarning = null;
+  if (!error) {
+    const { data: sess } = await sb.from('interview_sessions')
+      .select('meeting_id').eq('id', b.session_id).maybeSingle();
+
+    if (sess?.meeting_id) {
+      await inviteMembers(sess.meeting_id,
+        okIds.map(id => ({ id, via: 'panel', role: 'co_host' })), 'co_host');
+
+      const { data: meeting } = await sb.from('meetings')
+        .select('co_host_ids, host_id').eq('id', sess.meeting_id).maybeSingle();
+      if (meeting) {
+        const next = [...new Set([...(meeting.co_host_ids || []), ...okIds])]
+          .filter(id => id !== meeting.host_id);
+        const { error: cErr } = await sb.from('meetings')
+          .update({ co_host_ids: next }).eq('id', sess.meeting_id);
+        if (cErr) roomWarning = 'They were seated, but could not be made co-hosts of the room.';
+      }
+    } else {
+      roomWarning = 'This session has no Virtual Hall room, so there is nowhere for them to join.';
+    }
+  }
   if (error) {
     return fail('WRITE_FAILED', 500, {
       message: 'Could not update the panel.', detail: error.message,
@@ -385,87 +532,14 @@ async function setPanel(sb, admin, b, req) {
 
   await logAudit({
     action: 'INTERVIEW_PANEL_ADDED', actor: admin?.username || 'admin',
-    details: `${ids.length} to session ${b.session_id}`, ip: clientIp(req),
+    details: `${okIds.length} to session ${b.session_id}`, ip: clientIp(req),
   });
-  return ok({ message: `${ids.length} added to the panel.` });
-}
-
-// ── One panellist's evaluation of one candidate ────────────────────────────
-async function saveEvaluation(sb, admin, b, req) {
-  if (!b.session_id || !b.application_id) {
-    return fail('INVALID', 400, { message: 'Missing candidate.' });
-  }
-  if (!admin?.sub) {
-    return fail('INVALID', 400, { message: 'Could not identify you as a panellist. Sign in again.' });
-  }
-
-  const { data: session } = await sb.from('interview_sessions')
-    .select('id, criteria, status').eq('id', b.session_id).maybeSingle();
-  if (!session) return fail('NOT_FOUND', 404, { message: 'Interview session not found.' });
-  if (session.status === 'closed') {
-    return fail('CLOSED', 400, { message: 'This interview session has been closed.' });
-  }
-
-  /* ONLY THE PANEL MAY SCORE.
-   *
-   * Holding the Opportunities permission makes you able to read applications;
-   * it does not make you a member of this panel. Without this check any of
-   * those admins could file a score, and "3 of 4 panellists have scored" would
-   * be counted against a 4 that does not describe anybody.
-   *
-   * A missing roster table (migration not yet run) is treated as "not seated"
-   * and says so, rather than silently letting everyone through — failing open
-   * on a permission check is how a permission check becomes decoration. */
-  const seat = await sb.from('interview_panellists')
-    .select('id').eq('session_id', b.session_id).eq('admin_id', admin.sub).maybeSingle();
-
-  if (seat.error) {
-    return fail('PANEL_UNAVAILABLE', 500, {
-      message: 'Could not confirm you are on this panel, so the score was not saved.',
-      hint: 'Administrator: run supabase/migration_interview_panel.sql.',
-    });
-  }
-  if (!seat.data) {
-    return fail('NOT_ON_PANEL', 403, {
-      message: 'You are not on this interview panel, so your scores cannot be recorded. '
-        + 'Ask the chair to add you.',
-    });
-  }
-
-  const criteria = cleanCriteria(session.criteria);
-  const { ok: valid, errors, value } = validateEvaluation(b, criteria);
-  if (!valid) return fail('INVALID', 400, { message: 'Check the scores.', errors });
-
-  /* Upsert on (session, application, panellist).
-   *
-   * The panellist is taken from the SIGNED TOKEN, never from the request body.
-   * A panellist_id in the body would let one office bearer file scores under
-   * another's name, which is the one thing that would make this record
-   * worthless in a dispute. */
-  const row = {
-    session_id: b.session_id,
-    application_id: b.application_id,
-    panellist_id: admin.sub,
-    scores: value.scores,
-    notes: value.notes ?? null,
-    recommendation: value.recommendation,
-  };
-
-  const { data, error } = await sb.from('interview_evaluations')
-    .upsert(row, { onConflict: 'session_id,application_id,panellist_id' })
-    .select('*').maybeSingle();
-
-  if (error) {
-    return fail('WRITE_FAILED', 500, { message: 'Could not save your scores.', detail: error.message, hint: HINT });
-  }
-
-  await logAudit({
-    action: 'INTERVIEW_SCORED', actor: admin?.username || 'admin',
-    details: `application ${b.application_id} in session ${b.session_id}`,
-    ip: clientIp(req),
+  return ok({
+    message: `${okIds.length} added to the panel and to the Virtual Hall room.`
+      + (okIds.length < ids.length
+        ? ` ${ids.length - okIds.length} were not eligible and were skipped.` : ''),
+    warning: roomWarning || undefined,
   });
-
-  return ok({ evaluation: data, message: 'Your scores are saved.' });
 }
 
 // ── Moving a candidate through the queue ───────────────────────────────────
