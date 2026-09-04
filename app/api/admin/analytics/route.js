@@ -2,7 +2,9 @@ import { supabaseAdmin } from '@/lib/supabaseServer';
 import { requireAdmin } from '@/lib/guard';
 import { logAudit, clientIp } from '@/lib/audit';
 import { ok, fail, readJson } from '@/lib/api';
-import { validateActivity, engagementBand, totalContributions, attendanceRate } from '@/lib/contributions';
+import {
+  validateActivity, engagementBand, totalContributions, attendanceRate, emptyRecord,
+} from '@/lib/contributions';
 import { contributionYear, memberTimeline } from '@/lib/contributionsServer';
 
 export const dynamic = 'force-dynamic';
@@ -81,12 +83,10 @@ export async function GET(req) {
   const { records, meetingsHeld, missing } = await contributionYear({ year });
 
   const rows = (members || []).map(m => {
-    const record = records.get(m.id) || {
-      meetings: { invited: 0, attended: 0, partial: 0, late: 0, absent: 0, minutes: 0 },
-      writing: { opinions: 0, comments: 0 },
-      activities: { count: 0, hours: 0, verified: 0, byType: {} },
-      leadership: { hosted: 0, duties: 0 },
-    };
+    // emptyRecord(), not a hand-written copy — a literal here drifts from the
+    // real shape the moment a group is added, and the group that goes missing
+    // is the one nobody notices is missing.
+    const record = records.get(m.id) || emptyRecord();
     return {
       member: m,
       record,
@@ -106,6 +106,9 @@ export async function GET(req) {
     comments: a.comments + r.record.writing.comments,
     activities: a.activities + r.record.activities.count,
     hours: a.hours + r.record.activities.hours,
+    events: a.events + r.record.events.attended,
+    volunteer: a.volunteer + r.record.volunteering.assignments,
+    volunteer_hours: a.volunteer_hours + r.record.volunteering.hours,
     hosted: a.hosted + r.record.leadership.hosted,
     duties: a.duties + r.record.leadership.duties,
     active: a.active + (r.band === 'active' ? 1 : 0),
@@ -113,9 +116,11 @@ export async function GET(req) {
     none: a.none + (r.band === 'none' ? 1 : 0),
   }), {
     members: 0, attended: 0, invited: 0, opinions: 0, comments: 0,
-    activities: 0, hours: 0, hosted: 0, duties: 0, active: 0, some: 0, none: 0,
+    activities: 0, hours: 0, events: 0, volunteer: 0, volunteer_hours: 0,
+    hosted: 0, duties: 0, active: 0, some: 0, none: 0,
   });
   summary.hours = Math.round(summary.hours * 100) / 100;
+  summary.volunteer_hours = Math.round(summary.volunteer_hours * 100) / 100;
   summary.meetings_held = meetingsHeld;
 
   return ok({

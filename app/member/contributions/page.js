@@ -8,6 +8,10 @@ import {
 
 const C = { deep: '#063D2B', green: '#0B6B4F', gold: '#C9A227' };
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
+// One icon per timeline kind. A lookup rather than a chain of ternaries, so
+// adding a source is one line and cannot silently fall through to the wrong
+// icon.
+const ICONS = { meeting: '🎥', opinion: '✍️', event: '📅', volunteer: '🤝' };
 
 /* My Contribution.
  *
@@ -43,8 +47,15 @@ export default function MyContribution() {
   const a = rec?.activities;
   const l = rec?.leadership;
 
+  const ev = rec?.events;
+  const vol = rec?.volunteering;
+
+  const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
   const counts = {
     meetings: m?.attended || 0,
+    events: ev?.attended || 0,
+    volunteering: vol?.assignments || 0,
     writing: (w?.opinions || 0) + (w?.comments || 0),
     activities: a?.count || 0,
     leadership: (l?.hosted || 0) + (l?.duties || 0),
@@ -53,9 +64,15 @@ export default function MyContribution() {
     meetings: m?.invited
       ? `of ${m.invited} you were invited to`
       : 'you were not invited to any yet',
-    writing: `${w?.opinions || 0} opinion${(w?.opinions || 0) === 1 ? '' : 's'}, ${w?.comments || 0} comment${(w?.comments || 0) === 1 ? '' : 's'}`,
-    activities: a?.hours ? `${a.hours} hour${a.hours === 1 ? '' : 's'} recorded` : 'recorded by an office bearer',
-    leadership: `${l?.hosted || 0} meeting${(l?.hosted || 0) === 1 ? '' : 's'} hosted`,
+    events: ev?.registered
+      ? `of ${plural(ev.registered, 'registration')}`
+      : 'programmes you took part in',
+    volunteering: vol?.hours
+      ? `${plural(vol.hours, 'hour')} served`
+      : 'assignments taken on',
+    writing: `${plural(w?.opinions || 0, 'opinion')}, ${plural(w?.comments || 0, 'comment')}`,
+    activities: a?.hours ? `${plural(a.hours, 'hour')} recorded` : 'recorded by an office bearer',
+    leadership: `${plural(l?.hosted || 0, 'meeting')} hosted`,
   };
 
   return (
@@ -90,8 +107,8 @@ export default function MyContribution() {
 
         {d && (
           <>
-            {/* ── The four groups ── */}
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {/* ── The six groups ── */}
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {SOURCES.map(s => (
                 <div key={s.key} className="rounded-2xl border border-gray-200 bg-white p-4">
                   <div className="flex items-center gap-2">
@@ -142,6 +159,18 @@ export default function MyContribution() {
               )}
             </section>
 
+            {/* ── Account use ── */}
+            <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-5">
+              <h2 className="text-sm font-black uppercase tracking-wider" style={{ color: C.deep }}>
+                Your account
+              </h2>
+              <p className="mb-3 mt-0.5 text-[12.5px] text-gray-500">
+                Shown to you because it is shown to the office bearers. Nothing is
+                recorded about you here that you cannot see.
+              </p>
+              <AccountUse rec={rec} year={d.year} />
+            </section>
+
             {/* ── Timeline ── */}
             <section className="mt-6">
               <h2 className="text-sm font-black uppercase tracking-wider" style={{ color: C.deep }}>
@@ -166,15 +195,13 @@ export default function MyContribution() {
                   <li key={`${it.kind}-${it.id || i}`}
                     className="flex gap-3 rounded-2xl border border-gray-200 bg-white p-4">
                     <div className="text-xl leading-none">
-                      {it.kind === 'meeting' ? '🎥'
-                        : it.kind === 'opinion' ? '✍️'
-                          : activityIcon(it.activity_type)}
+                      {ICONS[it.kind] || activityIcon(it.activity_type)}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                         <p className="font-bold text-gray-800">{it.title}</p>
                         <span className="text-[12px] text-gray-400">
-                          {it.kind === 'activity'
+                          {it.date
                             ? fmtActivityDate(it.date)
                             : new Date(it.at).toLocaleDateString('en-GB',
                               { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -210,6 +237,68 @@ export default function MyContribution() {
         )}
       </div>
     </MemberShell>
+  );
+}
+
+
+/* Account use, and what the member asked for.
+ *
+ * Kept in its own panel, under its own heading, with the caveat written on
+ * screen rather than buried in a comment — because a number sitting in a grid
+ * beside "Meetings attended" WILL be read as a performance figure no matter
+ * what the documentation says.
+ *
+ * The same panel, with the same numbers, appears on the member's own page.
+ * Nothing is recorded about a person here that they cannot see about
+ * themselves. */
+function AccountUse({ rec, year, dark = false }) {
+  const p = rec?.portal || {};
+  const q = rec?.requests || {};
+  const box = dark
+    ? 'rounded-xl border border-tnr-line px-3 py-2.5'
+    : 'rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2.5';
+  const big = dark ? 'text-tnr-cream' : '';
+  const small = dark ? 'text-tnr-cream/50' : 'text-gray-400';
+  const note = dark ? 'text-tnr-cream/40' : 'text-gray-400';
+
+  const seen = p.lastSeen
+    ? new Date(p.lastSeen).toLocaleDateString('en-GB',
+      { day: 'numeric', month: 'short', year: 'numeric' })
+    : 'not since this was switched on';
+  const since = p.memberSince
+    ? new Date(p.memberSince).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+    : '—';
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <Cell box={box} big={big} small={small} n={p.activeDays || 0} label={`Days used in ${year}`} />
+        <Cell box={box} big={big} small={small} n={seen} label="Last opened" text />
+        <Cell box={box} big={big} small={small} n={since} label="Member since" text />
+        <Cell box={box} big={big} small={small} n={q.applications || 0} label="Applications sent" />
+        <Cell box={box} big={big} small={small} n={q.tickets || 0} label="Support requests" />
+        <Cell box={box} big={big} small={small} n={q.guidance || 0} label="Guidance asked" />
+      </div>
+      <p className={`mt-2 text-[11.5px] leading-relaxed ${note}`}>
+        None of this counts as contribution and none of it is included in the
+        totals above. How often someone opens the portal largely measures their
+        signal and their data budget — a member running activities in a village
+        with no coverage will show fewer days here than someone who reads the
+        site daily and does nothing.
+      </p>
+    </div>
+  );
+}
+
+function Cell({ box, big, small, n, label, text }) {
+  return (
+    <div className={box}>
+      <div className={`${text ? 'text-[13px] font-bold' : 'text-xl font-black tabular-nums'} ${big}`}
+        style={text ? undefined : { color: big ? undefined : '#063D2B' }}>
+        {n}
+      </div>
+      <div className={`text-[10px] font-bold uppercase tracking-wide ${small}`}>{label}</div>
+    </div>
   );
 }
 

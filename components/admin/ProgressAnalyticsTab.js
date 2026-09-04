@@ -9,6 +9,7 @@ import {
 
 const input = 'w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm text-tnr-cream';
 const LIGHT = { deep: '#063D2B', green: '#0B6B4F' };
+const TL_ICONS = { meeting: '🎥', opinion: '✍️', event: '📅', volunteer: '🤝' };
 
 /* Progress Analytics.
  *
@@ -72,6 +73,8 @@ export default function ProgressAnalyticsTab({ toast }) {
       rate: (a, b) => (a.attendance_rate ?? -1) === (b.attendance_rate ?? -1)
         ? 0 : (b.attendance_rate ?? -1) - (a.attendance_rate ?? -1),
       activities: (a, b) => b.record.activities.count - a.record.activities.count,
+      events: (a, b) => b.record.events.attended - a.record.events.attended,
+      volunteering: (a, b) => b.record.volunteering.assignments - a.record.volunteering.assignments,
     };
     return [...list].sort(by[sort] || by.name);
   }, [d, search, band, role, sort]);
@@ -94,6 +97,8 @@ export default function ProgressAnalyticsTab({ toast }) {
     };
     const head = ['Membership ID', 'Name', 'Role', 'Union Council',
       'Meetings invited', 'Meetings attended', 'Attendance %', 'Minutes present',
+      'Events registered', 'Events attended',
+      'Volunteer assignments', 'Volunteer hours',
       'Opinions', 'Comments', 'Field activities', 'Hours', 'Meetings hosted',
       'Leadership duties', 'Total contributions'];
     const body = rows.map(r => [
@@ -101,6 +106,8 @@ export default function ProgressAnalyticsTab({ toast }) {
       r.record.meetings.invited, r.record.meetings.attended,
       r.attendance_rate === null ? 'not invited' : r.attendance_rate,
       r.record.meetings.minutes,
+      r.record.events.registered, r.record.events.attended,
+      r.record.volunteering.assignments, r.record.volunteering.hours,
       r.record.writing.opinions, r.record.writing.comments,
       r.record.activities.count, r.record.activities.hours,
       r.record.leadership.hosted, r.record.leadership.duties, r.total,
@@ -157,10 +164,12 @@ export default function ProgressAnalyticsTab({ toast }) {
       )}
 
       {/* ── Organisation totals ── */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
         <Stat n={S.members} label="Active members" />
         <Stat n={S.meetings_held} label={`Meetings held in ${year}`} />
-        <Stat n={S.attended} label="Attendances" />
+        <Stat n={S.attended} label="Meeting attendances" />
+        <Stat n={S.events} label="Event attendances" />
+        <Stat n={S.volunteer} label="Volunteer assignments" />
         <Stat n={(S.opinions || 0) + (S.comments || 0)} label="Opinions & comments" />
         <Stat n={S.activities} label="Field activities" />
         <Stat n={S.hours} label="Hours logged" />
@@ -192,6 +201,8 @@ export default function ProgressAnalyticsTab({ toast }) {
           <option value="total">Sort: most recorded</option>
           <option value="meetings">Sort: meetings attended</option>
           <option value="rate">Sort: attendance rate</option>
+          <option value="events">Sort: events attended</option>
+          <option value="volunteering">Sort: volunteer assignments</option>
           <option value="activities">Sort: field activities</option>
         </select>
       </div>
@@ -225,7 +236,8 @@ export default function ProgressAnalyticsTab({ toast }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-tnr-line text-left text-[10px] uppercase tracking-wider text-tnr-cream/40">
-                {['Member', 'Role', 'Meetings', 'Attendance', 'Writing', 'Field work', 'Leadership', 'Total', ''].map(h => (
+                {['Member', 'Role', 'Meetings', 'Attendance', 'Events', 'Volunteering',
+                  'Writing', 'Field work', 'Leadership', 'Total', ''].map(h => (
                   <th key={h} className="whitespace-nowrap px-3 py-2.5 font-semibold">{h}</th>
                 ))}
               </tr>
@@ -252,6 +264,16 @@ export default function ProgressAnalyticsTab({ toast }) {
                       : <span className="text-tnr-cream/80">{r.attendance_rate}%</span>}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-tnr-cream/80">
+                    {r.record.events.attended}
+                    {r.record.events.registered > r.record.events.attended
+                      ? <span className="text-tnr-cream/40"> / {r.record.events.registered}</span> : null}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-tnr-cream/80">
+                    {r.record.volunteering.assignments}
+                    {r.record.volunteering.hours
+                      ? <span className="text-tnr-cream/40"> · {r.record.volunteering.hours}h</span> : null}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-tnr-cream/80">
                     {r.record.writing.opinions + r.record.writing.comments}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-tnr-cream/80">
@@ -276,8 +298,9 @@ export default function ProgressAnalyticsTab({ toast }) {
 
       <p className="text-[11.5px] leading-relaxed text-tnr-cream/40">
         Figures cover 1 January – 31 December {year} in {TNR_TZ.split('/').pop().replace(/_/g, ' ')} time.
-        Meetings, opinions and comments are counted automatically; field work is
-        counted only where an office bearer has logged it. There is no score and
+        Meetings, events, volunteering, opinions and comments are counted
+        automatically; field work is counted only where an office bearer has
+        logged it. There is no score and
         no ranking — these are counts, and a low one is a question, not an answer.
       </p>
 
@@ -348,12 +371,17 @@ function MemberRecord({ row, year, toast, onBack, onLog, logging, closeLog }) {
 
       {d && (
         <>
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
             {SOURCES.map(s => {
-              const n = s.key === 'meetings' ? (m?.attended || 0)
-                : s.key === 'writing' ? (d.record?.writing.opinions || 0) + (d.record?.writing.comments || 0)
-                  : s.key === 'activities' ? (d.record?.activities.count || 0)
-                    : (d.record?.leadership.hosted || 0) + (d.record?.leadership.duties || 0);
+              const R = d.record;
+              const n = {
+                meetings: m?.attended || 0,
+                events: R?.events?.attended || 0,
+                volunteering: R?.volunteering?.assignments || 0,
+                writing: (R?.writing?.opinions || 0) + (R?.writing?.comments || 0),
+                activities: R?.activities?.count || 0,
+                leadership: (R?.leadership?.hosted || 0) + (R?.leadership?.duties || 0),
+              }[s.key] || 0;
               return (
                 <div key={s.key} className="rounded-xl border border-tnr-line px-3 py-2.5">
                   <div className="text-[10px] uppercase tracking-wider text-tnr-cream/50">
@@ -377,6 +405,14 @@ function MemberRecord({ row, year, toast, onBack, onLog, logging, closeLog }) {
             </Card>
           )}
 
+          <div>
+            <h3 className="text-sm font-bold text-tnr-cream">Account use</h3>
+            <p className="mb-2 text-[12px] text-tnr-cream/50">
+              Context for reading the record above — not a measure of contribution.
+            </p>
+            <AccountUse rec={d.record} year={year} dark />
+          </div>
+
           <h3 className="text-sm font-bold text-tnr-cream">Everything recorded in {year}</h3>
 
           {!d.timeline?.length && (
@@ -391,13 +427,13 @@ function MemberRecord({ row, year, toast, onBack, onLog, logging, closeLog }) {
               <li key={`${it.kind}-${it.id || i}`}
                 className="flex gap-3 rounded-2xl border border-tnr-line px-4 py-3">
                 <span className="text-lg leading-none">
-                  {it.kind === 'meeting' ? '🎥' : it.kind === 'opinion' ? '✍️' : activityIcon(it.activity_type)}
+                  {TL_ICONS[it.kind] || activityIcon(it.activity_type)}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                     <p className="font-semibold text-tnr-cream">{it.title}</p>
                     <span className="text-[11px] text-tnr-cream/40">
-                      {it.kind === 'activity' ? fmtActivityDate(it.date)
+                      {it.date ? fmtActivityDate(it.date)
                         : new Date(it.at).toLocaleDateString('en-GB',
                           { day: 'numeric', month: 'short', year: 'numeric' })}
                     </span>
@@ -431,6 +467,68 @@ function MemberRecord({ row, year, toast, onBack, onLog, logging, closeLog }) {
           members={[row.member]} toast={toast}
           onClose={(changed) => { closeLog(changed); if (changed) load(); }} />
       )}
+    </div>
+  );
+}
+
+
+/* Account use, and what the member asked for.
+ *
+ * Kept in its own panel, under its own heading, with the caveat written on
+ * screen rather than buried in a comment — because a number sitting in a grid
+ * beside "Meetings attended" WILL be read as a performance figure no matter
+ * what the documentation says.
+ *
+ * The same panel, with the same numbers, appears on the member's own page.
+ * Nothing is recorded about a person here that they cannot see about
+ * themselves. */
+function AccountUse({ rec, year, dark = false }) {
+  const p = rec?.portal || {};
+  const q = rec?.requests || {};
+  const box = dark
+    ? 'rounded-xl border border-tnr-line px-3 py-2.5'
+    : 'rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2.5';
+  const big = dark ? 'text-tnr-cream' : '';
+  const small = dark ? 'text-tnr-cream/50' : 'text-gray-400';
+  const note = dark ? 'text-tnr-cream/40' : 'text-gray-400';
+
+  const seen = p.lastSeen
+    ? new Date(p.lastSeen).toLocaleDateString('en-GB',
+      { day: 'numeric', month: 'short', year: 'numeric' })
+    : 'not since this was switched on';
+  const since = p.memberSince
+    ? new Date(p.memberSince).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+    : '—';
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <Cell box={box} big={big} small={small} n={p.activeDays || 0} label={`Days used in ${year}`} />
+        <Cell box={box} big={big} small={small} n={seen} label="Last opened" text />
+        <Cell box={box} big={big} small={small} n={since} label="Member since" text />
+        <Cell box={box} big={big} small={small} n={q.applications || 0} label="Applications sent" />
+        <Cell box={box} big={big} small={small} n={q.tickets || 0} label="Support requests" />
+        <Cell box={box} big={big} small={small} n={q.guidance || 0} label="Guidance asked" />
+      </div>
+      <p className={`mt-2 text-[11.5px] leading-relaxed ${note}`}>
+        None of this counts as contribution and none of it is included in the
+        totals above. How often someone opens the portal largely measures their
+        signal and their data budget — a member running activities in a village
+        with no coverage will show fewer days here than someone who reads the
+        site daily and does nothing.
+      </p>
+    </div>
+  );
+}
+
+function Cell({ box, big, small, n, label, text }) {
+  return (
+    <div className={box}>
+      <div className={`${text ? 'text-[13px] font-bold' : 'text-xl font-black tabular-nums'} ${big}`}
+        style={text ? undefined : { color: big ? undefined : '#063D2B' }}>
+        {n}
+      </div>
+      <div className={`text-[10px] font-bold uppercase tracking-wide ${small}`}>{label}</div>
     </div>
   );
 }

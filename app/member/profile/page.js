@@ -5,6 +5,8 @@ import { mGet, mPatch, mPost } from '@/components/member/memberApi';
 import AddressSelect from '@/components/membership/AddressSelect';
 import { PROFESSIONS } from '@/lib/membership/options';
 import { MIN_AGE, MAX_AGE } from '@/lib/membership/validateApplication';
+import Link from 'next/link';
+import { SOURCES, totalContributions } from '@/lib/contributions';
 
 /** Earliest and latest date of birth the age limits allow. */
 function dobBounds() {
@@ -98,6 +100,7 @@ export default function ProfilePage() {
       <CoreCard core={d.core} onSaved={m => { setMsg(m); load(); }} />
       <AddressProfessionCard core={d.core} onSaved={m => { setMsg(m); load(); }} />
       <AboutCard profile={d.profile} onSaved={m => { setMsg(m); load(); }} />
+      <ContributionCard />
 
       {SECTIONS.map(([key, label, fields]) => (
         <SectionCard key={key} sec={key} label={label} fields={fields} items={d[key] || []} reload={load} />
@@ -472,6 +475,95 @@ function SectionCard({ sec, label, fields, items, reload }) {
 }
 
 /* ── shared bits ── */
+/* What this member has actually done for TNR, on their own profile.
+ *
+ * The profile already says who someone is — name, qualification, profession.
+ * This says what they have contributed, which for a working office bearer is
+ * the more useful half and was previously visible nowhere on this page.
+ *
+ * It loads SEPARATELY from the profile.
+ *
+ * The profile is the page a member opens most, and it must not sit blank
+ * while a year of meetings, events and volunteering is aggregated across
+ * eight tables. So the profile renders immediately and this card fills in
+ * underneath — and if the aggregation fails outright, the card removes
+ * itself rather than putting an error in the middle of somebody's profile.
+ */
+function ContributionCard() {
+  const [d, setD] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const year = new Date().getFullYear();
+
+  useEffect(() => {
+    mGet(`/api/member/contributions?year=${year}`)
+      .then(r => (r?.ok ? setD(r) : setFailed(true)))
+      .catch(() => setFailed(true));
+  }, [year]);
+
+  if (failed) return null;
+
+  const rec = d?.record;
+  const counts = {
+    meetings: rec?.meetings?.attended || 0,
+    events: rec?.events?.attended || 0,
+    volunteering: rec?.volunteering?.assignments || 0,
+    writing: (rec?.writing?.opinions || 0) + (rec?.writing?.comments || 0),
+    activities: rec?.activities?.count || 0,
+    leadership: (rec?.leadership?.hosted || 0) + (rec?.leadership?.duties || 0),
+  };
+  const total = totalContributions(rec);
+
+  return (
+    <Card title={`My contribution in ${year}`}
+      note="Everything you have taken part in, kept up to date automatically."
+      action={
+        <Link href="/member/contributions"
+          className="text-xs font-bold hover:underline" style={{ color: C.green }}>
+          See the full record →
+        </Link>
+      }>
+      {!d && <p className="text-sm text-gray-400">Loading your record…</p>}
+
+      {d && (
+        <>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {SOURCES.map(s => (
+              <div key={s.key} className="rounded-xl border border-gray-100 bg-gray-50/70 px-2.5 py-2 text-center">
+                <div className="text-base leading-none">{s.icon}</div>
+                <div className="mt-1 text-xl font-black tabular-nums" style={{ color: C.deep }}>
+                  {counts[s.key]}
+                </div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                  {s.label}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* The honest empty state. A new member, or one whose work has not
+              been logged yet, is not told they have contributed nothing —
+              they are told where it comes from and what to do about it. */}
+          {total === 0 ? (
+            <p className="mt-3 text-[12.5px] leading-relaxed text-gray-500">
+              Nothing recorded for {year} yet. Meetings, events, volunteering and
+              writing appear here on their own; work you do in Roundu is added by
+              an office bearer, so tell your union council team about anything
+              missing.
+            </p>
+          ) : (
+            <p className="mt-3 text-[12.5px] leading-relaxed text-gray-500">
+              <b className="text-gray-700">{total}</b> recorded contribution{total === 1 ? '' : 's'} this year
+              {rec?.meetings?.invited
+                ? `, including ${rec.meetings.attended} of ${rec.meetings.invited} meetings you were invited to` : ''}
+              {rec?.volunteering?.hours ? `, and ${rec.volunteering.hours} volunteer hours` : ''}.
+            </p>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
 function Card({ title, note, action, children }) {
   return <div className="mt-5 rounded-2xl bg-white border border-gray-100 shadow-sm p-5">
     <div className="flex items-center justify-between">

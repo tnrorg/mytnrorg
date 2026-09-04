@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { aGet, aPost } from '../adminApi';
+import InterviewConsole from './InterviewConsole';
 import { Card } from '../ui';
 import { exportApplicationsExcel, exportApplicationsPdf } from './applicationExports';
 import {
@@ -76,6 +77,9 @@ function isPast(date, time) {
  * That is the failure applicants actually notice.
  */
 export default function ApplicationsView({ opportunity, onBack, toast }) {
+  /* The interview console replaces this view rather than opening over it.
+   * A panel runs for four hours; that is a workspace, not a dialog. */
+  const [interviewing, setInterviewing] = useState(false);
   const [d, setD] = useState(null);
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
@@ -226,6 +230,11 @@ export default function ApplicationsView({ opportunity, onBack, toast }) {
 
   const S = d?.stats || {};
 
+  if (interviewing) {
+    return <InterviewConsole opportunity={opportunity} toast={toast}
+      onBack={() => { setInterviewing(false); load(); }} />;
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -244,6 +253,15 @@ export default function ApplicationsView({ opportunity, onBack, toast }) {
               {exporting === kind ? 'Building…' : `${label} (${selected.length || rows.length})`}
             </button>
           ))}
+          {/* Only offered once somebody is actually at the interview stage —
+              a button that opens an empty panel teaches people to ignore it. */}
+          {S.interview_invited > 0 && (
+            <button onClick={() => setInterviewing(true)}
+              className="whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-bold text-white"
+              style={{ background: '#0B6B4F' }}>
+              Interview in Virtual Hall ({S.interview_invited})
+            </button>
+          )}
           <button onClick={onBack} className="text-sm text-tnr-cream/60 hover:underline">
             ← All opportunities
           </button>
