@@ -208,11 +208,35 @@ export async function POST(req) {
          * The two real causes are named below, chosen from the provider's own
          * error, and that error is passed through so the right one is obvious. */
         const detail = String(e?.message || '').slice(0, 200);
+
+        /* The cause we can name exactly, because we checked for it ourselves.
+         *
+         * LiveKit requires a storage destination on every file output. Without
+         * one it answers "request has missing or invalid field: output", which
+         * tells an administrator nothing about what to actually do. This is
+         * thrown before the request is sent, so the message can name the
+         * missing variables. */
+        if (e?.name === 'RecordingNotConfigured') {
+          return fail('RECORDING_NOT_CONFIGURED', 503, {
+            message: 'Recording is not set up yet. LiveKit has to be told where to put the '
+              + 'file — there is no default storage.',
+            detail: `Set these in Vercel: ${(e.missing || []).join(', ')}. `
+              + 'Supabase Storage works: create a bucket, then Storage → S3 Access Keys.',
+          });
+        }
+
         const quota = /quota|limit|exceed|allowance|insufficient|billing/i.test(detail);
         const busy = /concurren|too many|in use|already/i.test(detail);
+        // Belt and braces: if the check above is ever bypassed, still explain
+        // this particular refusal rather than passing it through raw.
+        const noOutput = /missing or invalid field: output|invalid.*output/i.test(detail);
 
         return fail('RECORDING_FAILED', 502, {
-          message: quota
+          message: noOutput
+            ? 'Recording storage is not configured, so LiveKit refused the request. '
+              + 'Set LIVEKIT_S3_BUCKET, LIVEKIT_S3_ACCESS_KEY, LIVEKIT_S3_SECRET and '
+              + 'LIVEKIT_S3_ENDPOINT in Vercel.'
+            : quota
             ? 'The LiveKit recording allowance for this month has run out. The free Build plan '
               + 'includes 60 transcode minutes per month, and recording uses them.'
             : busy
