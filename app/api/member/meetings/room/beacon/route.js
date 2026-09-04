@@ -1,7 +1,7 @@
 import { verifyMemberToken } from '@/lib/membership/auth';
 import { supabaseAdmin } from '@/lib/supabaseServer';
 import { ok, fail, readJson } from '@/lib/api';
-import { meetingRunSeconds, attendanceStatusFor } from '@/lib/meetings';
+import { meetingRunSeconds, attendanceStatusFor, mergedAttendanceSeconds } from '@/lib/meetings';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -52,7 +52,8 @@ export async function POST(req) {
    * action. Recomputed from the sessions, so a second beacon — browsers do
    * sometimes fire pagehide twice — cannot double anyone's total. */
   const { data: meeting } = await sb.from('meetings')
-    .select('id, duration_minutes, started_at, ended_at').eq('id', meetingId).maybeSingle();
+    .select('id, duration_minutes, scheduled_at, started_at, ended_at')
+    .eq('id', meetingId).maybeSingle();
   if (meeting) {
     const { data: sessions } = await sb.from('meeting_attendance_sessions')
       .select('joined_at, left_at, duration_seconds')
@@ -60,12 +61,22 @@ export async function POST(req) {
 
     const rows = sessions || [];
     const closed = rows.filter(s => s.left_at);
-    const total = closed.reduce((n, s) => n + (s.duration_seconds || 0), 0);
+
+    /* The SAME union calculation as the other two roll-up paths.
+     *
+     * This one was missed when the overlap bug was fixed, and it is the one
+     * that runs when a member simply closes the tab — so it would have written
+     * the old double-counted total straight back over the corrected figure,
+     * and the bug would have looked fixed until somebody left a meeting. */
+    const total = mergedAttendanceSeconds(rows, {
+      start: meeting.started_at, end: meeting.ended_at,
+    });
     const { status, percentage } = attendanceStatusFor({
       totalSeconds: total,
       runSeconds: meetingRunSeconds(meeting),
       firstJoinedAt: rows[0]?.joined_at,
       startedAt: meeting.started_at,
+      scheduledAt: meeting.scheduled_at,
     });
 
     await sb.from('meeting_attendance').upsert({

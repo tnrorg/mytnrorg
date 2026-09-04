@@ -1,9 +1,9 @@
-import { supabaseAdmin } from '@/lib/supabaseServer';
+import { supabaseAdmin, signedRecordingUrl } from '@/lib/supabaseServer';
 import { requireAdmin } from '@/lib/guard';
 import { uploadDataUrl } from '@/lib/storage';
 import { logAudit, clientIp } from '@/lib/audit';
 import { ok, fail, readJson } from '@/lib/api';
-import { meetingRunSeconds, attendanceStatusFor, ATTENDANCE_STATUS } from '@/lib/meetings';
+import { meetingRunSeconds, attendanceStatusFor, ATTENDANCE_STATUS, mergedAttendanceSeconds } from '@/lib/meetings';
 import { hostsOf, participantsOf, withDerived, MEMBER_FIELDS } from '@/lib/meetingsServer';
 
 export const dynamic = 'force-dynamic';
@@ -101,7 +101,16 @@ export async function GET(req) {
     minutes: minutes || null,
     actions: (actions || []).map(a => ({ ...a, assignee: people[a.assigned_to] || null })),
     documents: (documents || []).map(d => ({ ...d, uploader: people[d.uploaded_by] || null })),
-    recordings: recordings || [],
+    /* Signed at the moment of reading.
+     *
+     * The stored file_url points into a PRIVATE bucket and would 403 in a
+     * <video> tag. Signing here means the link in the page works for an hour
+     * and then stops, rather than a permanent URL to a committee session
+     * living in whoever's browser history. */
+    recordings: await Promise.all((recordings || []).map(async r => ({
+      ...r,
+      file_url: r.file_url ? await signedRecordingUrl(r.file_url) : null,
+    }))),
     chat: (chat || []).map(c => ({ ...c, sender: people[c.sender_id] || null })),
     hint: HINT,
   });
@@ -246,10 +255,14 @@ export async function POST(req) {
     let n = 0;
     for (const [memberId, list] of Object.entries(byMember)) {
       const closed = list.filter(s => s.left_at);
-      const total = closed.reduce((sum, s) => sum + (s.duration_seconds || 0), 0);
+      // Same union calculation as the live roll-up — one rule, in one place.
+      const total = mergedAttendanceSeconds(list, {
+        start: full?.started_at, end: full?.ended_at,
+      });
       const { status, percentage } = attendanceStatusFor({
         totalSeconds: total, runSeconds: run,
         firstJoinedAt: list[0]?.joined_at, startedAt: full?.started_at,
+        scheduledAt: full?.scheduled_at,
       });
       await sb.from('meeting_attendance').upsert({
         meeting_id: id, member_id: memberId,

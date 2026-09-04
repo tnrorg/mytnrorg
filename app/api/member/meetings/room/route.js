@@ -1,7 +1,7 @@
 import { requireMember } from '@/lib/membership/auth';
 import { ok, fail, readJson } from '@/lib/api';
 import { supabaseAdmin } from '@/lib/supabaseServer';
-import { roleInMeeting, isHostLike, meetingRunSeconds, attendanceStatusFor } from '@/lib/meetings';
+import { roleInMeeting, isHostLike, meetingRunSeconds, attendanceStatusFor, mergedAttendanceSeconds } from '@/lib/meetings';
 import { loadMeetingFor, notifyMeeting, MEMBER_FIELDS } from '@/lib/meetingsServer';
 
 export const dynamic = 'force-dynamic';
@@ -359,13 +359,24 @@ async function rollUpAttendance(sb, meeting, memberId) {
 
   const rows = sessions || [];
   const closed = rows.filter(s => s.left_at);
-  const total = closed.reduce((n, s) => n + (s.duration_seconds || 0), 0);
+
+  /* The UNION of the sessions, not their sum.
+   *
+   * Two devices, or a reconnect before the old session closed, made the same
+   * minutes count twice — one member of a two-hour meeting was credited with
+   * 7h 43m. mergedAttendanceSeconds() merges the overlaps, so time in the
+   * meeting is counted once however many sessions it arrived in. */
+  const total = mergedAttendanceSeconds(rows, {
+    start: meeting.started_at,
+    end: meeting.ended_at,
+  });
 
   const { status, percentage } = attendanceStatusFor({
     totalSeconds: total,
     runSeconds: meetingRunSeconds(meeting),
     firstJoinedAt: rows[0]?.joined_at,
     startedAt: meeting.started_at,
+    scheduledAt: meeting.scheduled_at,
   });
 
   await sb.from('meeting_attendance').upsert({
