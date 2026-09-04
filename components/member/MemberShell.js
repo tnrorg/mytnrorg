@@ -28,6 +28,10 @@ export const NAV = [
   ['My Meetings', '/member/meetings', '🎥'],
   ['Events & Programs', '/member/events', '📅'],
   ['Volunteer Activities', '/member/volunteer', '🤝'],
+  /* Directly after the three participation items it summarises — meetings,
+   * events and volunteering all feed it, so it belongs at the end of that
+   * group rather than filed away near Account Settings. */
+  ['My Contribution', '/member/contributions', '📈'],
   // Open to every member — the point of the section is that anyone can write.
   ['Opinions', '/member/opinions', '✍️'],
   ['Applications History', '/member/applications', '📋'],
