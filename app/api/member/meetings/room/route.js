@@ -197,10 +197,29 @@ export async function POST(req) {
       let started;
       try { started = await lk.startRecording(meeting.room_id, id); }
       catch (e) {
+        /* Pass LiveKit's OWN words through.
+         *
+         * The previous message guessed a cause — "recording has to be enabled
+         * on the project first" — which is wrong: egress is available on every
+         * LiveKit plan including the free Build tier. A confident wrong
+         * diagnosis sends an administrator hunting for a setting that does not
+         * exist, which is worse than no diagnosis at all.
+         *
+         * The two real causes are named below, chosen from the provider's own
+         * error, and that error is passed through so the right one is obvious. */
+        const detail = String(e?.message || '').slice(0, 200);
+        const quota = /quota|limit|exceed|allowance|insufficient|billing/i.test(detail);
+        const busy = /concurren|too many|in use|already/i.test(detail);
+
         return fail('RECORDING_FAILED', 502, {
-          message: 'The meeting server refused to start recording. '
-            + 'Recording usually has to be enabled on the LiveKit project first.',
-          detail: String(e?.message || '').slice(0, 160),
+          message: quota
+            ? 'The LiveKit recording allowance for this month has run out. The free Build plan '
+              + 'includes 60 transcode minutes per month, and recording uses them.'
+            : busy
+              ? 'LiveKit is already running its maximum number of recordings. Free projects allow '
+                + 'two at once — stop another recording and try again.'
+              : 'The meeting server refused to start recording.',
+          detail,
         });
       }
 
@@ -214,15 +233,22 @@ export async function POST(req) {
 
       /* A SECOND, audio-only egress, for transcription.
        *
+       * IT COSTS AS MUCH AS THE VIDEO. Both are composite egresses and both
+       * bill as transcode minutes, so recording with transcription burns the
+       * allowance at DOUBLE the rate — and LiveKit's free Build plan includes
+       * 60 transcode minutes a month, which is one thirty-minute meeting.
+       * It also uses the second of only two concurrent egress slots.
+       *
+       * So it is OPT-IN rather than automatic: set MEETINGS_AI_AUDIO=1 once
+       * the plan can carry it. Without it a meeting records normally and
+       * simply cannot be transcribed, which is the right default for an
+       * organisation that has not decided to pay for this yet.
+       *
        * Groq's speech endpoint takes about 25 MB; an hour of composite MP4 is
        * far past that, and Vercel's runtime has no ffmpeg to extract the audio
        * from it. Capturing audio AS audio is the only way transcription works
-       * at all — see startAudioRecording().
-       *
-       * Best-effort: if it fails, the video recording still succeeds and the
-       * meeting is simply not transcribable. Losing the recording because the
-       * transcription track would not start would be the worse trade. */
-      try {
+       * at all — see startAudioRecording(). */
+      if (process.env.MEETINGS_AI_AUDIO === '1') try {
         const a = await lk.startAudioRecording(meeting.room_id, id);
         await sb.from('meeting_recordings').insert({
           meeting_id: id, provider: 'livekit',

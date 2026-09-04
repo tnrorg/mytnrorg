@@ -864,7 +864,10 @@ function TopBar({ id, meeting, isHost, connection, count, panel, setPanel, onLea
       { meeting_id: id, action: on ? 'start_recording' : 'stop_recording' });
     setBusy(false);
     setRec(on && r?.ok);
-    if (!r?.ok) alert(r?.message || 'Could not change recording.');
+    // The provider's own error is appended. "Refused to start recording" on
+    // its own sends an administrator hunting for a setting that may not exist.
+    if (!r?.ok) alert([r?.message || 'Could not change recording.', r?.detail]
+      .filter(Boolean).join('\n\n'));
   };
 
   const end = async () => {
