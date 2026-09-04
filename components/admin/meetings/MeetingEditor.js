@@ -40,6 +40,13 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
   const [host, setHost] = useState(null);
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
+  const [emailInvites, setEmailInvites] = useState(true);
+  const [sending, setSending] = useState(null);
+
+  /* An EDIT that moved the time is a reschedule, not a fresh invitation —
+   * different subject, and an .ics that replaces the calendar entry rather
+   * than adding a second one. */
+  const b_kind = meeting?.id ? 'rescheduled' : 'created';
 
   const editing = !!meeting?.id;
 
@@ -90,6 +97,30 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
       return toast?.(r.message || 'Could not save. Check the highlighted fields.', 'err');
     }
     toast?.(r.message, 'ok');
+
+    /* Then email everyone, in batches.
+     *
+     * The meeting and the portal notifications are already saved by this
+     * point, so a browser closed mid-send loses only the remaining emails —
+     * and the server skips anyone already reached, so pressing Resend later
+     * picks up exactly where this stopped rather than starting again. */
+    const meetingId = r.meeting?.id || meeting?.id;
+    if (meetingId && emailInvites) {
+      setSending({ sent: 0, total: 0 });
+      let offset = 0;
+      for (;;) {
+        const e = await aPost('/api/admin/meetings', {
+          action: 'email_invites', id: meetingId,
+          kind: b_kind, offset,
+        });
+        if (!e?.ok) { toast?.(e?.message || 'Invitations could not be emailed.', 'err'); break; }
+        setSending({ sent: e.next_offset || 0, total: e.total || 0 });
+        if (e.done) { toast?.(e.message, 'ok'); break; }
+        offset = e.next_offset;
+      }
+      setSending(null);
+    }
+
     onSaved?.();
   }
 
@@ -246,6 +277,31 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
             </span>
           </label>
         </section>
+
+        {/* Email is opt-out rather than opt-in: an invitation nobody was
+            told about is the failure mode that matters, and the portal bell
+            alone does not reach members who rarely sign in. */}
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-gray-200 px-3 py-2.5">
+          <input type="checkbox" checked={emailInvites} onChange={e => setEmailInvites(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[#0B6B4F]" />
+          <span>
+            <span className="block text-[13px] font-semibold text-gray-800">
+              Email the invitation as well
+            </span>
+            <span className="block text-[11.5px] text-gray-500">
+              Sends every invited member an email with a calendar attachment they can add in one
+              tap. Portal notifications are sent either way.
+            </span>
+          </span>
+        </label>
+
+        {sending && (
+          <div className="rounded-xl px-3 py-2.5 text-[12.5px]"
+            style={{ background: 'rgba(11,107,79,.07)', color: LIGHT.deep }}>
+            Emailing invitations… <strong>{sending.sent}</strong>
+            {sending.total ? ` of ${sending.total}` : ''}. Keep this open until it finishes.
+          </div>
+        )}
 
         <div className="flex gap-2 border-t border-gray-200 pt-4">
           <button onClick={onClose}

@@ -36,6 +36,25 @@ export default function MeetingsTab({ toast }) {
 
   useEffect(() => { load(); }, [load]);
 
+  /* Email anyone on the list who has not been emailed yet.
+   *
+   * Safe to press repeatedly: the server skips members already reached, so
+   * this is both "finish an interrupted send" and "catch the people invited
+   * after the meeting was created". */
+  async function emailInvites(m) {
+    setBusyId(m.id);
+    let offset = 0;
+    for (;;) {
+      const r = await aPost('/api/admin/meetings', {
+        action: 'email_invites', id: m.id, kind: 'created', offset,
+      });
+      if (!r?.ok) { toast?.(r?.message || 'Could not email invitations.', 'err'); break; }
+      if (r.done) { toast?.(r.message, 'ok'); break; }
+      offset = r.next_offset;
+    }
+    setBusyId(null);
+  }
+
   async function cancel(m) {
     const reason = prompt(
       `Cancel "${m.title}"?\n\nEveryone invited will be notified. Give a short reason:`,
@@ -43,9 +62,31 @@ export default function MeetingsTab({ toast }) {
     if (reason === null) return;               // dismissed, not confirmed
     setBusyId(m.id);
     const r = await aPost('/api/admin/meetings', { action: 'cancel', id: m.id, reason });
+    if (!r.ok) {
+      setBusyId(null);
+      return toast?.(r.message || 'Could not cancel.', 'err');
+    }
+    toast?.(r.message, 'ok');
+
+    /* Email the cancellation too, with resend forced.
+     *
+     * Everyone here was already emailed the invitation, so the "skip anyone
+     * already reached" rule would silently send nothing — which is the one
+     * case where it is exactly wrong. A member whose calendar still says the
+     * meeting is on will turn up to an empty room. The .ics carries METHOD:
+     * CANCEL, so the entry is removed rather than left sitting there. */
+    let offset = 0;
+    for (;;) {
+      const e = await aPost('/api/admin/meetings', {
+        action: 'email_invites', id: m.id, kind: 'cancelled', resend: true, offset,
+      });
+      if (!e?.ok) { toast?.('Cancelled, but the emails could not be sent.', 'err'); break; }
+      if (e.done) { toast?.(`Cancellation emailed to ${e.total} member(s).`, 'ok'); break; }
+      offset = e.next_offset;
+    }
+
     setBusyId(null);
-    toast?.(r.ok ? r.message : (r.message || 'Could not cancel.'), r.ok ? 'ok' : 'err');
-    if (r.ok) load();
+    load();
   }
 
   /* Delete, in two steps when there is a record to lose.
@@ -197,6 +238,13 @@ export default function MeetingsTab({ toast }) {
                       <div className="flex gap-2.5 text-xs">
                         <button onClick={() => setRecord(m)}
                           className="text-tnr-goldLight hover:underline">Record</button>
+                        {m.state === 'scheduled' && (
+                          <button onClick={() => emailInvites(m)} disabled={busyId === m.id}
+                            className="text-tnr-cream/70 hover:underline disabled:opacity-40"
+                            title="Email anyone not yet sent an invitation">
+                            {busyId === m.id ? 'Emailing…' : 'Email invites'}
+                          </button>
+                        )}
                         <button onClick={() => setEditing(m)} disabled={busyId === m.id}
                           className="text-tnr-cream/70 hover:underline disabled:opacity-40">Edit</button>
                         {m.state === 'scheduled' && (

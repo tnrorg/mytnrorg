@@ -10,6 +10,7 @@ import {
   newRoomId, resolveAudience, inviteMembers, participantsOf, hostsOf,
   notifyMeeting, sweepLifecycle, sendMeetingReminders, withDerived, MEMBER_FIELDS,
 } from '@/lib/meetingsServer';
+import { sendMeetingEmail, EMAIL_CHUNK } from '@/lib/meetingsEmail';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -98,6 +99,68 @@ export async function POST(req) {
   const { admin, res } = requireAdmin(req); if (res) return res;
   const b = await readJson(req);
   const sb = supabaseAdmin();
+
+  /* ── Email the invitations ──
+   *
+   * SEPARATE FROM CREATING THE MEETING, and chunked, because each invitation
+   * is an SMTP round trip. Inviting the whole membership is 293 of them — that
+   * cannot happen inside the request that creates the meeting without timing
+   * out halfway, leaving a meeting that exists, a list that was half-emailed,
+   * and no way to tell which half.
+   *
+   * So the client loops this in batches and watches the progress. The portal
+   * notification still goes out instantly at creation; email follows. */
+  if (b.action === 'email_invites') {
+    if (!b.id) return fail('INVALID', 400, { message: 'Missing meeting.' });
+
+    const { data: meeting } = await sb.from('meetings').select('*').eq('id', b.id).maybeSingle();
+    if (!meeting) return fail('NOT_FOUND', 404, { message: 'Meeting not found.' });
+
+    const kind = ['created', 'rescheduled', 'cancelled', 'reminder'].includes(b.kind)
+      ? b.kind : 'created';
+
+    const { data: rows } = await sb.from('meeting_participants')
+      .select('member_id, invite_emailed_at').eq('meeting_id', b.id).order('created_at');
+
+    /* Skip anyone already emailed for THIS meeting, unless the admin is
+     * deliberately resending. Without it, a second click after a network
+     * hiccup emails the whole committee twice. */
+    const pending = (rows || []).filter(r => b.resend || !r.invite_emailed_at);
+    const slice = pending.slice(Number(b.offset) || 0, (Number(b.offset) || 0) + EMAIL_CHUNK);
+
+    if (!slice.length) {
+      return ok({ done: true, sent: 0, remaining: 0, total: pending.length,
+        message: pending.length ? 'All invitations already sent.' : 'Nobody to email.' });
+    }
+
+    const { data: people } = await sb.from('membership_members')
+      .select('id, full_name, email').in('id', slice.map(r => r.member_id));
+    const { host } = await hostsOf(meeting);
+
+    let sent = 0, failed = 0, noEmail = 0;
+    for (const p of (people || [])) {
+      const r = await sendMeetingEmail({ kind, meeting, member: p, host });
+      if (r.sent) {
+        sent += 1;
+        await sb.from('meeting_participants')
+          .update({ invite_emailed_at: new Date().toISOString() })
+          .eq('meeting_id', b.id).eq('member_id', p.id);
+      } else if (r.skipped) noEmail += 1;
+      else failed += 1;
+    }
+
+    const done = (Number(b.offset) || 0) + slice.length >= pending.length;
+    return ok({
+      sent, failed, no_email: noEmail,
+      next_offset: (Number(b.offset) || 0) + slice.length,
+      remaining: Math.max(0, pending.length - ((Number(b.offset) || 0) + slice.length)),
+      total: pending.length,
+      done,
+      message: done
+        ? `${sent} invitation(s) emailed.${failed ? ` ${failed} failed.` : ''}${noEmail ? ` ${noEmail} have no email address.` : ''}`
+        : `Sending… ${(Number(b.offset) || 0) + slice.length} of ${pending.length}`,
+    });
+  }
 
   // ── Cancel: its own action, never a free-form status write ──
   if (b.action === 'cancel') {

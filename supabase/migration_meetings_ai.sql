@@ -120,3 +120,19 @@ from information_schema.tables t
 where table_schema = 'public'
   and table_name in ('meeting_transcripts','meeting_ai_summaries')
 order by table_name;
+
+
+-- ── Email invitations ──────────────────────────────────────────────────────
+/* When this member was emailed about this meeting.
+ *
+ * Invitations are sent in batches because each one is an SMTP round trip and
+ * the whole membership is 293 of them. This column is what makes a resumed or
+ * retried batch skip the people already reached — without it, a second click
+ * after a network hiccup emails the entire committee twice.
+ */
+alter table meeting_participants
+  add column if not exists invite_emailed_at timestamptz;
+
+create index if not exists ix_mp_not_emailed
+  on meeting_participants(meeting_id)
+  where invite_emailed_at is null;
