@@ -26,6 +26,7 @@ export default function MeetingsTab({ toast }) {
   const [editing, setEditing] = useState(null);   // meeting object or {} for new
   const [record, setRecord] = useState(null);     // meeting whose record is open
   const [busyId, setBusyId] = useState(null);
+  const [progress, setProgress] = useState('');
 
   const load = useCallback(() => {
     const p = new URLSearchParams();
@@ -41,23 +42,64 @@ export default function MeetingsTab({ toast }) {
    * Safe to press repeatedly: the server skips members already reached, so
    * this is both "finish an interrupted send" and "catch the people invited
    * after the meeting was created". */
-  async function emailInvites(m) {
+  async function emailInvites(m, kind = 'created', resend = false) {
     setBusyId(m.id);
-    let offset = 0;
+    setProgress('Sending…');
+
+    /* Each round returns only ITS OWN tally, so the totals are accumulated
+     * here. Reporting the last round's numbers made a send of 60 people
+     * announce "10 invitations emailed." */
+    let sent = 0, failed = 0, noEmail = 0, offset = 0, warning = null, detail = null;
+    let lastRemaining = Infinity;
+    let guard = 0;
+    let ended = 'done';
+
     for (;;) {
+      /* A hard ceiling on rounds. Nothing should reach it — the server now
+       * stops itself when a round makes no progress — but a spinner that can
+       * never stop is worse than one that gives up and says so. */
+      if (guard++ > 200) { ended = 'runaway'; break; }
+
       const r = await aPost('/api/admin/meetings', {
-        action: 'email_invites', id: m.id, kind: 'created', offset,
+        action: 'email_invites', id: m.id, kind, resend, offset,
       });
-      if (!r?.ok) { toast?.([r?.message || 'Could not email invitations.', r?.detail]
-        .filter(Boolean).join(' '), 'err'); break; }
-      if (r.done) {
-        toast?.([r.message, r.warning].filter(Boolean).join(' '),
-          r.sent ? 'ok' : 'err');
-        break;
-      }
+
+      if (!r?.ok) { ended = 'error'; detail = [r?.message, r?.detail].filter(Boolean).join(' '); break; }
+
+      sent += r.sent || 0;
+      failed += r.failed || 0;
+      noEmail += r.no_email || 0;
+      warning = warning || r.warning || null;
+      detail = r.detail || detail;
+
+      if (r.done) break;
+
+      /* The list must be getting shorter. If it is not, asking again would
+       * send the same batch for ever. */
+      if (!(r.remaining < lastRemaining)) { ended = 'stalled'; break; }
+      lastRemaining = r.remaining;
+
+      setProgress(`Sent ${sent}${r.total ? ` of ${r.total}` : ''}…`);
       offset = r.next_offset;
     }
+
     setBusyId(null);
+    setProgress('');
+
+    if (ended === 'error') {
+      return toast?.(detail || 'Could not email invitations.', 'err');
+    }
+
+    const tally = [
+      sent ? `${sent} emailed` : null,
+      failed ? `${failed} failed` : null,
+      noEmail ? `${noEmail} have no email address` : null,
+    ].filter(Boolean).join(', ') || 'nothing to send';
+
+    if (ended === 'stalled' || ended === 'runaway') {
+      return toast?.(`Stopped after ${tally}. ${detail || 'The remaining members could not be reached.'}`, 'err');
+    }
+    toast?.([`Invitations: ${tally}.`, detail, warning].filter(Boolean).join(' '), sent ? 'ok' : 'err');
   }
 
   async function cancel(m) {
@@ -80,17 +122,8 @@ export default function MeetingsTab({ toast }) {
      * case where it is exactly wrong. A member whose calendar still says the
      * meeting is on will turn up to an empty room. The .ics carries METHOD:
      * CANCEL, so the entry is removed rather than left sitting there. */
-    let offset = 0;
-    for (;;) {
-      const e = await aPost('/api/admin/meetings', {
-        action: 'email_invites', id: m.id, kind: 'cancelled', resend: true, offset,
-      });
-      if (!e?.ok) { toast?.('Cancelled, but the emails could not be sent.', 'err'); break; }
-      if (e.done) { toast?.(`Cancellation emailed to ${e.total} member(s).`, 'ok'); break; }
-      offset = e.next_offset;
-    }
+    await emailInvites(m, 'cancelled', true);
 
-    setBusyId(null);
     load();
   }
 
@@ -247,7 +280,7 @@ export default function MeetingsTab({ toast }) {
                           <button onClick={() => emailInvites(m)} disabled={busyId === m.id}
                             className="text-tnr-cream/70 hover:underline disabled:opacity-40"
                             title="Email anyone not yet sent an invitation">
-                            {busyId === m.id ? 'Emailing…' : 'Email invites'}
+                            {busyId === m.id ? (progress || 'Emailing…') : 'Email invites'}
                           </button>
                         )}
                         <button onClick={() => setEditing(m)} disabled={busyId === m.id}

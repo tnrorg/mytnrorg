@@ -123,24 +123,55 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
      * picks up exactly where this stopped rather than starting again. */
     const meetingId = r.meeting?.id || meeting?.id;
     if (meetingId && emailInvites) {
+      /* Same shape as the Email invites button on the list: accumulate the
+       * per-round tallies, stop the moment a round stops making progress, and
+       * never loop unbounded. next_offset is NOT a running count — under the
+       * database-flag cursor it is always 0 — so progress is counted here. */
       setSending({ sent: 0, total: 0 });
-      let offset = 0;
+      let offset = 0, sent = 0, failed = 0, noEmail = 0;
+      let warning = null, detail = null, lastRemaining = Infinity, guard = 0;
+      let ended = 'done';
+
       for (;;) {
+        if (guard++ > 200) { ended = 'stalled'; break; }
+
         const e = await aPost('/api/admin/meetings', {
-          action: 'email_invites', id: meetingId,
-          kind: b_kind, offset,
+          action: 'email_invites', id: meetingId, kind: b_kind, offset,
         });
-        if (!e?.ok) { toast?.([e?.message || 'Could not email invitations.', e?.detail]
-        .filter(Boolean).join(' '), 'err'); break; }
-        setSending({ sent: e.next_offset || 0, total: e.total || 0 });
-        if (e.done) {
-        toast?.([e.message, e.warning].filter(Boolean).join(' '),
-          e.sent ? 'ok' : 'err');
-        break;
-      }
+        if (!e?.ok) {
+          ended = 'error';
+          detail = [e?.message, e?.detail].filter(Boolean).join(' ');
+          break;
+        }
+
+        sent += e.sent || 0;
+        failed += e.failed || 0;
+        noEmail += e.no_email || 0;
+        warning = warning || e.warning || null;
+        detail = e.detail || detail;
+        setSending({ sent, total: e.total || 0 });
+
+        if (e.done) break;
+        if (!(e.remaining < lastRemaining)) { ended = 'stalled'; break; }
+        lastRemaining = e.remaining;
         offset = e.next_offset;
       }
+
       setSending(null);
+
+      if (ended === 'error') {
+        toast?.(detail || 'The meeting was saved, but the invitations could not be emailed.', 'err');
+      } else {
+        const tally = [
+          sent ? `${sent} emailed` : null,
+          failed ? `${failed} failed` : null,
+          noEmail ? `${noEmail} have no email address` : null,
+        ].filter(Boolean).join(', ') || 'nothing to send';
+        toast?.(
+          [ended === 'stalled' ? `Stopped after ${tally}.` : `Invitations: ${tally}.`,
+            detail, warning].filter(Boolean).join(' '),
+          sent && ended !== 'stalled' ? 'ok' : 'err');
+      }
     }
 
     onSaved?.();

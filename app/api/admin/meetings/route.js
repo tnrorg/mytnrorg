@@ -13,6 +13,11 @@ import {
 import { sendMeetingEmail, EMAIL_CHUNK } from '@/lib/meetingsEmail';
 
 export const dynamic = 'force-dynamic';
+/* SMTP is slow — one network round trip per member, and the default function
+ * limit is ten seconds. Twenty-five invitations never fit, so the platform
+ * killed the request mid-send: some members got their email, the admin's
+ * button sat on "Emailing…" forever, and nothing said why. */
+export const maxDuration = 60;
 export const revalidate = 0;
 
 const HINT = 'Administrator: run supabase/migration_meetings.sql.';
@@ -164,7 +169,22 @@ export async function POST(req) {
     const pending = tracking
       ? rows.filter(r => b.resend || !r.invite_emailed_at)
       : rows;
-    const slice = pending.slice(Number(b.offset) || 0, (Number(b.offset) || 0) + EMAIL_CHUNK);
+
+    /* WHICH CURSOR PAGES THIS SEND.
+     *
+     * When invite_emailed_at is doing the filtering, the flag IS the cursor:
+     * everyone this round emails disappears from `pending` on the next
+     * request. Adding an offset on top of that skipped a batch every round —
+     * 100 members became 25 sent, 25 sent, then "All invitations already
+     * sent." while 50 people were never written to. Two cursors over one
+     * shrinking list is always this bug.
+     *
+     * So: with the flag, always take from the front. Without it (no migration,
+     * or a deliberate resend) the list does not shrink and the offset is the
+     * only thing that can page it. */
+    const useFlag = tracking && !b.resend;
+    const from = useFlag ? 0 : (Number(b.offset) || 0);
+    const slice = pending.slice(from, from + EMAIL_CHUNK);
 
     if (!slice.length) {
       return ok({ done: true, sent: 0, remaining: 0, total: pending.length,
@@ -189,11 +209,21 @@ export async function POST(req) {
       else { failed += 1; lastError = lastError || r.error; }
     }
 
-    const done = (Number(b.offset) || 0) + slice.length >= pending.length;
+    const processed = from + slice.length;
+    /* Stop when nothing moved.
+     *
+     * With the flag cursor, a member who has no address or whose send failed
+     * is never flagged, so they sit in `pending` for ever. Without this guard
+     * the caller asks for the same batch again and again and the button never
+     * stops spinning. sent === 0 means this round changed nothing, and the
+     * next one would not either — so end it and say what went wrong. */
+    const done = useFlag
+      ? (sent === 0 || pending.length <= slice.length)
+      : processed >= pending.length;
     return ok({
       sent, failed, no_email: noEmail,
-      next_offset: (Number(b.offset) || 0) + slice.length,
-      remaining: Math.max(0, pending.length - ((Number(b.offset) || 0) + slice.length)),
+      next_offset: useFlag ? 0 : processed,
+      remaining: Math.max(0, pending.length - (useFlag ? sent : processed)),
       total: pending.length,
       done,
       tracking,
@@ -212,7 +242,7 @@ export async function POST(req) {
             : noEmail
               ? `Nobody was emailed — ${noEmail} invited member(s) have no email address on file.`
               : 'All invitations had already been sent.')
-        : `Sending… ${(Number(b.offset) || 0) + slice.length} of ${pending.length}`,
+        : `Sending… ${slice.length} of ${pending.length} remaining`,
     });
   }
 
