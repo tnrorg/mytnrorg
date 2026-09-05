@@ -15,7 +15,7 @@ export const fetchCache = 'force-no-store';
  *   ?days=30               window
  */
 export async function GET(req) {
-  const { res } = requireSuperAdmin(req);
+  const { res } = await requireSuperAdmin(req);
   if (res) return res;
 
   const url = new URL(req.url);

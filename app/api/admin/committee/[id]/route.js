@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export async function PATCH(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const b = await readJson(req);
   const patch = {};
@@ -23,7 +23,7 @@ export async function PATCH(req, props) {
 
 export async function DELETE(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const { error } = await supabaseAdmin().from('committee_members').delete().eq('id', params.id);
   if (error) return fail('DELETE_FAILED', 500, { message: error.message });
   await logAudit({ action: 'COMMITTEE_MEMBER_DELETED', actor: admin.username, details: params.id, ip: clientIp(req) });

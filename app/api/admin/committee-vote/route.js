@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 // GET → data for the committee-entry form: election, positions, candidates, remaining eligible voters.
 export async function GET(req) {
-  const { res } = requireSuperAdmin(req); if (res) return res;
+  const { res } = await requireSuperAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const e = await getActiveElection();
   if (!e) return ok({ election: null, positions: [], candidates: [], remaining: [] });
@@ -31,7 +31,7 @@ export async function GET(req) {
 // exactly one candidate for EVERY position, all inserted together — same rules
 // as the member voting flow.
 export async function POST(req) {
-  const { admin, res } = requireSuperAdmin(req); if (res) return res;
+  const { admin, res } = await requireSuperAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const body = await readJson(req);
   const member_id = body.member_id;

@@ -103,7 +103,7 @@ async function recipients(audience, election, member_ids) {
 
 // GET → audience counts so the admin can preview before sending
 export async function GET(req) {
-  const { res } = requireAdmin(req);
+  const { res } = await requireAdmin(req);
   if (res) return res;
   try {
   const election = await getActiveElection();
@@ -149,7 +149,7 @@ export async function GET(req) {
 
 // POST → send one batch. The client loops with `offset` until done:true.
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req);
+  const { admin, res } = await requireAdmin(req);
   if (res) return res;
   const b = await readJson(req);
   const subject = String(b.subject || '').trim();

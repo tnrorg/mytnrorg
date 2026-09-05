@@ -6,7 +6,7 @@ export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const url = new URL(req.url);
   const status = url.searchParams.get('status') || '';
   const search = (url.searchParams.get('search') || '').trim();

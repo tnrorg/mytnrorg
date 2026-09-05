@@ -4,7 +4,7 @@ import { logAudit, clientIp } from '@/lib/audit';
 import { ok, fail, readJson } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const election_id = new URL(req.url).searchParams.get('election_id');
   if (!election_id) return fail('MISSING', 400, { message: 'election_id required.' });
@@ -13,7 +13,7 @@ export async function GET(req) {
   return ok({ settings: data });
 }
 export async function PATCH(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const b = await readJson(req);
   if (!b.election_id) return fail('MISSING', 400, { message: 'election_id required.' });

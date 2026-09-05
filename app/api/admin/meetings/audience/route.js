@@ -19,7 +19,7 @@ export const revalidate = 0;
  */
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const p = new URL(req.url).searchParams;
   const q = (p.get('q') || '').trim();
   const sb = supabaseAdmin();
@@ -73,7 +73,7 @@ export async function GET(req) {
 
 /** Preview: how many distinct people does this selection actually reach? */
 export async function POST(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   let b = {};
   try { b = await req.json(); } catch { /* empty selection */ }
 

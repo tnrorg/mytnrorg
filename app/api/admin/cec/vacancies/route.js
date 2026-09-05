@@ -10,7 +10,7 @@ export const fetchCache = 'force-no-store';
 const HINT = 'Run supabase/migration_cec_recruitment.sql in the Supabase SQL Editor.';
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
 
   const { data, error } = await sb.from('cec_vacancies')
@@ -31,7 +31,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const b = await readJson(req);
   if (!String(b.title || '').trim()) {
     return fail('MISSING', 400, { message: 'Give the position a title.' });

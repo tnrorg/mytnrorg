@@ -4,7 +4,7 @@ import { getActiveElection } from '@/lib/election';
 import { ok } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const url = new URL(req.url);
   let election_id = url.searchParams.get('election_id');

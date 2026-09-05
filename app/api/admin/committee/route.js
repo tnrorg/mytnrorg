@@ -6,13 +6,13 @@ import { ok, fail, readJson } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const { data } = await supabaseAdmin().from('committee_members').select('*').order('sort_order').order('created_at');
   return ok({ members: data || [] });
 }
 
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const b = await readJson(req);
   if (!b.full_name) return fail('MISSING', 400, { message: 'Name is required.' });

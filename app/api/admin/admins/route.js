@@ -11,7 +11,7 @@ const norm = (r) => (r === 'super_admin' || r === 'superadmin') ? 'super_admin' 
 
 // List admin accounts (never returns password hashes)
 export async function GET(req) {
-  const { res } = requireSuperAdmin(req); if (res) return res;
+  const { res } = await requireSuperAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
 
   /* Fall back to a select without `scopes` if the migration has not been run.
@@ -42,7 +42,7 @@ export async function GET(req) {
 
 // Create a new admin or super admin
 export async function POST(req) {
-  const { admin, res } = requireSuperAdmin(req); if (res) return res;
+  const { admin, res } = await requireSuperAdmin(req); if (res) return res;
   const b = await readJson(req);
   const username = String(b.username || '').trim().toLowerCase();
   const password = String(b.password || '');

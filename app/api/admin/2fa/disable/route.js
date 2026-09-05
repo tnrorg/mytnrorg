@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
  * defends against is decoration.
  */
 export async function POST(req) {
-  const { admin: claims, res } = requireAdmin(req);
+  const { admin: claims, res } = await requireAdmin(req);
   if (res) return res;
 
   const { password } = await readJson(req);

@@ -16,7 +16,7 @@ export const fetchCache = 'force-no-store';
 // with no members yet still appears (at zero) rather than vanishing — that is
 // the useful signal for an admin: where recruitment has not reached.
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
 
   try {

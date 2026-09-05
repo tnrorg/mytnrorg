@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 // SUPER ADMIN ONLY — full details of every member who has cast a ballot,
 // including the candidate chosen for each position.
 export async function GET(req) {
-  const { res } = requireSuperAdmin(req); if (res) return res;
+  const { res } = await requireSuperAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   try {
   const url = new URL(req.url);

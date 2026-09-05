@@ -12,7 +12,7 @@ export const fetchCache = 'force-no-store';
 const HINT = 'Run supabase/migration_institutions.sql in the Supabase SQL Editor.';
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const { data, error } = await supabaseAdmin().from('tnr_institutions')
     .select('*').order('sort_order').order('name');
   if (error) return fail('READ_FAILED', 500, { message: error.message, hint: HINT });
@@ -20,7 +20,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const b = await readJson(req);
   if (!String(b.name || '').trim()) {
     return fail('MISSING', 400, { message: 'Enter the name of the school or college.' });

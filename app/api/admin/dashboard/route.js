@@ -10,7 +10,7 @@ async function c(sb, table, filter) {
   return (await q).count || 0;
 }
 export async function GET(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
 
   /* The dashboard shows only the areas this admin works in.

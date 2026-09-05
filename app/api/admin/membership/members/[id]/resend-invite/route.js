@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const { data: m } = await sb.from('membership_members').select('*').eq('id', params.id).maybeSingle();
   if (!m) return fail('NOT_FOUND', 404, { message: 'Member not found.' });

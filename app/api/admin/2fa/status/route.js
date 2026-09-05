@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 /* What the Security tab reads on open. Reports state only — never the secret,
  * never a backup code, not even a hash of one. */
 export async function GET(req) {
-  const { admin: claims, res } = requireAdmin(req);
+  const { admin: claims, res } = await requireAdmin(req);
   if (res) return res;
 
   const { data: admin, error } = await supabaseAdmin().from('admin_users')
@@ -47,7 +47,7 @@ export async function GET(req) {
  * factor — an emailed code is only ever accepted after the password.
  */
 export async function POST(req) {
-  const { admin: claims, res } = requireAdmin(req);
+  const { admin: claims, res } = await requireAdmin(req);
   if (res) return res;
 
   const { email } = await readJson(req);

@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // re-reads the CURRENT role from the database, and returns the extra tabs only
 // to a genuine Super Admin. A normal admin's response contains no trace of them.
 export async function GET(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
 
   /* Read `scopes` separately so a panel still loads if the migration has not

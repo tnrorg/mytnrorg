@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 // Approve every Pending member in one click.
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const { data, error } = await sb.from('members')
     .update({ status: 'Approved', updated_at: new Date().toISOString() })

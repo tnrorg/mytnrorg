@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
  * fail here, while the admin is still signed in and can simply try again.
  */
 export async function POST(req) {
-  const { admin: claims, res } = requireAdmin(req);
+  const { admin: claims, res } = await requireAdmin(req);
   if (res) return res;
 
   const { code } = await readJson(req);

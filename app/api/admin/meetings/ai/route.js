@@ -27,7 +27,7 @@ export const maxDuration = 300;
  */
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const id = String(new URL(req.url).searchParams.get('meeting_id') || '').trim();
   if (!id) return fail('INVALID', 400, { message: 'Missing meeting.' });
 
@@ -71,7 +71,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const b = await readJson(req);
   const sb = supabaseAdmin();
 

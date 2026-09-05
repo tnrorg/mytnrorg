@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 /** The review queue. Pending first — that is the work. */
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
 
   const status = new URL(req.url).searchParams.get('status') || '';
 

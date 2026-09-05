@@ -18,14 +18,14 @@ const toArray = (v) => Array.isArray(v)
   : String(v || '').split('\n').map(x => x.trim()).filter(Boolean);
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const { data, error } = await supabaseAdmin().from('card_settings').select('*').eq('id', 1).maybeSingle();
   if (error) return fail('READ_FAILED', 500, { message: error.message, hint: 'Run supabase/migration_card_settings.sql' });
   return ok({ settings: data || { id: 1, ...CARD_DEFAULTS } });
 }
 
 export async function PATCH(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const b = await readJson(req);
   const patch = { id: 1, updated_at: new Date().toISOString() };
   for (const f of TEXT_FIELDS) if (f in b) patch[f] = b[f];

@@ -11,7 +11,7 @@ const norm = (r) => (r === 'super_admin' || r === 'superadmin') ? 'super_admin' 
 // Update name / role / password
 export async function PATCH(req, props) {
   const params = await props.params;
-  const { admin, res } = requireSuperAdmin(req);if (res) return res;
+  const { admin, res } = await requireSuperAdmin(req);if (res) return res;
   const id = params.id;
   const b = await readJson(req);
   const sb = supabaseAdmin();
@@ -70,7 +70,7 @@ export async function PATCH(req, props) {
 
 export async function DELETE(req, props) {
   const params = await props.params;
-  const { admin, res } = requireSuperAdmin(req);if (res) return res;
+  const { admin, res } = await requireSuperAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const { data: target } = await sb.from('admin_users').select('id, username, role').eq('id', params.id).maybeSingle();
   if (!target) return fail('NOT_FOUND', 404, { message: 'Admin not found.' });

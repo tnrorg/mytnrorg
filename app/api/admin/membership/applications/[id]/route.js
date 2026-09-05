@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 // Approval is the ONLY path that creates a member and a Membership ID.
 export async function PATCH(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const id = params.id;
   const b = await readJson(req);

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function PATCH(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const id = params.id;
   const b = await readJson(req);
@@ -36,7 +36,7 @@ export async function PATCH(req, props) {
 
 export async function DELETE(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const id = params.id;
   const { data: e } = await sb.from('elections').select('status, result_published, title').eq('id', id).maybeSingle();

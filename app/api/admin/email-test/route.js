@@ -59,7 +59,7 @@ function explain(e) {
 }
 
 export async function GET(req) {
-  const { res } = requireSuperAdmin(req);
+  const { res } = await requireSuperAdmin(req);
   if (res) return res;
 
   const cfg = config();
@@ -83,7 +83,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const { admin, res } = requireSuperAdmin(req);
+  const { admin, res } = await requireSuperAdmin(req);
   if (res) return res;
 
   const body = await readJson(req);

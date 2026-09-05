@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export async function PATCH(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const id = params.id;
   const b = await readJson(req);
@@ -27,7 +27,7 @@ export async function PATCH(req, props) {
 
 export async function DELETE(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const { error } = await sb.from('members').delete().eq('id', params.id);
   if (error) return fail('DELETE_FAILED', 500, { message: error.message });

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 // Append newly-approved members to an ALREADY-LOCKED voter list (safe, additive only).
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const { election_id } = await readJson(req);
   if (!election_id) return fail('MISSING', 400, { message: 'election_id required.' });

@@ -12,7 +12,7 @@ const HINT = 'Run supabase/migration_leadership_messages.sql in the Supabase SQL
 const TEXT_FIELDS = ['heading', 'name', 'designation', 'message'];
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const { data, error } = await supabaseAdmin().from('leadership_messages').select('*').order('sort_order');
   if (error) return fail('READ_FAILED', 500, { message: error.message, hint: HINT });
 
@@ -23,7 +23,7 @@ export async function GET(req) {
 }
 
 export async function PATCH(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const b = await readJson(req);
   const key = String(b.key || '');
   if (!MESSAGE_KEYS.includes(key)) {

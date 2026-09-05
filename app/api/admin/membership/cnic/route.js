@@ -20,7 +20,7 @@ export const fetchCache = 'force-no-store';
  * trace, and it deters casual browsing of members' ID cards.
  */
 export async function GET(req) {
-  const { admin, res } = requireAdmin(req);
+  const { admin, res } = await requireAdmin(req);
   if (res) return res;
 
   const url = new URL(req.url);

@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 // Unlocks the voter list: clears the locked snapshot so EVERY approved member
 // becomes eligible again. Votes are untouched.
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const { election_id } = await readJson(req);
   if (!election_id) return fail('INVALID', 400, { message: 'election_id is required.' });

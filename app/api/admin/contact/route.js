@@ -17,7 +17,7 @@ const FIELDS =
   'status, admin_notes, handled_by, handled_at, created_at';
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
 
   const p = new URL(req.url).searchParams;
   const kind = p.get('kind') || '';

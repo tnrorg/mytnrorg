@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
  * requireAdmin, not by this file.
  */
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
 
   const p = new URL(req.url).searchParams;
   const showRemoved = p.get('removed') === '1';
@@ -61,7 +61,7 @@ export async function GET(req) {
 
 /** Remove a comment. Soft delete — the row and the reason survive. */
 export async function DELETE(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const id = String(new URL(req.url).searchParams.get('id') || '').trim();
   if (!id) return fail('INVALID', 400, { message: 'Missing comment.' });
 
@@ -86,7 +86,7 @@ export async function DELETE(req) {
 
 /** Put a removed comment back — for a moderation call made in error. */
 export async function PATCH(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const id = String(new URL(req.url).searchParams.get('id') || '').trim();
   if (!id) return fail('INVALID', 400, { message: 'Missing comment.' });
 

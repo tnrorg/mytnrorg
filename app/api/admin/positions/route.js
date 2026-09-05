@@ -5,7 +5,7 @@ import { ok, fail, readJson } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const b = await readJson(req);
   if (!b.election_id || !b.title) return fail('MISSING', 400, { message: 'Election and position title required.' });

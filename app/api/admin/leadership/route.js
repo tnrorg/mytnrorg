@@ -15,7 +15,7 @@ const toArray = (v) => Array.isArray(v)
   : String(v || '').split('\n').map(x => x.trim()).filter(Boolean);
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const body = new URL(req.url).searchParams.get('body');
   let q = supabaseAdmin().from('leadership_profiles').select('*').order('body').order('sort_order').order('created_at');
   if (BODIES.includes(body)) q = q.eq('body', body);
@@ -25,7 +25,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const b = await readJson(req);
   if (!BODIES.includes(b.body)) return fail('BAD_BODY', 400, { message: 'Choose Advisory Council or Executive Committee.' });
   if (!b.name && !b.designation) return fail('MISSING', 400, { message: 'Enter a name or a designation.' });

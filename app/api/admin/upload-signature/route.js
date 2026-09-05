@@ -34,7 +34,7 @@ const ALLOWED_FOLDERS = new Set([
 ]);
 
 export async function POST(req) {
-  const { res } = requireAdmin(req);
+  const { res } = await requireAdmin(req);
   if (res) return res;
 
   if (!cloudinaryEnabled()) {

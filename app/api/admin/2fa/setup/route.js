@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  * failed, which is the classic way to make an admin panel unreachable.
  */
 export async function POST(req) {
-  const { admin: claims, res } = requireAdmin(req);
+  const { admin: claims, res } = await requireAdmin(req);
   if (res) return res;
 
   const sb = supabaseAdmin();

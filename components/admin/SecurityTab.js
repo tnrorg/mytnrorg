@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { aGet, aPost } from './adminApi';
+import { aGet, aPost, setToken } from './adminApi';
 import { Card, Toast } from './ui';
 import TwoFactorSetup from './TwoFactorSetup';
-import { ShieldCheck, ShieldOff, Mail, KeyRound } from 'lucide-react';
+import { ShieldCheck, ShieldOff, Mail, KeyRound, Lock } from 'lucide-react';
 
 /* The admin's own security settings. Deliberately scoped to the signed-in
  * account only — there is no "disable 2FA for another admin" control here,
@@ -61,6 +61,8 @@ export default function SecurityTab() {
   return (
     <div className="space-y-4 max-w-lg">
       {toast && <Toast msg={toast.msg} tone={toast.tone} onDone={() => setToast(null)} />}
+
+      <ChangePassword onDone={(msg, tone) => setToast({ msg, tone })} />
 
       <Card>
         <div className="flex items-start gap-3">
@@ -139,3 +141,113 @@ export default function SecurityTab() {
     </div>
   );
 }
+
+/* Changing your own password.
+ *
+ * FIRST, not last, on this screen. A password is the credential every admin
+ * actually has; two-factor is the one some of them have set up. Putting the
+ * universal thing below the optional thing is how a control goes unused.
+ */
+function ChangePassword({ onDone }) {
+  const [open, setOpen] = useState(false);
+  const [cur, setCur] = useState('');
+  const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  const MIN = 10;
+  const tooShort = next.length > 0 && next.length < MIN;
+  const mismatch = again.length > 0 && next !== again;
+  const ready = cur && next.length >= MIN && next === again && !busy;
+
+  function reset() {
+    setCur(''); setNext(''); setAgain(''); setErr(''); setOpen(false);
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    setErr(''); setBusy(true);
+    const r = await aPost('/api/admin/password', {
+      current_password: cur, new_password: next,
+    });
+    setBusy(false);
+
+    if (!r?.ok) {
+      setErr([r?.message, r?.detail].filter(Boolean).join(' '));
+      return;
+    }
+
+    /* Keep THIS device signed in.
+     *
+     * The change revokes every session including the one that made it, so
+     * without swapping in the fresh token the admin is thrown out the instant
+     * they succeed — which reads as a failure and teaches people not to do it.
+     */
+    if (r.token) setToken(r.token);
+    reset();
+    onDone?.(r.message, 'ok');
+  }
+
+  return (
+    <Card>
+      <div className="flex items-start gap-3">
+        <Lock className="text-tnr-cream/50 shrink-0" size={22} />
+        <div className="flex-1">
+          <h3 className="font-bold mb-1">Your password</h3>
+          <p className="text-sm text-tnr-cream/70 mb-3">
+            Change it yourself — nobody else sees it, not even a super admin.
+            Every other device you are signed in on is signed out at the same time.
+          </p>
+
+          {!open && (
+            <button onClick={() => setOpen(true)} className="btn btn-ghost text-sm">
+              Change password
+            </button>
+          )}
+
+          {open && (
+            <form onSubmit={submit} className="space-y-2">
+              <input className="input" type="password" autoComplete="current-password"
+                placeholder="Current password" value={cur}
+                onChange={e => { setCur(e.target.value); setErr(''); }} />
+
+              <input className="input" type="password" autoComplete="new-password"
+                placeholder={`New password (at least ${MIN} characters)`} value={next}
+                onChange={e => { setNext(e.target.value); setErr(''); }} />
+              {tooShort && (
+                <p className="text-[12px] text-amber-300">
+                  {MIN - next.length} more character{MIN - next.length === 1 ? '' : 's'} needed.
+                </p>
+              )}
+
+              <input className="input" type="password" autoComplete="new-password"
+                placeholder="New password again" value={again}
+                onChange={e => { setAgain(e.target.value); setErr(''); }} />
+              {mismatch && (
+                <p className="text-[12px] text-amber-300">The two do not match.</p>
+              )}
+
+              {err && <p className="text-[12.5px] text-red-300">{err}</p>}
+
+              <p className="text-[11.5px] text-tnr-cream/40">
+                A short phrase you can remember is stronger than a short jumble you
+                cannot. Length is what resists guessing.
+              </p>
+
+              <div className="flex gap-2 pt-1">
+                <button type="submit" disabled={!ready} className="btn btn-primary text-sm disabled:opacity-40">
+                  {busy ? 'Changing…' : 'Change password'}
+                </button>
+                <button type="button" onClick={reset} className="btn btn-ghost text-sm">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+

@@ -10,14 +10,14 @@ export const fetchCache = 'force-no-store';
 const HINT = 'Run supabase/migration_projects_v2.sql in the Supabase SQL Editor.';
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const { data, error } = await supabaseAdmin().from('project_settings').select('*').eq('id', 1).maybeSingle();
   if (error) return fail('READ_FAILED', 500, { message: error.message, hint: HINT });
   return ok({ settings: data || { id: 1, currency: 'PKR' } });
 }
 
 export async function PATCH(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const patch = settingsFromBody(await readJson(req));
 
   const { data, error } = await supabaseAdmin().from('project_settings')

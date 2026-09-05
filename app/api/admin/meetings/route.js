@@ -32,7 +32,7 @@ const HINT = 'Administrator: run supabase/migration_meetings.sql.';
 
 // ── List + dashboard counts ────────────────────────────────────────────────
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const p = new URL(req.url).searchParams;
   const status = (p.get('status') || '').trim();
   const type = (p.get('type') || '').trim();
@@ -101,7 +101,7 @@ export async function GET(req) {
 
 // ── Create / update / cancel ───────────────────────────────────────────────
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const b = await readJson(req);
   const sb = supabaseAdmin();
 
@@ -383,7 +383,7 @@ export async function POST(req) {
 
 // ── Delete ─────────────────────────────────────────────────────────────────
 export async function DELETE(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const id = String(new URL(req.url).searchParams.get('id') || '').trim();
   if (!id) return fail('INVALID', 400, { message: 'Missing meeting.' });
 

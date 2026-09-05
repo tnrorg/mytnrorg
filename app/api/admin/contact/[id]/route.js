@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 /** Change a message's status, or add a private note. */
 export async function PATCH(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const b = await readJson(req);
 
   const patch = {};
@@ -41,7 +41,7 @@ export async function PATCH(req, props) {
  */
 export async function DELETE(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   if (!isSuperAdmin(admin)) {
     return fail('FORBIDDEN', 403, {
       message: 'Only a Super Admin can delete a message. Mark it as spam instead.',

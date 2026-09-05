@@ -25,7 +25,7 @@ const MEMBER_COLUMNS =
   'village, union_council, photo_url';
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const p = new URL(req.url).searchParams;
   const oppId = (p.get('opportunity_id') || '').trim();
   const status = (p.get('status') || '').trim();
@@ -122,7 +122,7 @@ export async function GET(req) {
  * without touching the status again.
  */
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const b = await readJson(req);
   const sb = supabaseAdmin();
 

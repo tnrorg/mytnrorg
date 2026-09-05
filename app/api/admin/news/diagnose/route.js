@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  * This answers which one it is, in one request.
  */
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const nowIso = new Date().toISOString();
 

@@ -32,7 +32,7 @@ const LIMITS = {
 const BLANKABLE = new Set(Object.keys(HEADER_DEFAULTS).filter(k => k !== 'header_tagline'));
 
 export async function GET(req) {
-  const { res } = requireAdmin(req);
+  const { res } = await requireAdmin(req);
   if (res) return res;
 
   try {
@@ -56,7 +56,7 @@ export async function GET(req) {
 }
 
 export async function PATCH(req) {
-  const { admin, res } = requireAdmin(req);
+  const { admin, res } = await requireAdmin(req);
   if (res) return res;
 
   const b = await readJson(req);

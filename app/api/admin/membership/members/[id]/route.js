@@ -13,7 +13,7 @@ const STATUSES = ['approved', 'active', 'suspended', 'inactive', 'expired'];
 // Membership ID can never be altered here.
 export async function PATCH(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const b = await readJson(req);
   const ip = clientIp(req);
@@ -137,7 +137,7 @@ export async function PATCH(req, props) {
 // re-registration just as effectively as the member row did.
 export async function DELETE(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const ip = clientIp(req);
 

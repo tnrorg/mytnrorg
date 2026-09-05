@@ -10,7 +10,7 @@ export const fetchCache = 'force-no-store';
 const HINT = 'Run supabase/migration_areas.sql';
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const { data: ucs, error } = await sb.from('membership_union_councils')
     .select('*').order('sort_order').order('name');
@@ -26,7 +26,7 @@ export async function GET(req) {
 
 // body: { type: 'council' | 'village', name, union_council_id?, sort_order? }
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const b = await readJson(req);
   // Tidied on the way in, so a stray space cannot create a duplicate area.
   const name = cleanAreaName(b.name);

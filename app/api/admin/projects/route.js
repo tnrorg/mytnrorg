@@ -12,7 +12,7 @@ export const fetchCache = 'force-no-store';
 const HINT = 'Run supabase/migration_projects_v2.sql in the Supabase SQL Editor.';
 
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const { data, error } = await supabaseAdmin().from('tnr_projects')
     .select('*').order('sort_order').order('created_at', { ascending: false });
   if (error) return fail('READ_FAILED', 500, { message: error.message, hint: HINT });
@@ -20,7 +20,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const b = await readJson(req);
   if (!String(b.title || '').trim()) {
     return fail('MISSING', 400, { message: 'Give the project a title.' });

@@ -13,7 +13,7 @@ const HINT = 'Run supabase/migration_institutions.sql in the Supabase SQL Editor
 
 export async function PATCH(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const b = await readJson(req);
 
   // Partial: publishing or hiding cannot blank out the staffing figures.
@@ -41,7 +41,7 @@ export async function PATCH(req, props) {
 
 export async function DELETE(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
 
   const { data: before } = await sb.from('tnr_institutions').select('name').eq('id', params.id).maybeSingle();

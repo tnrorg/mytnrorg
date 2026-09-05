@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 // Candidates, positions and members are NEVER touched.
 export async function POST(req, props) {
   const params = await props.params;
-  const { admin, res } = requireSuperAdmin(req);if (res) return res;
+  const { admin, res } = await requireSuperAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const id = params.id;
   const b = await readJson(req);

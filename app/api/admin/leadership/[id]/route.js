@@ -11,7 +11,7 @@ const toArray = (v) => Array.isArray(v)
 
 export async function PATCH(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const b = await readJson(req);
   const patch = { updated_at: new Date().toISOString() };
   // `body` is editable so a profile saved under the wrong tab can be moved
@@ -43,7 +43,7 @@ export async function PATCH(req, props) {
 
 export async function DELETE(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const { error } = await supabaseAdmin().from('leadership_profiles').delete().eq('id', params.id);
   if (error) return fail('DELETE_FAILED', 500, { message: error.message });
   await logAudit({ action: 'LEADERSHIP_DELETED', actor: admin.username, details: params.id, ip: clientIp(req) });

@@ -2,14 +2,15 @@
   "name": "tnr-election-portal",
   "version": "1.0.0",
   "private": true,
-  "description": "Tehreek-e-Nojawanan Roundu (TNR) — Digital Community Platform",
+  "description": "Tehreek-e-Nojawanan Roundu (TNR) \u2014 Digital Community Platform",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/check-guard-await.js && next build",
     "start": "next start",
     "lint": "next lint",
     "check": "node scripts/check-undefined.js",
-    "prebuild": "node scripts/check-undefined.js"
+    "prebuild": "node scripts/check-undefined.js",
+    "check:guard": "node scripts/check-guard-await.js"
   },
   "dependencies": {
     "@livekit/components-react": "^2.9.24",
@@ -46,7 +47,7 @@
   "//overrides": [
     "Next 15.5.25 ships its own nested copy of postcss 8.4.x, which carries four",
     "advisories (the sourceMappingURL path-traversal chain and the </style> XSS).",
-    "npm's only offered fix was next@16 — a second major upgrade for one nested",
+    "npm's only offered fix was next@16 \u2014 a second major upgrade for one nested",
     "dependency. postcss 8.4 to 8.5 is a minor with no API break, so forcing the",
     "nested copy up is the smaller change. Verified against a production build.",
     "",

@@ -6,7 +6,7 @@ import { ok, fail } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const url = new URL(req.url);
   const action = url.searchParams.get('action') || '';

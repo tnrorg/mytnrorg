@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function PATCH(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   const b = await readJson(req);
   const patch = {};
@@ -19,7 +19,7 @@ export async function PATCH(req, props) {
 }
 export async function DELETE(req, props) {
   const params = await props.params;
-  const { admin, res } = requireAdmin(req);if (res) return res;
+  const { admin, res } = await requireAdmin(req);if (res) return res;
   const sb = supabaseAdmin();
   // Candidates keep existing (their position_id is set null by FK). Block if the election has votes for this position.
   const { count } = await sb.from('votes').select('*', { count: 'exact', head: true }).eq('position_id', params.id);

@@ -11,7 +11,7 @@ const HINT = 'Run supabase/migration_cec_recruitment.sql in the Supabase SQL Edi
  * is the panel's working view, and it sits behind requireAdmin. Nothing from
  * this table is exposed by any public endpoint. */
 export async function GET(req) {
-  const { res } = requireAdmin(req); if (res) return res;
+  const { res } = await requireAdmin(req); if (res) return res;
   const url = new URL(req.url);
   const status = url.searchParams.get('status') || '';
   const vacancy = url.searchParams.get('vacancy') || '';

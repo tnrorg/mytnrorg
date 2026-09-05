@@ -6,7 +6,7 @@ import { ok, fail, readJson } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req) {
-  const { admin, res } = requireAdmin(req); if (res) return res;
+  const { admin, res } = await requireAdmin(req); if (res) return res;
   const sb = supabaseAdmin();
   const { rows, default_status } = await readJson(req);
   if (!Array.isArray(rows) || !rows.length) return fail('NO_ROWS', 400, { message: 'No rows to import.' });
