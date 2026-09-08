@@ -356,17 +356,33 @@ export async function POST(req) {
   const targets = Array.isArray(b.audience) ? b.audience : [];
   const explicit = Array.isArray(b.member_ids) ? b.member_ids : [];
 
+  const staff = [
+    { id: row.host_id, via: 'host', role: 'host' },
+    ...coHosts.map(id => ({ id, via: 'co_host', role: 'co_host' })),
+  ];
+
+  /* THE HOST AND CO-HOSTS ARE INVITED EVERY TIME, audience or not.
+   *
+   * This used to sit inside the `if` below, which only runs when the audience
+   * changed or the meeting is new. So editing an existing meeting purely to
+   * ADD A CO-HOST wrote them to meetings.co_host_ids and stopped there: they
+   * had the powers, because roleInMeeting reads that column — but no
+   * participant row. Which meant no invitation email, no place on the
+   * participant list, and no line in the attendance report. Present in the
+   * room, absent from the record.
+   *
+   * upsert with ignoreDuplicates, so re-saving a meeting never resets an
+   * existing invitation or overwrites someone's accepted status. */
+  const staffInvite = await inviteMembers(row.id, staff);
+  invited = { added: staffInvite.added || 0 };
+
   if (targets.length || explicit.length || !b.id) {
     const people = await resolveAudience(targets, explicit);
-    const staff = [
-      { id: row.host_id, via: 'host', role: 'host' },
-      ...coHosts.map(id => ({ id, via: 'co_host', role: 'co_host' })),
-    ];
-    // Staff first so their role wins if they also appear in a group target.
-    invited = await inviteMembers(row.id, [
-      ...staff,
-      ...people.filter(p => !staff.some(s => String(s.id) === String(p.id))),
-    ]);
+    // Staff already added above, so they are filtered out here rather than
+    // being sent twice with a weaker role.
+    const rest = await inviteMembers(row.id,
+      people.filter(p => !staff.some(s => String(s.id) === String(p.id))));
+    invited = { added: (invited.added || 0) + (rest.added || 0) };
 
     if (!b.id && invited.added) notice = await notifyMeeting(row, 'created');
   }

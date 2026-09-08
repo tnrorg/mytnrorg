@@ -42,6 +42,14 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
   const [hostQ, setHostQ] = useState('');
   const [hostFound, setHostFound] = useState([]);
   const [host, setHost] = useState(null);
+
+  /* Co-hosts. The database, the permission model and the room have supported
+   * them from the start — roleInMeeting returns 'co_host' and isHostLike grants
+   * admit, mute and remove — but nothing in this form ever set them, so the
+   * field could only ever be empty. This is the missing picker. */
+  const [coQ, setCoQ] = useState('');
+  const [coFound, setCoFound] = useState([]);
+  const [coHosts, setCoHosts] = useState([]);      // resolved members, for display
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
   const [emailInvites, setEmailInvites] = useState(true);
@@ -77,6 +85,7 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
         password: undefined,
       });
       setHost(r.host || null);
+      setCoHosts(r.coHosts || []);
     });
     // `tz` is deliberately not a dependency: this runs once on mount, when tz
     // is still TNR_TZ. Later zone changes are handled by the select itself,
@@ -94,6 +103,16 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
     }, 300);
     return () => clearTimeout(t);
   }, [hostQ]);
+
+  useEffect(() => {
+    const term = coQ.trim();
+    if (term.length < 2) { setCoFound([]); return; }
+    const t = setTimeout(() => {
+      aGet(`/api/admin/meetings/audience?q=${encodeURIComponent(term)}`)
+        .then(r => setCoFound(r?.ok ? r.members : []));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [coQ]);
 
   const set = (k, v) => setF(prev => ({ ...prev, [k]: v }));
 
@@ -309,6 +328,63 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
             </>
           )}
           <Err k="host_id" />
+        </section>
+
+        {/* ── Co-hosts ── */}
+        <section>
+          <span className="mb-1 block text-xs text-gray-500">
+            Co-hosts <span className="text-gray-400">(optional)</span>
+          </span>
+          <p className="mb-2 text-[11.5px] leading-relaxed text-gray-500">
+            Co-hosts can admit people from the waiting room, mute, and remove someone
+            — so the meeting keeps running if the host&apos;s connection drops.
+            <b className="text-gray-600"> Only the host can end the meeting for everyone.</b>
+          </p>
+
+          {!!coHosts.length && (
+            <ul className="mb-2 flex flex-wrap gap-1.5">
+              {coHosts.map(m => (
+                <li key={m.id}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-2.5 py-1">
+                  <span className="text-[12.5px] text-gray-700">{m.full_name}</span>
+                  <span className="font-mono text-[10.5px] text-gray-400">{m.membership_id}</span>
+                  <button type="button"
+                    onClick={() => {
+                      setCoHosts(list => list.filter(x => x.id !== m.id));
+                      set('co_host_ids', (f.co_host_ids || []).filter(id => id !== m.id));
+                    }}
+                    className="text-gray-400 hover:text-red-600" title="Remove">×</button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <input value={coQ} onChange={e => setCoQ(e.target.value)} className={input}
+            placeholder="Search a member to add as co-host…" />
+          {!!coFound.length && (
+            <ul className="mt-2 max-h-44 divide-y divide-gray-100 overflow-y-auto rounded-xl border border-gray-200">
+              {coFound
+                /* Never offer the host, and never offer someone already added —
+                 * a person listed as both host and co-host would be counted
+                 * twice in the panel and read as two people. */
+                .filter(m => m.id !== f.host_id && !coHosts.some(x => x.id === m.id))
+                .map(m => (
+                  <li key={m.id}>
+                    <button type="button"
+                      onClick={() => {
+                        setCoHosts(list => [...list, m]);
+                        set('co_host_ids', [...new Set([...(f.co_host_ids || []), m.id])]);
+                        setCoQ(''); setCoFound([]);
+                      }}
+                      className="w-full px-3 py-2 text-left hover:bg-gray-50">
+                      <span className="block text-[13px] font-semibold text-gray-800">{m.full_name}</span>
+                      <span className="block font-mono text-[11px] text-gray-400">{m.membership_id}</span>
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          )}
+          <Err k="co_host_ids" />
         </section>
 
         {/* ── Who ── */}
