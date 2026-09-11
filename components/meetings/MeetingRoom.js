@@ -1,7 +1,7 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  LiveKitRoom, RoomAudioRenderer, StartAudio, GridLayout,
+  LiveKitRoom, RoomAudioRenderer, StartAudio, GridLayout, TrackRefContext,
   MediaDeviceMenu, useTracks, useLocalParticipant, useRoomContext,
   useConnectionState, useParticipants, useDataChannel,
 } from '@livekit/components-react';
@@ -224,11 +224,7 @@ function RoomShell({ id, data, onLeave }) {
               background: `radial-gradient(1200px 600px at 50% -10%, #0B5540 0%, ${C.deep} 55%, #041E16 100%)`,
               boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.06)',
             }}>
-            <GridLayout tracks={tracks} style={{ height: '100%' }}>
-              {/* Our tile: a real <video> when the camera is live, the
-                  member's own TNR photograph when it is not. See TnrTile. */}
-              <TnrTile />
-            </GridLayout>
+            <Stage tracks={tracks} />
           </div>
         </div>
 
@@ -283,6 +279,150 @@ function RoomShell({ id, data, onLeave }) {
           text-sm font-bold text-white shadow-lg"
         style={{ background: C.green }} />
     </>
+  );
+}
+
+/* ── The stage ────────────────────────────────────────────────────────────
+ *
+ * TWO LAYOUTS, chosen by whether anyone is sharing a screen.
+ *
+ *   Nobody sharing → the equal grid of faces. Unchanged.
+ *
+ *   Someone sharing → PRESENTATION. The shared screen takes the whole stage
+ *   and the audience moves to a rail down the LEFT.
+ *
+ * Why this is not a nicety: in the equal grid a shared screen is one tile the
+ * same size as everyone's face. On a laptop with twelve people in the room
+ * that is a slide roughly two inches wide — the text on it is unreadable, and
+ * the presenter has no way to know. A speaker sharing a budget sheet to a
+ * committee that cannot read it is the meeting failing quietly.
+ *
+ * The faces do NOT go away. Reading the room is most of why the meeting is on
+ * video at all, and a presenter who loses every face while presenting is
+ * talking into a wall. So the rail keeps everyone visible, small but live —
+ * cameras, mic state, raised hands and the gold speaking ring all still work,
+ * because the rail renders the same TnrTile the grid does.
+ */
+function Stage({ tracks }) {
+  const screens = tracks.filter(t => t.source === Track.Source.ScreenShare);
+  const cams = tracks.filter(t => t.source !== Track.Source.ScreenShare);
+
+  if (!screens.length) {
+    return (
+      <GridLayout tracks={tracks} style={{ height: '100%' }}>
+        {/* Our tile: a real <video> when the camera is live, the
+            member's own TNR photograph when it is not. See TnrTile. */}
+        <TnrTile />
+      </GridLayout>
+    );
+  }
+  return <Presentation screens={screens} cams={cams} />;
+}
+
+/* A key that survives a re-render.
+ *
+ * identity + source is not enough on its own: a placeholder entry (camera off)
+ * carries no publication, and the moment the member turns their camera on the
+ * entry gains one. Including the sid means React replaces that tile instead of
+ * trying to reuse a <video> that was never attached to anything. */
+const trackKey = t =>
+  `${t?.participant?.identity || '?'}_${t?.source}_${t?.publication?.trackSid || 'off'}`;
+
+function Presentation({ screens, cams }) {
+  const boxRef = useRef(null);
+  const [full, setFull] = useState(false);
+
+  /* Track the browser's fullscreen state rather than our own boolean. The user
+   * can leave fullscreen with Escape or the F11 key without touching our
+   * button, and a label that then still reads "Exit full screen" is a button
+   * that lies. */
+  useEffect(() => {
+    const sync = () => setFull(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+
+  const toggleFull = useCallback(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    try {
+      if (document.fullscreenElement) {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        exit?.call(document);
+      } else {
+        const go = el.requestFullscreen || el.webkitRequestFullscreen;
+        /* iPhone Safari has no fullscreen for a <div> at all. Swallowing the
+         * rejection keeps the meeting running: the share is already filling
+         * the stage, so failing to go fullscreen costs the browser chrome and
+         * nothing else. */
+        Promise.resolve(go?.call(el)).catch(() => {});
+      }
+    } catch { /* not available — the stage layout is enough */ }
+  }, []);
+
+  /* Host and co-hosts at the top of the rail. In a thirty-person room the
+   * person chairing is the one you look for, and hunting for them in a
+   * scrolling column is exactly the friction the rail exists to remove. */
+  const rail = useMemo(() => {
+    const rank = (t) => {
+      const role = readMeta(t?.participant)?.role;
+      return role === 'host' ? 0 : role === 'co_host' ? 1 : 2;
+    };
+    return [...cams].sort((a, b) => rank(a) - rank(b));
+  }, [cams]);
+
+  return (
+    <div ref={boxRef}
+      className="flex h-full flex-col gap-2 md:flex-row"
+      style={{ background: full ? '#04211A' : undefined, padding: full ? '.5rem' : undefined }}>
+
+      {/* ── The audience ──
+       *
+       * LEFT on a laptop, a horizontal strip UNDER the share on a phone. A
+       * 180px column on a 375px screen would leave the slide 190px wide,
+       * which loses the very thing presentation mode is for. */}
+      <aside className="order-2 flex shrink-0 gap-2 overflow-x-auto pb-1 md:order-1 md:w-[168px]
+        md:flex-col md:overflow-x-hidden md:overflow-y-auto md:pb-0 lg:w-[208px]"
+        aria-label="Participants">
+        {rail.map(t => (
+          <div key={trackKey(t)} className="aspect-video w-[124px] shrink-0 md:w-full">
+            {/* GridLayout normally supplies this context to each child. Here we
+                place tiles ourselves, so we provide it ourselves — TnrTile is
+                otherwise identical to the one in the grid. */}
+            <TrackRefContext.Provider value={t}>
+              <TnrTile />
+            </TrackRefContext.Provider>
+          </div>
+        ))}
+      </aside>
+
+      {/* ── The shared screen ── */}
+      <div className="group relative order-1 min-h-0 min-w-0 flex-1 md:order-2">
+        <div className={`grid h-full min-h-0 gap-2 ${screens.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          {screens.map(t => (
+            <div key={trackKey(t)} className="min-h-0 min-w-0">
+              <TrackRefContext.Provider value={t}>
+                <TnrTile />
+              </TrackRefContext.Provider>
+            </div>
+          ))}
+        </div>
+
+        {/* Always visible, not hover-only.
+         *
+         * A `group-hover` reveal is invisible and unreachable on every phone
+         * and tablet, which is how a large part of the membership joins. So it
+         * sits at 65% and comes forward on hover or focus instead. */}
+        <button type="button" onClick={toggleFull}
+          className="absolute right-3 top-3 z-10 rounded-lg px-2.5 py-1.5 text-[11px] font-bold
+            text-white opacity-65 shadow-lg backdrop-blur-sm transition-opacity
+            hover:opacity-100 focus:opacity-100"
+          style={{ background: 'rgba(3,25,18,.72)' }}
+          title={full ? 'Exit full screen (Esc)' : 'Full screen'}>
+          {full ? '✕  Exit full screen' : '⛶  Full screen'}
+        </button>
+      </div>
+    </div>
   );
 }
 
