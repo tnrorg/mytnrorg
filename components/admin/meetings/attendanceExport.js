@@ -44,7 +44,7 @@ export function exportAttendanceCsv(meeting, list, summary) {
   const lines = [
     [`TNR Meeting Attendance`],
     [meeting.title],
-    [`${typeLabel(meeting.meeting_type)} · ${fmtDateTime(meeting.scheduled_at)}`],
+    [`${typeLabel(meeting)} · ${fmtDateTime(meeting.scheduled_at)}`],
     [`Invited ${summary.invited} · Attended ${summary.attended} · Average ${summary.average_percentage}%`],
     [RULE(summary)],
     [`Generated ${new Date().toLocaleString()}`],
@@ -85,7 +85,7 @@ export async function exportAttendancePdf(meeting, list, summary) {
   doc.text(meeting.title, 12, 20);
 
   doc.setTextColor(70); doc.setFontSize(8);
-  doc.text(`${typeLabel(meeting.meeting_type)} · ${fmtDateTime(meeting.scheduled_at)}`, 12, 32);
+  doc.text(`${typeLabel(meeting)} · ${fmtDateTime(meeting.scheduled_at)}`, 12, 32);
   doc.text(
     `Invited ${summary.invited}  ·  Attended ${summary.attended}  ·  Present ${summary.present}  ·  `
     + `Partial ${summary.partial}  ·  Absent ${summary.absent}  ·  Average ${summary.average_percentage}%`,

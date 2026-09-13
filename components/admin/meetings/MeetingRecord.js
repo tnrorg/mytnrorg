@@ -60,7 +60,7 @@ export default function MeetingRecord({ meeting, onBack, toast }) {
             <span className="mr-1.5">{typeIcon(m.meeting_type)}</span>{m.title}
           </h2>
           <p className="text-sm text-tnr-cream/50">
-            {typeLabel(m.meeting_type)} · {fmtDateTime(m.scheduled_at)}
+            {typeLabel(m)} · {fmtDateTime(m.scheduled_at)}
           </p>
         </div>
         <div className="flex items-center gap-2">

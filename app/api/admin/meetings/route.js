@@ -22,6 +22,25 @@ export const revalidate = 0;
 
 const HINT = 'Administrator: run supabase/migration_meetings.sql.';
 
+/* Name the exact file when the database rejects a new meeting type.
+ *
+ * Seminar and Other both need migration_meeting_types.sql: one widens a CHECK
+ * constraint, the other adds a column. Until it runs, Postgres refuses the
+ * write — and the raw message ("violates check constraint
+ * meetings_meeting_type_check") tells an office bearer nothing they can act
+ * on. They would report the scheduler as broken, which is exactly the loop
+ * this whole session has been stuck in. */
+function typeMigrationHint(error) {
+  const msg = String(error?.message || '');
+  const missingColumn = /meeting_type_other/.test(msg) || error?.code === '42703';
+  const badType = /meetings_meeting_type_check|meetings_other_needs_label/.test(msg)
+    || error?.code === '23514';
+  if (!missingColumn && !badType) return null;
+  return 'The database has not been updated for the new meeting types yet. '
+       + 'Administrator: run supabase/migration_meeting_types.sql in Supabase, '
+       + 'then save again. Until then, please choose one of the original types.';
+}
+
 /* Admin management of TNR Meetings.
  *
  * Reached under the `meetings` permission area (lib/adminScopes.js), enforced
@@ -290,6 +309,16 @@ export async function POST(req) {
     description: txt(b.description),
     agenda: txt(b.agenda),
     meeting_type: b.meeting_type,
+    /* Cleared unless the type really is 'other'.
+     *
+     * Without the else-null branch, an admin who picks "Other", types
+     * "Book Launch", then changes their mind and picks "Seminar" leaves the
+     * old text sitting in the column. It is invisible in the form and
+     * harmless today — until someone writes a report that reads the column
+     * without checking the type, and half the seminars are book launches. */
+    meeting_type_other: b.meeting_type === 'other'
+      ? String(b.meeting_type_other || '').trim().slice(0, 60)
+      : null,
     scheduled_at: new Date(b.scheduled_at).toISOString(),
     duration_minutes: Math.min(DURATION_MAX, Math.max(DURATION_MIN, Number(b.duration_minutes) || 60)),
     host_id: b.host_id,
@@ -319,7 +348,13 @@ export async function POST(req) {
 
     const { data, error } = await sb.from('meetings')
       .update(patch).eq('id', b.id).select('*').single();
-    if (error) return fail('SAVE_FAILED', 500, { message: 'Could not save.', detail: error.message, hint: HINT });
+    if (error) {
+      const typeHint = typeMigrationHint(error);
+      return fail('SAVE_FAILED', 500, {
+        message: typeHint || 'Could not save.',
+        detail: error.message, hint: typeHint ? undefined : HINT,
+      });
+    }
     row = data;
 
     // Only announce a move if the time actually moved. An admin fixing a typo
@@ -338,7 +373,13 @@ export async function POST(req) {
     patch.created_by = admin?.username || 'admin';
 
     const { data, error } = await sb.from('meetings').insert(patch).select('*').single();
-    if (error) return fail('SAVE_FAILED', 500, { message: 'Could not create.', detail: error.message, hint: HINT });
+    if (error) {
+      const typeHint = typeMigrationHint(error);
+      return fail('SAVE_FAILED', 500, {
+        message: typeHint || 'Could not create.',
+        detail: error.message, hint: typeHint ? undefined : HINT,
+      });
+    }
     row = data;
 
     await logAudit({

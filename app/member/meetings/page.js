@@ -69,7 +69,7 @@ export default function MyMeetings() {
                 <div className="min-w-0 flex-1">
                   <div className="font-bold text-red-900 truncate">{m.title}</div>
                   <div className="text-[12px] text-red-700">
-                    {typeLabel(m.meeting_type)} · started {relativeTime(m.started_at || m.scheduled_at)}
+                    {typeLabel(m)} · started {relativeTime(m.started_at || m.scheduled_at)}
                   </div>
                 </div>
                 <span className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white">
@@ -151,7 +151,7 @@ function MeetingCard({ m }) {
           </div>
 
           <p className="mt-1 text-[13px] text-gray-500">
-            {typeLabel(m.meeting_type)} · {fmtDateTime(m.scheduled_at)}
+            {typeLabel(m)} · {fmtDateTime(m.scheduled_at)}
             {/* Members abroad get their own clock from fmtDateTime, which
                 renders in the browser, plus the organisation's — the number
                 everyone else in the room will be quoting. */}

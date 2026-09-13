@@ -84,7 +84,7 @@ export default function MeetingDetail(props) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-lg">{typeIcon(m.meeting_type)}</span>
             <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider">
-              {typeLabel(m.meeting_type)}
+              {typeLabel(m)}
             </span>
             <span className="rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider"
               style={{ background: tone.bg, color: tone.fg }}>
@@ -169,7 +169,7 @@ export default function MeetingDetail(props) {
           <Panel title="Details">
             <Row k="Date & time" v={fmtDateTime(m.scheduled_at)} />
             <Row k="Duration" v={`${m.duration_minutes} minutes`} />
-            <Row k="Type" v={typeLabel(m.meeting_type)} />
+            <Row k="Type" v={typeLabel(m)} />
             <Row k="Invited" v={`${d.participant_count} member(s)`} />
             <Row k="Waiting room" v={m.waiting_room_enabled ? 'On' : 'Off'} />
             <Row k="Recording" v={m.recording_enabled ? 'Enabled' : 'Off'} />

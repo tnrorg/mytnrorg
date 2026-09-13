@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { aGet, aPost } from '../adminApi';
 import AudiencePicker from './AudiencePicker';
 import {
-  MEETING_TYPES, DURATION_MIN, DURATION_MAX,
+  MEETING_TYPES, OTHER_MAX, DURATION_MIN, DURATION_MAX,
   zonedToUtc, utcToZonedInput, fmtMeetingTime, browserTz,
   SCHEDULE_ZONES, TNR_TZ,
 } from '@/lib/meetings';
@@ -28,6 +28,7 @@ const input =
  */
 const BLANK = {
   title: '', description: '', agenda: '', meeting_type: 'general',
+  meeting_type_other: '',
   scheduled_at: '', duration_minutes: 60,
   host_id: '', co_host_ids: [],
   waiting_room_enabled: true, recording_enabled: false,
@@ -228,6 +229,29 @@ export default function MeetingEditor({ meeting, onClose, onSaved, toast }) {
             </select>
             <Err k="meeting_type" />
           </label>
+
+          {/* ── Your own type ──
+           *
+           * Appears only when "Other" is chosen. A text box sitting there
+           * permanently, greyed out nine times out of ten, teaches people to
+           * stop reading the form. */}
+          {f.meeting_type === 'other' && (
+            <label className="block">
+              <span className="mb-1 block text-xs text-gray-500">
+                What kind of meeting? *
+              </span>
+              <input value={f.meeting_type_other || ''}
+                onChange={e => set('meeting_type_other', e.target.value.slice(0, OTHER_MAX))}
+                className={input} maxLength={OTHER_MAX} autoFocus
+                placeholder="e.g. Fundraising Drive, Book Launch, Sports Committee" />
+              <span className="mt-1 block text-[11px] text-gray-400">
+                This is what members will see in their invitation, in My Meetings
+                and on the attendance report — so write it the way it should be
+                read. {OTHER_MAX - String(f.meeting_type_other || '').length} characters left.
+              </span>
+              <Err k="meeting_type_other" />
+            </label>
+          )}
 
           <label className="block">
             <span className="mb-1 block text-xs text-gray-500">Agenda</span>

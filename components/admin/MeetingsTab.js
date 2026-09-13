@@ -249,7 +249,7 @@ export default function MeetingsTab({ toast }) {
                       <span className="mr-1.5">{typeIcon(m.meeting_type)}</span>{m.title}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-tnr-cream/60">
-                      {typeLabel(m.meeting_type)}
+                      {typeLabel(m)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-tnr-cream/60">
                       {m.host?.full_name || '—'}
