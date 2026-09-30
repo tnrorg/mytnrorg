@@ -1,5 +1,6 @@
 'use client';
 import DocPage, { Section, P, TickList, Callout, C } from '@/components/site/DocPage';
+import UcCoordinatorCallout from '@/components/site/UcCoordinatorCallout';
 import { OFFICE_BEARERS, OTHER_OFFICE_BEARERS, CORE_LEADERSHIP_CRITERIA } from '@/content/aboutTnr';
 
 export default function OfficeBearersPage() {
@@ -7,6 +8,14 @@ export default function OfficeBearersPage() {
     <DocPage eyebrow="Governance" title="Office Bearers"
       lead="Eligibility criteria and responsibilities for each leadership position."
       source="TNR Governance Handbook — Chapter 4, Clauses 4.4–4.11.">
+
+      {/* At the top, and only while a call is actually open.
+       *
+       * Someone reading the eligibility criteria for a leadership position is
+       * the single most likely person on the site to want to apply for one —
+       * so the invitation belongs here, above the criteria they are about to
+       * measure themselves against, rather than buried after them. */}
+      <UcCoordinatorCallout />
 
       <Section title="General Requirements">
         <P>Every office bearer must first meet the core leadership criteria:</P>
