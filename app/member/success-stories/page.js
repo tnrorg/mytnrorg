@@ -14,7 +14,11 @@ const input =
 
 const BLANK = {
   kind: 'degree', title: '', organisation: '', description: '',
-  achieved_on: '', image_url: '',
+  achieved_on: '',
+  /* image_data carries a newly chosen photo as a data: URL; image_url is what
+   * is already stored when editing. The server reads only image_data — see
+   * resolveImage in the route for why a client-supplied image_url is refused. */
+  image_data: undefined, image_url: '',
 };
 
 /* My Success Stories.
@@ -169,16 +173,11 @@ export default function MySuccessStories() {
               <Err e={errors.description} />
             </label>
 
-            <label className="mb-4 block">
-              <span className="mb-1 block text-xs text-gray-500">
-                Photo link <span className="text-gray-400">(optional)</span>
-              </span>
-              <input value={f.image_url} onChange={e => set('image_url', e.target.value)}
-                className={input} placeholder="https://… a photo of the certificate or the day" />
-              <span className="mt-1 block text-[11.5px] text-gray-400">
-                Optional. Your profile photograph is used on the card either way.
-              </span>
-            </label>
+            <PhotoPicker
+              value={f.image_data === null ? null : (f.image_data || f.image_url)}
+              onPick={(dataUrl) => set('image_data', dataUrl)}
+              onClear={() => setF(p => ({ ...p, image_data: null, image_url: '' }))}
+              error={errors.image} />
 
             <div className="flex gap-2">
               <button type="button" onClick={() => setF(null)} disabled={busy}
@@ -276,4 +275,117 @@ export default function MySuccessStories() {
 function Err({ e }) {
   if (!e) return null;
   return <span className="mt-1 block text-[12.5px] font-medium" style={{ color: '#B4271F' }}>{e}</span>;
+}
+
+/* ── Photo of the achievement ──────────────────────────────────────────────
+ *
+ * A FILE PICKER, not a URL box. Asking a member to paste a link means asking
+ * them to host the picture somewhere first — which most people cannot do, and
+ * those who can end up pasting a Google Drive or WhatsApp link that stops
+ * working the moment permissions change. A card whose photo has gone dead is
+ * worse than a card with no photo.
+ *
+ * THE IMAGE IS SHRUNK IN THE BROWSER BEFORE IT IS SENT. A phone camera photo
+ * is 4–12 MB; Vercel refuses a request body over about 4.5 MB before any of
+ * our code runs, so an unresized upload from a modern phone would fail with a
+ * platform error the member could do nothing about. Resizing to 1400px and
+ * re-encoding as JPEG puts a typical photo between 200 and 500 KB — well
+ * inside the limit, and still sharp enough to read a certificate.
+ */
+const MAX_EDGE = 1400;
+const MAX_SOURCE_BYTES = 12 * 1024 * 1024;
+
+function PhotoPicker({ value, onPick, onClear, error }) {
+  const [busy, setBusy] = useState(false);
+  const [localErr, setLocalErr] = useState('');
+
+  function pick(file) {
+    setLocalErr('');
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
+      return setLocalErr('Please choose a JPG, PNG or WEBP image.');
+    }
+    /* A guard on the SOURCE file as well as the output. Decoding a 60 MB image
+     * on a mid-range phone can hang the browser tab for long enough that the
+     * member thinks the site has crashed. */
+    if (file.size > MAX_SOURCE_BYTES) {
+      return setLocalErr('That image is very large. Please choose one under 12 MB.');
+    }
+
+    setBusy(true);
+    const reader = new FileReader();
+    reader.onerror = () => { setBusy(false); setLocalErr('That file could not be read.'); };
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => { setBusy(false); setLocalErr('That image could not be opened.'); };
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, MAX_EDGE / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          const ctx = c.getContext('2d');
+          /* White behind the image. A PNG with transparency re-encoded as JPEG
+           * gets a BLACK background otherwise, which turns a scanned
+           * certificate into a black rectangle. */
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          onPick(c.toDataURL('image/jpeg', 0.82));
+        } catch {
+          setLocalErr('That image could not be processed. Please try another.');
+        }
+        setBusy(false);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  return (
+    <div className="mb-4">
+      <span className="mb-1 block text-xs text-gray-500">
+        Photo <span className="text-gray-400">(optional)</span>
+      </span>
+
+      {value ? (
+        <div className="flex flex-wrap items-start gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={value} alt="" className="h-28 w-40 rounded-xl object-cover"
+            style={{ boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.08)' }} />
+          <div className="flex flex-col gap-1.5">
+            <label className="cursor-pointer rounded-lg border px-3 py-1.5 text-center text-[12.5px] font-bold"
+              style={{ borderColor: '#DDE3DF', color: '#3A4842' }}>
+              Choose a different photo
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                onChange={e => pick(e.target.files?.[0])} />
+            </label>
+            <button type="button" onClick={() => { setLocalErr(''); onClear(); }}
+              className="rounded-lg px-3 py-1.5 text-[12.5px] font-bold" style={{ color: '#8A2F2F' }}>
+              Remove photo
+            </button>
+          </div>
+        </div>
+      ) : (
+        <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-7 text-center"
+          style={{ borderColor: '#DDE3DF' }}>
+          <span className="text-[24px]">📷</span>
+          <span className="mt-1 text-[13.5px] font-bold" style={{ color: C.green }}>
+            {busy ? 'Preparing…' : 'Choose a photo'}
+          </span>
+          <span className="mt-0.5 text-[11.5px] text-gray-400">
+            Your certificate, the convocation, your first day — JPG, PNG or WEBP
+          </span>
+          <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+            disabled={busy} onChange={e => pick(e.target.files?.[0])} />
+        </label>
+      )}
+
+      <span className="mt-1 block text-[11.5px] text-gray-400">
+        Optional — your profile photograph appears on the card either way.
+      </span>
+      <Err e={localErr || error} />
+    </div>
+  );
 }

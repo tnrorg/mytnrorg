@@ -1,5 +1,6 @@
 import { requireMember } from '@/lib/membership/auth';
 import { supabaseAdmin } from '@/lib/supabaseServer';
+import { uploadDataUrl } from '@/lib/storage';
 import { ok, fail, readJson } from '@/lib/api';
 import {
   validateStory, canMemberEdit, MAX_PENDING,
@@ -8,6 +9,11 @@ import {
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+/* An image upload goes to Cloudinary (or Supabase Storage) inside the request.
+ * On a slow connection from Roundu that is comfortably more than the default
+ * ten seconds, and a submission killed mid-upload loses the member's writing
+ * as well as their photo. */
+export const maxDuration = 60;
 
 const HINT = 'Administrator: run supabase/migration_success_stories.sql.';
 const tableMissing = (e) =>
@@ -35,8 +41,50 @@ function clean(b = {}) {
     /* A month, normalised to the first of it. The form collects a month, so a
      * day here would be invented precision. */
     achieved_on: b.achieved_on ? String(b.achieved_on).slice(0, 7) + '-01' : null,
-    image_url: String(b.image_url || '').trim().slice(0, 600) || null,
   };
+}
+
+/* The uploaded photograph.
+ *
+ * The member picks a file; the browser shrinks it and sends a data: URL as
+ * `image_data`. This turns that into a hosted URL.
+ *
+ * The browser does NOT get to send `image_url` directly. If it could, the
+ * "photo" on a published card could point anywhere on the internet — at a site
+ * that later changes what it serves, or at a tracker that logs every visitor
+ * to the TNR page. Uploading means the image TNR shows is an image TNR holds.
+ *
+ * Returns `{ url }` on success, `{ error }` with a message for the member, or
+ * `{}` when there is nothing to do.
+ */
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+
+async function resolveImage(b, existing) {
+  /* Explicitly cleared — the member removed the photo from a story they are
+   * editing. `null` is a decision and must be honoured; `undefined` is "not
+   * mentioned" and leaves whatever was there. */
+  if (b?.image_data === null) return { url: null };
+  if (!b?.image_data) return { url: existing };
+
+  const data = String(b.image_data);
+  if (!/^data:image\/(png|jpe?g|webp);base64,/i.test(data.slice(0, 40))) {
+    return { error: 'The photo must be a JPG, PNG or WEBP image.' };
+  }
+  // base64 is about 4/3 the size of the bytes it encodes.
+  if (data.length * 0.75 > MAX_IMAGE_BYTES) {
+    return { error: 'That photo is too large. Please choose one under 4 MB.' };
+  }
+
+  try {
+    const url = await uploadDataUrl(data, 'success-stories');
+    if (!url) return { error: 'The photo could not be uploaded. Please try again.' };
+    return { url };
+  } catch {
+    /* A failed upload must not take the member's writing with it. The caller
+     * turns this into a message, and the member's typed answer is still in the
+     * form where they can retry without rewriting it. */
+    return { error: 'The photo could not be uploaded. Please try again, or submit without it.' };
+  }
 }
 
 export async function GET(req) {
@@ -88,7 +136,7 @@ export async function POST(req) {
      * "not found" for a story that has been published — two different
      * situations needing two different answers. */
     const { data: existing, error: rErr } = await sb.from('success_stories')
-      .select('id, member_id, status').eq('id', b.id).maybeSingle();
+      .select('id, member_id, status, image_url').eq('id', b.id).maybeSingle();
 
     if (rErr) return fail('READ_FAILED', 500, { message: 'Could not load that story.' });
     if (!existing || existing.member_id !== member.id) {
@@ -106,8 +154,14 @@ export async function POST(req) {
       });
     }
 
+    /* The photo is resolved AFTER the ownership and lock checks, so a stranger
+     * poking at someone else's story id cannot make the server do an upload. */
+    const img = await resolveImage(b, existing.image_url);
+    if (img.error) return fail('BAD_IMAGE', 400, { message: img.error, errors: { image: img.error } });
+
     const { data, error } = await sb.from('success_stories').update({
       ...f,
+      image_url: img.url ?? null,
       /* Editing sends it back to the queue. A story that was sent back for
        * changes and then edited must be looked at again — leaving it in
        * changes_requested would mean the committee never sees the correction. */
@@ -144,8 +198,14 @@ export async function POST(req) {
     });
   }
 
+  /* Uploaded only after the queue cap has been checked — otherwise a member at
+   * their limit would wait through an upload just to be refused. */
+  const img = await resolveImage(b, null);
+  if (img.error) return fail('BAD_IMAGE', 400, { message: img.error, errors: { image: img.error } });
+
   const { data, error } = await sb.from('success_stories').insert({
     ...f,
+    image_url: img.url ?? null,
     member_id: member.id,        // from the token, never from the body
     status: 'pending',
     submitted_at: new Date().toISOString(),
