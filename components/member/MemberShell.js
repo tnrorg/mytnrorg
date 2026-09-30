@@ -38,6 +38,10 @@ export const NAV = [
   ['UC Coordinator', '/member/uc-coordinator', '🏅'],
   // Open to every member — the point of the section is that anyone can write.
   ['Opinions', '/member/opinions', '✍️'],
+  /* Next to Opinions: both are "something I wrote that an office bearer
+   * reviews before the public sees it", and a member who has found one will
+   * look for the other in the same place. */
+  ['Success Stories', '/member/success-stories', '🎓'],
   ['Applications History', '/member/applications', '📋'],
   ['Notifications', '/member/notifications', '🔔'],
   ['Help & Support', '/member/support', '💬'],

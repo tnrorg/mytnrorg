@@ -25,6 +25,7 @@ import NewsTab from '@/components/admin/NewsTab';
 import OpportunitiesTab from '@/components/admin/OpportunitiesTab';
 import MeetingsTab from '@/components/admin/MeetingsTab';
 import UcCoordinatorTab from '@/components/admin/UcCoordinatorTab';
+import SuccessStoriesTab from '@/components/admin/SuccessStoriesTab';
 import ProgressAnalyticsTab from '@/components/admin/ProgressAnalyticsTab';
 import HeroTab from '@/components/admin/HeroTab';
 import ProjectsTab from '@/components/admin/ProjectsTab';
@@ -73,6 +74,11 @@ const TOP_TABS = [
   ['branding', 'Branding', '✉️', 'content'],
   // Member-written pieces awaiting review.
   ['opinions', 'Opinions', '✍️', 'opinions'],
+  /* Member achievements awaiting review. Next to Opinions because both are
+   * "a member wrote something and it needs a decision before the public sees
+   * it", and an office bearer working one queue should find the other beside
+   * it rather than at the far end of the sidebar. */
+  ['success-stories', 'Success Stories', '🎓', 'content'],
   // Messages from the four public contact forms.
   ['inbox', 'Contact Inbox', '📨', 'inbox'],
   // Every admin's own account security, not a super-admin tool — a control
@@ -289,6 +295,7 @@ export default function Admin() {
       {view === 'opportunities' && <OpportunitiesTab toast={toast} />}
       {view === 'meetings' && <MeetingsTab toast={toast} />}
       {view === 'uc-coordinator' && <UcCoordinatorTab toast={toast} />}
+      {view === 'success-stories' && <SuccessStoriesTab toast={toast} />}
       {view === 'analytics' && <ProgressAnalyticsTab toast={toast} />}
       {view === 'announcements' && <AnnouncementsTab toast={toast} />}
       {view === 'branding' && <BrandingTab toast={toast} />}

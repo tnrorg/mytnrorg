@@ -104,6 +104,10 @@ export const NAV = [
   ]},
 
   { label: 'Media', items: [
+    /* First in the group. It is the most human thing on the site — real
+     * members, with their photographs, saying what they achieved — and it is
+     * the page most likely to make a visitor want to join. */
+    live('TNR Success Stories', '/media/success-stories'),
     // Member-written pieces, published after committee review.
     live('Opinions', '/media/opinions'),
     live('News & Announcements', '/media/news'),
