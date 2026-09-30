@@ -32,6 +32,10 @@ export const NAV = [
    * events and volunteering all feed it, so it belongs at the end of that
    * group rather than filed away near Account Settings. */
   ['My Contribution', '/member/contributions', '📈'],
+  /* UC Coordinator recruitment. Shown to every member because every member is
+   * eligible — the page itself says when no round is open, which is a clearer
+   * answer than a menu item that appears and disappears without explanation. */
+  ['UC Coordinator', '/member/uc-coordinator', '🏅'],
   // Open to every member — the point of the section is that anyone can write.
   ['Opinions', '/member/opinions', '✍️'],
   ['Applications History', '/member/applications', '📋'],

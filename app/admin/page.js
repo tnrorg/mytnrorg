@@ -24,6 +24,7 @@ import AnnouncementsTab from '@/components/admin/AnnouncementsTab';
 import NewsTab from '@/components/admin/NewsTab';
 import OpportunitiesTab from '@/components/admin/OpportunitiesTab';
 import MeetingsTab from '@/components/admin/MeetingsTab';
+import UcCoordinatorTab from '@/components/admin/UcCoordinatorTab';
 import ProgressAnalyticsTab from '@/components/admin/ProgressAnalyticsTab';
 import HeroTab from '@/components/admin/HeroTab';
 import ProjectsTab from '@/components/admin/ProjectsTab';
@@ -60,6 +61,10 @@ const TOP_TABS = [
   ['projects', 'Projects', '🏗️', 'content'],
   ['institutions', 'Schools & Colleges', '🏫', 'content'],
   ['cec', 'CEC Recruitment', '📋', 'cec'],
+  /* Next to CEC Recruitment because it is the same kind of work, but under the
+   * `membership` area rather than `cec` — the Central Executive Committee's
+   * recruitment and a Union Council's are run by different people. */
+  ['uc-coordinator', 'UC Coordinator', '🏅', 'membership'],
   ['opportunities', 'Opportunities', '💼', 'opportunities'],
   ['meetings', 'TNR Meetings', '🎥', 'meetings'],
   ['analytics', 'Progress Analytics', '📈', 'analytics'],
@@ -283,6 +288,7 @@ export default function Admin() {
       {view === 'news' && <NewsTab toast={toast} />}
       {view === 'opportunities' && <OpportunitiesTab toast={toast} />}
       {view === 'meetings' && <MeetingsTab toast={toast} />}
+      {view === 'uc-coordinator' && <UcCoordinatorTab toast={toast} />}
       {view === 'analytics' && <ProgressAnalyticsTab toast={toast} />}
       {view === 'announcements' && <AnnouncementsTab toast={toast} />}
       {view === 'branding' && <BrandingTab toast={toast} />}
