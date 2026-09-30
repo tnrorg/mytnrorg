@@ -103,6 +103,20 @@ export const NAV = [
     soon('Interactive Reports', '/statistics/reports'),
   ]},
 
+  /* Media carries no `soon` entries: every item below is a page that exists.
+   *
+   * Press Releases, Photo Gallery, Video Gallery, Publications & Downloads and
+   * Upcoming Events used to sit here as roadmap placeholders. They were
+   * removed rather than promoted to live links, because none of those pages
+   * has been built — /media/press, /media/photos, /media/videos,
+   * /media/downloads and /events all 404, and Events exists only inside the
+   * member portal behind a login.
+   *
+   * A visitor who clicks a menu item and lands on "page not found" concludes
+   * the site is broken. A menu that simply does not offer the item tells them
+   * nothing is wrong. When one of those pages is built, add it back with
+   * live() — the labels and intended paths are named above so nothing about
+   * the plan is lost. */
   { label: 'Media', items: [
     /* First in the group. It is the most human thing on the site — real
      * members, with their photographs, saying what they achieved — and it is
@@ -111,11 +125,6 @@ export const NAV = [
     // Member-written pieces, published after committee review.
     live('Opinions', '/media/opinions'),
     live('News & Announcements', '/media/news'),
-    soon('Press Releases', '/media/press'),
-    soon('Photo Gallery', '/media/photos'),
-    soon('Video Gallery', '/media/videos'),
-    soon('Publications & Downloads', '/media/downloads'),
-    soon('Upcoming Events', '/events'),
   ]},
 
   { label: 'Election Portal', href: '/election-portal', highlight: true, items: [
