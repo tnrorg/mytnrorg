@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import MemberShell from '@/components/member/MemberShell';
 import { mGet, mPost } from '@/components/member/memberApi';
+import UcApplicationsPanel from '@/components/member/UcApplicationsPanel';
 import { FELLOWSHIP_QUESTIONS } from '@/lib/opportunities';
 import {
   cleanCriteria, STATE_LABEL, STATE_TONE, SCORE_MIN, SCORE_MAX, panellistAverage,
@@ -200,6 +201,9 @@ export default function InterviewPanelPage() {
             </div>
           </>
         )}
+
+        {/* CEC members only — renders nothing for anyone else. */}
+        <UcApplicationsPanel />
       </div>
     </MemberShell>
   );

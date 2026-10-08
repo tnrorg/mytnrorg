@@ -26,8 +26,11 @@ const APPLY_PATH = '/member/uc-coordinator';
  * it without anyone noticing.
  */
 
+/* Only a genuinely absent table. Matching the table name in the message also
+ * caught missing columns and constraint failures — Postgres names the relation
+ * in nearly every error — and hid the real cause behind "not set up yet". */
 const tableMissing = (e) =>
-  e?.code === '42P01' || /uc_coordinator_(rounds|applications)/.test(e?.message || '');
+  e?.code === '42P01' || e?.code === 'PGRST205' || /could not find the table/i.test(e?.message || '');
 
 export async function GET(req) {
   const { res } = await requireAdmin(req); if (res) return res;

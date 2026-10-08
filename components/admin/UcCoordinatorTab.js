@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { aGet, aPost } from './adminApi';
 import {
-  APP_STATUSES, APP_STATUS_LABEL, APP_STATUS_TONE, ROUND_STATUSES,
+  APP_STATUS_LABEL, APP_STATUS_TONE, ROUND_STATUSES, REVIEW_ACTIONS,
   MOTIVATION_QUESTION, SNAPSHOT_FIELDS,
 } from '@/lib/ucCoordinator';
 
@@ -49,10 +49,13 @@ export default function UcCoordinatorTab({ toast }) {
   }
 
   async function setStatus(app, status) {
+    if (app.status === status) return;
     const r = await aPost('/api/admin/uc-coordinator', {
       action: 'set_status', id: app.id, status,
     });
-    if (!r?.ok) return toast?.(r?.message || 'Could not update.', 'err');
+    if (!r?.ok) {
+      return toast?.(`${r?.message || 'Could not update.'}${r?.detail ? ` ${r.detail}` : ''}`, 'err');
+    }
     toast?.(r.message, 'ok');
     /* Patch in place rather than reloading the whole list — the committee is
      * usually part-way down a long page and a reload throws away their place. */
@@ -178,12 +181,7 @@ export default function UcCoordinatorTab({ toast }) {
                     {APP_STATUS_LABEL[a.status]}
                   </span>
 
-                  <select value={a.status} onChange={e => setStatus(a, e.target.value)}
-                    className="rounded-lg border px-2 py-1 text-[12.5px] border-gray-200">
-                    {APP_STATUSES.map(([k, label]) => (
-                      <option key={k} value={k}>{label}</option>
-                    ))}
-                  </select>
+                  <StatusButtons value={a.status} onPick={s => setStatus(a, s)} />
                 </div>
               );
             })}
@@ -196,7 +194,29 @@ export default function UcCoordinatorTab({ toast }) {
       )}
 
       {editing && <RoundEditor round={editing} onCancel={() => setEditing(null)} onSave={saveRound} />}
-      {open && <Application app={open} onClose={() => setOpen(null)} />}
+      {open && <Application app={open} onClose={() => setOpen(null)} onPick={s => setStatus(open, s)} />}
+    </div>
+  );
+}
+
+/* One button per decision. The current status is filled in its own colour so
+ * the row reads at a glance; the rest are outlined. */
+function StatusButtons({ value, onPick }) {
+  return (
+    <div className="flex w-full flex-wrap gap-1.5 sm:w-auto">
+      {REVIEW_ACTIONS.map(k => {
+        const tone = APP_STATUS_TONE[k];
+        const on = value === k;
+        return (
+          <button key={k} type="button" onClick={() => onPick(k)}
+            className="rounded-lg border px-2.5 py-1 text-[12px] font-bold transition"
+            style={on
+              ? { background: tone.bg, color: tone.fg, borderColor: tone.fg }
+              : { background: '#fff', color: '#4A554E', borderColor: '#E1E6E3' }}>
+            {APP_STATUS_LABEL[k]}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -286,7 +306,7 @@ function RoundEditor({ round, onCancel, onSave }) {
  * The details shown are the SNAPSHOT stored on the application, not a live
  * read of the member record — so the committee reads what the applicant
  * confirmed on the day, which is the thing they actually signed up to. */
-function Application({ app, onClose }) {
+function Application({ app, onClose, onPick }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
       <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5">
@@ -302,6 +322,10 @@ function Application({ app, onClose }) {
             className="rounded-lg px-3 py-1.5 text-[13px] font-bold" style={{ color: '#4A554E' }}>
             Close
           </button>
+        </div>
+
+        <div className="mb-4">
+          <StatusButtons value={app.status} onPick={onPick} />
         </div>
 
         <dl className="mb-4 divide-y rounded-xl border" style={{ borderColor: '#EEF1EF' }}>

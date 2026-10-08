@@ -199,7 +199,14 @@ export async function POST(req) {
         message: 'You have already applied for this round.',
       });
     }
-    const missing = /uc_coordinator_applications/.test(error.message || '') || error.code === '42P01';
+    /* Only a genuinely absent table counts as "not switched on". Matching the
+     * table name alone also caught every other insert failure — a missing
+     * column, a permission error, a constraint — since Postgres names the
+     * relation in nearly all of them, and reported each one as a migration
+     * nobody had run while hiding the message that would have explained it. */
+    const missing = error.code === '42P01' || error.code === 'PGRST205'
+      || /could not find the table/i.test(error.message || '');
+    console.error('[uc-coordinator] insert failed', error.code, error.message);
     return fail('SAVE_FAILED', 500, {
       message: missing
         ? 'Coordinator applications are not switched on yet.'

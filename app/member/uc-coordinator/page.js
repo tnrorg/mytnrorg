@@ -73,7 +73,15 @@ export default function UcCoordinatorApply() {
 
     if (!r?.ok) {
       if (r?.errors) setErrors(r.errors);
-      setNote({ tone: 'err', text: r?.message || 'Your application could not be submitted.' });
+      setNote({
+        tone: 'err',
+        text: r?.message || 'Your application could not be submitted.',
+        detail: r?.detail || (r?.missing?.length ? `Missing: ${r.missing.join(', ')}` : null),
+      });
+      /* The note renders at the top of the page; after the dialog closes the
+       * member is at the bottom, so without this a refusal looks like nothing
+       * happened at all. */
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     /* `duplicate` comes back when the unique index caught a second submission —
@@ -112,6 +120,9 @@ export default function UcCoordinatorApply() {
               ? { background: 'rgba(16,140,90,.10)', color: '#0A5B3A' }
               : { background: 'rgba(170,60,60,.10)', color: '#8A2F2F' }}>
             {note.text}
+            {note.detail && (
+              <span className="mt-1 block text-[12px] opacity-75">{note.detail}</span>
+            )}
           </div>
         )}
 
