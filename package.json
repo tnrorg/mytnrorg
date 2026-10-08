@@ -28,8 +28,8 @@
     "livekit-client": "^2.22.2",
     "livekit-server-sdk": "^2.18.0",
     "lucide-react": "^1.28.0",
-    "next": "15.5.25",
-    "nodemailer": "^9.1.1",
+    "next": "15.5.27",
+    "nodemailer": "^10.0.16",
     "papaparse": "^5.4.1",
     "qrcode-generator": "^2.0.4",
     "react": "^19.2.0",
@@ -51,9 +51,24 @@
     "dependency. postcss 8.4 to 8.5 is a minor with no API break, so forcing the",
     "nested copy up is the smaller change. Verified against a production build.",
     "",
-    "Revisit when moving to Next 16, at which point this override can be deleted."
+    "Revisit when moving to Next 16, at which point this override can be deleted.",
+    "",
+    "The rest force patched copies of packages we only get second-hand, each one",
+    "still inside the range its parent already asks for, so no parent changes:",
+    "  axios          <- twilio (^1.13.5)        14 advisories, fixed in 1.20.0",
+    "  sharp          <- next, optional (^0.35.4) librsvg CVE, fixed in 0.35.5",
+    "  dompurify      <- jspdf, optional (^3.3.1) two IN_PLACE XSS, fixed in 3.4.16",
+    "  source-map-js  <- postcss (^1.2.1)        DoS, fixed in 1.2.2",
+    "",
+    "Not overridden: postcss-selector-parser. Its fix is 7.x and tailwind 3 asks",
+    "for ^6, and it only ever parses our own CSS at build time. Revisit with",
+    "tailwind 4."
   ],
   "overrides": {
-    "postcss": "^8.5.28"
+    "postcss": "^8.5.28",
+    "axios": "^1.20.0",
+    "sharp": "^0.35.5",
+    "dompurify": "^3.4.16",
+    "source-map-js": "^1.2.2"
   }
 }
