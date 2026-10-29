@@ -3,6 +3,7 @@ import SiteFooter from '@/components/site/SiteFooter';
 import AiFab from '@/components/site/AiFab';
 import HeroCarousel from '@/components/home/HeroCarousel';
 import ExecutiveCommittee from '@/components/home/ExecutiveCommittee';
+import UniversityAmbassadors from '@/components/home/UniversityAmbassadors';
 import Ticker from '@/components/home/Ticker';
 import CommunityStats from '@/components/home/CommunityStats';
 import LeadershipMessages from '@/components/home/LeadershipMessages';
@@ -61,6 +62,9 @@ export default async function Home() {
       {/* Leadership leads: who guides TNR, then what TNR does. */}
       <CouncilSection />
       <ExecutiveCommittee />
+      {/* Directly below the Central Executive Committee, and renders nothing
+          until an ambassador is added — see the component. */}
+      <UniversityAmbassadors />
       <MembersPreview />
       {/* Pakistan and worldwide reach, straight after Membership Across Roundu.
           Renders nothing until members have recorded a current address. */}

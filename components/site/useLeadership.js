@@ -18,7 +18,17 @@ const BACKOFF_MS = [400, 1200];   // waits between attempt 1→2 and 2→3
 
 export function useLeadership() {
   const [data, setData] = useState({
-    advisory: COUNCIL, executive: EXECUTIVE, live: false, loading: true,
+    advisory: COUNCIL, executive: EXECUTIVE,
+    /* No built-in fallback roster for ambassadors, on purpose.
+     *
+     * COUNCIL and EXECUTIVE exist because those two bodies have fixed, known
+     * posts — President, General Secretary — so a placeholder card reading
+     * "To Be Announced" is accurate between terms. University Ambassadors are
+     * appointed per campus with no fixed establishment, so there is nothing
+     * truthful to place-hold. An empty array means the section renders nothing
+     * at all until a real ambassador is added, which is the honest result. */
+    ambassadors: [],
+    live: false, loading: true,
   });
 
   useEffect(() => {
@@ -43,7 +53,9 @@ export function useLeadership() {
         const executive = j?.executive?.length ? j.executive : EXECUTIVE;
         setData({
           advisory, executive,
-          live: !!(j?.advisory?.length || j?.executive?.length),
+          // Straight through — no fallback. See the note on the initial state.
+          ambassadors: j?.ambassadors || [],
+          live: !!(j?.advisory?.length || j?.executive?.length || j?.ambassadors?.length),
           loading: false,
         });
       } catch {

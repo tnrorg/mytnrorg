@@ -19,7 +19,18 @@ export const fetchCache = 'force-no-store';
 // of truth — here the profile is seeded from the member record and the two are
 // linked, so the member can then complete it from their own portal.
 
-const BODY_ROLE = { advisory: 'advisory', executive: 'cec' };
+/* Which membership role a person takes when assigned to a body.
+ *
+ * The ambassador entry is NOT optional. Without it, assigning a member to the
+ * University Ambassadors roster would look up `undefined` here and write that
+ * as their role — either failing the chk_member_role constraint outright or,
+ * worse, leaving them on the public ambassador page while their membership
+ * record still said "general". The two must move together. */
+const BODY_ROLE = {
+  advisory: 'advisory',
+  executive: 'cec',
+  ambassador: 'university_ambassador',
+};
 
 // GET ?q=  — find an approved member by membership ID, email or name.
 export async function GET(req) {

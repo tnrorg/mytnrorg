@@ -3,11 +3,12 @@ import { useCallback, useEffect, useState } from 'react';
 import AssignLeader from './AssignLeader';
 import { aGet, aPost, aPatch, aDel } from './adminApi';
 import { Card, Badge, Field } from './ui';
+import { LEADERSHIP_BODIES, bodyLabel } from '@/lib/membership/roles';
 
-const BODIES = [
-  ['advisory',  'Advisory Council'],
-  ['executive', 'Executive Committee'],
-];
+/* Derived from the shared list in lib/membership/roles.js rather than typed
+ * again here. Two copies of "what bodies exist" is how a tab ends up missing
+ * from one screen and present on another. */
+const BODIES = LEADERSHIP_BODIES.map(b => [b.key, b.label]);
 
 const empty = {
   name: '', designation: '', qualification: '', field: '', affiliation: '', summary: '',
@@ -70,19 +71,29 @@ export default function LeadershipTab({ toast }) {
     setForm(null); load();
   }
 
-  /** Moves a profile to the other body. Added because a profile saved under
-   *  the wrong tab previously had to be deleted and retyped. */
+  /** Moves a profile to another body. Added because a profile saved under the
+   *  wrong tab previously had to be deleted and retyped.
+   *
+   *  This used to flip between exactly two bodies with a ternary. With a third
+   *  body that silently became wrong: moving an ambassador would have sent
+   *  them to the Advisory Council, because anything that was not 'advisory'
+   *  mapped to 'executive'. It now asks which one. */
   async function move(p) {
-    const to = p.body === 'advisory' ? 'executive' : 'advisory';
-    const label = to === 'advisory' ? 'Advisory Council' : 'Executive Committee';
-    if (!confirm(`Move ${p.name || p.designation} to the ${label}?`)) return;
-    const r = await aPatch('/api/admin/leadership/' + p.id, { body: to });
+    const others = LEADERSHIP_BODIES.filter(b => b.key !== p.body);
+    const choice = window.prompt(
+      `Move ${p.name || p.designation} to which body?\n\n`
+      + others.map((b, i) => `${i + 1}. ${b.label}`).join('\n')
+      + '\n\nType the number:',
+    );
+    const to = others[Number(choice) - 1];
+    if (!to) return;                       // cancelled, or not a listed number
+    const r = await aPatch('/api/admin/leadership/' + p.id, { body: to.key });
     if (!r?.ok) return toast(r?.message || 'Could not move', 'err');
-    toast('Moved to ' + label); load();
+    toast('Moved to ' + to.label); load();
   }
 
   async function del(p) {
-    if (!confirm(`Remove ${p.name || p.designation} from the ${body === 'advisory' ? 'Advisory Council' : 'Executive Committee'}?`)) return;
+    if (!confirm(`Remove ${p.name || p.designation} from ${bodyLabel(body)}?`)) return;
     const r = await aDel('/api/admin/leadership/' + p.id);
     if (!r?.ok) return toast(r?.message || 'Delete failed', 'err');
     toast('Removed'); load();
@@ -120,9 +131,17 @@ export default function LeadershipTab({ toast }) {
       </button>
     </div>
 
+    {/* bodyLabel(body), not a two-way ternary: the old
+        `body === 'advisory' ? … : 'Executive Committee'` labelled every
+        non-advisory tab as the CEC, so the ambassador tab would have told an
+        admin they were assigning someone to the Executive Committee.
+
+        The comment sits HERE, in the children position, and not inside the
+        `assigning && ( … )` below — a {/* … *\/} block there is not a comment
+        at all, it is an object literal, and it does not compile. */}
     {assigning && (
       <AssignLeader body={body} toast={toast} onDone={() => { setAssigning(false); load(); }}
-        bodyLabel={body === 'advisory' ? 'Advisory Council' : 'Executive Committee'} />
+        bodyLabel={bodyLabel(body)} />
     )}
 
     <p className="text-sm text-tnr-cream/60">
@@ -162,8 +181,11 @@ export default function LeadershipTab({ toast }) {
           <div className="mt-3 flex gap-2">
             <button className="btn-ghost !py-1.5 text-xs flex-1" onClick={() => edit(p)}>Edit</button>
             <button className="btn-ghost !py-1.5 text-xs" onClick={() => toggle(p)}>{p.active ? 'Hide' : 'Show'}</button>
+            {/* Just "Move" — the destination is chosen in the prompt now that
+                there are three bodies, so naming one of them on the button
+                would promise the wrong thing. */}
             <button className="btn-ghost !py-1.5 text-xs" onClick={() => move(p)}>
-              Move to {body === 'advisory' ? 'CEC' : 'Advisory'}
+              Move
             </button>
             <button className="btn-ghost !py-1.5 text-xs text-red-300" onClick={() => del(p)}>Delete</button>
           </div>
@@ -176,7 +198,7 @@ export default function LeadershipTab({ toast }) {
         <div className="max-w-2xl mx-auto my-6 rounded-2xl bg-tnr-black border border-tnr-line p-5 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-black text-tnr-cream">
-              {form.id ? 'Edit Profile' : 'Add Profile'} — {isExec ? 'Executive Committee' : 'Advisory Council'}
+              {form.id ? 'Edit Profile' : 'Add Profile'} — {bodyLabel(body)}
             </h3>
             <button className="text-tnr-cream/50 hover:text-tnr-cream" onClick={() => setForm(null)}>✕</button>
           </div>

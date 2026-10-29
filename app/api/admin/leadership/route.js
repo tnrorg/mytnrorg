@@ -3,11 +3,14 @@ import { requireAdmin } from '@/lib/guard';
 import { uploadDataUrl } from '@/lib/storage';
 import { logAudit, clientIp } from '@/lib/audit';
 import { ok, fail, readJson } from '@/lib/api';
+import { BODY_KEYS, LEADERSHIP_BODIES } from '@/lib/membership/roles';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
-const BODIES = ['advisory', 'executive'];
+/* From the shared list, not typed again. A body the UI offers but the API
+ * refuses is a save button that silently never works. */
+const BODIES = BODY_KEYS;
 const slugify = (s) => String(s || '').toLowerCase().trim()
   .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').slice(0, 60);
 const toArray = (v) => Array.isArray(v)
@@ -27,7 +30,15 @@ export async function GET(req) {
 export async function POST(req) {
   const { admin, res } = await requireAdmin(req); if (res) return res;
   const b = await readJson(req);
-  if (!BODIES.includes(b.body)) return fail('BAD_BODY', 400, { message: 'Choose Advisory Council or Executive Committee.' });
+  if (!BODIES.includes(b.body)) {
+    /* The message lists the bodies rather than naming two of them. It used to
+     * read "Choose Advisory Council or Executive Committee", which became
+     * wrong the moment a third body existed — and a validation message that
+     * omits the valid option is worse than no message. */
+    return fail('BAD_BODY', 400, {
+      message: `Choose one of: ${LEADERSHIP_BODIES.map(x => x.label).join(', ')}.`,
+    });
+  }
   if (!b.name && !b.designation) return fail('MISSING', 400, { message: 'Enter a name or a designation.' });
 
   let photo_url = b.photo_url || null;

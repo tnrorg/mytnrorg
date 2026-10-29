@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/guard';
 import { uploadDataUrl } from '@/lib/storage';
 import { logAudit, clientIp } from '@/lib/audit';
 import { ok, fail, readJson } from '@/lib/api';
+import { BODY_KEYS, LEADERSHIP_BODIES } from '@/lib/membership/roles';
 export const dynamic = 'force-dynamic';
 
 const toArray = (v) => Array.isArray(v)
@@ -13,6 +14,19 @@ export async function PATCH(req, props) {
   const params = await props.params;
   const { admin, res } = await requireAdmin(req);if (res) return res;
   const b = await readJson(req);
+
+  /* Checked here rather than left to the database.
+   *
+   * The CHECK constraint would catch a bad value anyway, but it surfaces as
+   * "new row violates check constraint leadership_profiles_body_check" —
+   * which tells an office bearer nothing. This is the only field on the patch
+   * with a fixed set of values, and it is the one the Move action writes. */
+  if ('body' in b && !BODY_KEYS.includes(b.body)) {
+    return fail('BAD_BODY', 400, {
+      message: `Choose one of: ${LEADERSHIP_BODIES.map(x => x.label).join(', ')}.`,
+    });
+  }
+
   const patch = { updated_at: new Date().toISOString() };
   // `body` is editable so a profile saved under the wrong tab can be moved
   // rather than deleted and retyped.

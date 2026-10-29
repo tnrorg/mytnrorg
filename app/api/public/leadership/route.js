@@ -19,15 +19,21 @@ export async function GET() {
     // built-in placeholder roster either way, and real office bearers appeared
     // as "To Be Announced" at random. The flag lets the client retry a failure
     // and accept an empty result.
-    if (error) return ok({ advisory: [], executive: [], failed: true });
+    if (error) return ok({ advisory: [], executive: [], ambassadors: [], failed: true });
 
     const rows = data || [];
     return ok({
       advisory:  rows.filter(r => r.body === 'advisory'),
       executive: rows.filter(r => r.body === 'executive'),
+      /* University Ambassadors. Returned as its own array rather than mixed
+       * into `executive`, because the homepage renders it as a separate
+       * section below the CEC — and because a body that arrives folded into
+       * another one can never be given its own heading later without breaking
+       * whatever started relying on the mixed list. */
+      ambassadors: rows.filter(r => r.body === 'ambassador'),
       failed: false,
     });
   } catch {
-    return ok({ advisory: [], executive: [], failed: true });
+    return ok({ advisory: [], executive: [], ambassadors: [], failed: true });
   }
 }
