@@ -75,6 +75,11 @@ export async function POST(req) {
     if (existing) {
       const patch = { body, designation: b.designation || null, active: true,
                       verified: true, updated_at: new Date().toISOString() };
+      /* Only written when the caller sent one, so re-assigning someone does
+       * not wipe an affiliation that was filled in by hand on the edit form. */
+      if (b.affiliation !== undefined) {
+        patch.affiliation = String(b.affiliation || '').trim() || null;
+      }
       let { error: upErr } = await sb.from('leadership_profiles')
         .update({ ...patch, member_id: member.id }).eq('id', existing.id);
       if (upErr && /member_id/.test(upErr.message || '')) {
@@ -102,6 +107,10 @@ export async function POST(req) {
     body, slug,
     name: member.full_name,
     designation: b.designation || null,
+    /* The university, for an ambassador. Falls back to the organisation on
+     * the member's own record — a student who filled in their institution at
+     * registration should not have to have it retyped here. */
+    affiliation: String(b.affiliation || '').trim() || member.organization_name || null,
     qualification: member.education_level || null,
     field: member.field_of_study || null,
     profession: member.current_position || null,

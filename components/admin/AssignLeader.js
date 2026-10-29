@@ -12,7 +12,18 @@ export default function AssignLeader({ body, bodyLabel, onDone, toast }) {
   const [hits, setHits] = useState([]);
   const [picked, setPicked] = useState(null);
   const [designation, setDesignation] = useState('');
+  /* The university an ambassador represents.
+   *
+   * A field of its own rather than reusing `designation`. Designation is the
+   * POST someone holds — President, General Secretary — and the first
+   * ambassador assigned ended up with the designation "University
+   * Ambassadors", which is the name of the body and tells a visitor nothing.
+   * The campus is a different fact and belongs in `affiliation`, which the
+   * edit form already labels "university, employer, organisation". */
+  const [affiliation, setAffiliation] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const isAmbassador = body === 'ambassador';
 
   useEffect(() => {
     if (q.trim().length < 2) { setHits([]); return; }
@@ -27,12 +38,16 @@ export default function AssignLeader({ body, bodyLabel, onDone, toast }) {
     if (!picked) return;
     setBusy(true);
     const r = await aPost('/api/admin/leadership/assign', {
-      identifier: picked.membership_id, body, designation,
+      identifier: picked.membership_id, body,
+      /* An ambassador's designation is always the same thing, so it is filled
+       * in rather than asked for — what varies is the campus. */
+      designation: isAmbassador ? (designation || 'University Ambassador') : designation,
+      affiliation: isAmbassador ? affiliation : undefined,
     });
     setBusy(false);
     if (!r?.ok) return toast(r?.message || 'Could not assign', 'err');
     toast(r.moved ? `Moved to ${bodyLabel}` : `${picked.full_name} added to ${bodyLabel}`);
-    setQ(''); setHits([]); setPicked(null); setDesignation('');
+    setQ(''); setHits([]); setPicked(null); setDesignation(''); setAffiliation('');
     onDone();
   }
 
@@ -80,8 +95,19 @@ export default function AssignLeader({ body, bodyLabel, onDone, toast }) {
               </div>
             )}
           </div>
+          {/* The university comes FIRST on the ambassador tab, because it is
+              the one thing that actually has to be filled in — the roster is
+              meaningless without it, and it is what the public card shows
+              under the person's name. */}
+          {isAmbassador && (
+            <input className={input} value={affiliation} autoFocus
+              onChange={e => setAffiliation(e.target.value)}
+              placeholder="University, e.g. COMSATS University Islamabad" />
+          )}
           <input className={input} value={designation} onChange={e => setDesignation(e.target.value)}
-            placeholder={body === 'executive' ? 'Designation, e.g. President' : 'Designation (optional)'} />
+            placeholder={body === 'executive' ? 'Designation, e.g. President'
+              : isAmbassador ? 'Title (optional) — defaults to “University Ambassador”'
+                : 'Designation (optional)'} />
           <div className="flex gap-2">
             <button className="btn-green" onClick={assign} disabled={busy}>
               {busy ? 'Assigning…' : `Add to ${bodyLabel}`}

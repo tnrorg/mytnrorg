@@ -61,6 +61,22 @@ export default function ExecutiveCard({ member }) {
           {named && <VerifiedBadge size={16} />}
         </h3>
 
+        {/* ── The university, for an ambassador ──
+            The whole point of this roster is WHICH campus the person covers,
+            so it goes directly under the name, above the degree. Without it a
+            visitor reads "Wazir Hassnaim — BS Artificial Intelligence" and
+            learns nothing about why he is on this list.
+
+            Only for the ambassador body: on the Advisory Council and the CEC
+            the affiliation is an employer and the designation already carries
+            the meaningful label, so adding a line there would be noise. */}
+        {member.body === 'ambassador' && member.affiliation && (
+          <p className="mt-1.5 text-center text-[13px] font-black leading-snug"
+            style={{ color: C.deep }}>
+            {member.affiliation}
+          </p>
+        )}
+
         {/* Current profession is what the card is for — what this person does
             today. The degree only stands in when no profession is recorded,
             and the full qualification is on their profile page either way.
