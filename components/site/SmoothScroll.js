@@ -15,8 +15,19 @@ import { useEffect } from 'react';
  *     intercepting them is how sites end up feeling broken.
  *   • Coarse pointers (phones, tablets) are skipped entirely.
  *   • Off for anyone who has asked their OS to reduce motion.
- *   • A wheel over a scrollable element (a dialog, a table, a long dropdown)
- *     is left alone, so inner scrolling still works.
+ *
+ * INNER SCROLLERS ARE SMOOTHED TOO, which they previously were not.
+ *
+ * This used to bail out the moment the pointer was over anything with its own
+ * scrollbar. That left the admin sidebar — a pinned column with
+ * `overflow-y: auto` and more tabs than fit on screen — moving in hard
+ * ~100px steps while the page beside it glided. Two scroll feels in one
+ * window reads as the panel being broken rather than as a deliberate
+ * exception.
+ *
+ * Scroll chaining is preserved: when an inner scroller has reached its top or
+ * bottom, the wheel is handed back untouched so the page takes over exactly
+ * as it does natively.
  *
  * To remove it, delete <SmoothScroll /> from app/layout.js — nothing else
  * depends on it.
@@ -36,13 +47,20 @@ export default function SmoothScroll() {
     let raf = 0;
     let running = false;
 
-    /** True when the wheel is over something that scrolls on its own. */
-    const overInnerScroller = (el) => {
-      for (let n = el; n && n !== document.body; n = n.parentElement) {
+    /* The inner scroller being eased, if any, and where it is headed.
+     * Only ever one at a time — a wheel has a single pointer. */
+    let innerEl = null;
+    let innerTarget = 0;
+    let innerRaf = 0;
+    let innerRunning = false;
+
+    /** The nearest ancestor that scrolls on its own, or null for the page. */
+    const innerScrollerAt = (el) => {
+      for (let n = el; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
         const s = getComputedStyle(n);
-        if (/(auto|scroll)/.test(s.overflowY) && n.scrollHeight > n.clientHeight + 1) return true;
+        if (/(auto|scroll)/.test(s.overflowY) && n.scrollHeight > n.clientHeight + 1) return n;
       }
-      return false;
+      return null;
     };
 
     const maxScroll = () =>
@@ -65,13 +83,54 @@ export default function SmoothScroll() {
       raf = requestAnimationFrame(tick);
     };
 
+    /* The same easing, applied to one element's scrollTop. */
+    const innerTick = () => {
+      if (!innerEl) { innerRunning = false; return; }
+      const diff = innerTarget - innerEl.scrollTop;
+      if (Math.abs(diff) < SETTLE) {
+        innerEl.scrollTop = innerTarget;
+        innerRunning = false;
+        return;
+      }
+      innerEl.scrollTop += diff * EASE;
+      innerRaf = requestAnimationFrame(innerTick);
+    };
+
     const onWheel = (e) => {
       if (e.ctrlKey || e.metaKey) return;             // pinch zoom
       if (e.deltaMode !== 0) return;                  // line/page mode: leave native
-      if (overInnerScroller(e.target)) return;
+      const step = Math.max(-MAX_STEP, Math.min(MAX_STEP, e.deltaY));
+
+      const el = innerScrollerAt(e.target);
+      if (el) {
+        const limit = el.scrollHeight - el.clientHeight;
+
+        /* Scroll chaining, preserved.
+         *
+         * At the top scrolling up, or at the bottom scrolling down, the wheel
+         * is handed back untouched so the page moves instead — which is what
+         * the browser does natively. Swallowing it here would trap the reader
+         * inside the panel, and a menu you cannot scroll out of is far worse
+         * than one that steps. The 1px tolerance is for fractional scroll
+         * positions produced by the easing itself. */
+        const atTop = el.scrollTop <= 0 && step < 0;
+        const atEnd = el.scrollTop >= limit - 1 && step > 0;
+        if (atTop || atEnd) return;
+
+        /* Re-reading scrollTop when idle keeps this in step with any other way
+         * the element moved — a click that scrolled an item into view, a
+         * keyboard arrow, a drag of its scrollbar. */
+        if (el !== innerEl || !innerRunning) {
+          innerEl = el;
+          innerTarget = el.scrollTop;
+        }
+        e.preventDefault();
+        innerTarget = Math.max(0, Math.min(limit, innerTarget + step));
+        if (!innerRunning) { innerRunning = true; innerRaf = requestAnimationFrame(innerTick); }
+        return;
+      }
 
       e.preventDefault();
-      const step = Math.max(-MAX_STEP, Math.min(MAX_STEP, e.deltaY));
       target = Math.max(0, Math.min(maxScroll(), target + step));
       if (!running) { running = true; raf = requestAnimationFrame(tick); }
     };
@@ -87,6 +146,11 @@ export default function SmoothScroll() {
 
     return () => {
       cancelAnimationFrame(raf);
+      /* The inner loop needs cancelling too, and innerEl released — holding a
+       * reference to a detached node after a route change keeps its whole
+       * subtree out of the garbage collector. */
+      cancelAnimationFrame(innerRaf);
+      innerEl = null;
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('scroll', resync);
       window.removeEventListener('resize', resync);
