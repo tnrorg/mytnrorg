@@ -85,10 +85,35 @@ export async function POST(req) {
       if (upErr && /member_id/.test(upErr.message || '')) {
         await sb.from('leadership_profiles').update(patch).eq('id', existing.id);
       }
-      await sb.from('membership_members')
+      /* The role change is checked, not fired and forgotten.
+       *
+       * This used to be an unawaited-in-spirit `await` with no error branch,
+       * and it cost real data: twenty-five members were assigned as
+       * University Ambassadors, every profile moved correctly, and not one
+       * membership role changed — because chk_member_role was still refusing
+       * the new value and the rejection was thrown away. The admin screen said
+       * "Moved", the public roster showed them, and the members directory went
+       * on badging all of them "Advisory Council". A silent write failure on a
+       * two-table operation leaves the two tables disagreeing for ever. */
+      const { error: roleErr } = await sb.from('membership_members')
         .update({ role: BODY_ROLE[body] }).eq('id', member.id);
+
+      if (roleErr) {
+        const needsMigration = /chk_member_role/.test(roleErr.message || '')
+          || roleErr.code === '23514';
+        return fail('ROLE_NOT_SET', 500, {
+          message: needsMigration
+            ? 'The profile moved, but this member’s role could not be set — '
+              + 'the database does not accept that role yet.'
+            : 'The profile moved, but this member’s role could not be set.',
+          detail: needsMigration
+            ? 'Administrator: run supabase/migration_university_ambassadors.sql.'
+            : String(roleErr.message || '').slice(0, 160),
+        });
+      }
+
       await logAudit({ action: 'LEADERSHIP_REASSIGNED', actor: admin.username,
-        details: `${member.membership_id} → ${body}`, ip: clientIp(req) });
+        details: `${member.membership_id} → ${body} (role ${BODY_ROLE[body]})`, ip: clientIp(req) });
       return ok({ profile: existing, moved: true });
     }
   }
@@ -134,9 +159,27 @@ export async function POST(req) {
   }
   if (error) return fail('ASSIGN_FAILED', 500, { message: error.message });
 
-  await sb.from('membership_members')
+  /* Checked, for the same reason as the move path above — this is the other
+   * half of the same two-table operation, and it failed in exactly the same
+   * silent way. The profile is already written at this point, so the error
+   * says so plainly rather than implying nothing happened. */
+  const { error: roleErr } = await sb.from('membership_members')
     .update({ role: BODY_ROLE[body], leadership_profile_id: profile.id })
     .eq('id', member.id);
+
+  if (roleErr) {
+    const needsMigration = /chk_member_role/.test(roleErr.message || '')
+      || roleErr.code === '23514';
+    return fail('ROLE_NOT_SET', 500, {
+      message: needsMigration
+        ? 'The profile was created, but this member’s role could not be set — '
+          + 'the database does not accept that role yet.'
+        : 'The profile was created, but this member’s role could not be set.',
+      detail: needsMigration
+        ? 'Administrator: run supabase/migration_university_ambassadors.sql.'
+        : String(roleErr.message || '').slice(0, 160),
+    });
+  }
 
   await logAudit({ action: 'LEADERSHIP_ASSIGNED', actor: admin.username,
     details: `${member.membership_id} (${member.full_name}) → ${body}`, ip: clientIp(req) });
