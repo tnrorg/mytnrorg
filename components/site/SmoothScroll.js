@@ -33,9 +33,23 @@ import { useEffect } from 'react';
  * depends on it.
  */
 
-const EASE = 0.12;      // fraction of the remaining distance covered per frame
-const SETTLE = 0.5;     // px below which the animation stops
+/* THE READER ALWAYS WINS.
+ *
+ * Whatever this file does, it must never hold a position the reader did not
+ * choose. The animation is abandoned the moment they move the page any other
+ * way — dragging the scrollbar, a key, find-in-page. Without that, grabbing
+ * the scrollbar part-way through an eased step leaves the loop still pulling
+ * toward its old destination, and the page slides away from where it was put.
+ * That is not smoothness, it is the page arguing.
+ */
+const EASE = 0.22;      // fraction of the remaining distance covered per frame
+const SETTLE = 1;       // px below which the animation stops
 const MAX_STEP = 1400;  // cap so a violent flick cannot fling the whole page
+
+/* Keys that move the page. Pressing one means the reader has taken over. */
+const SCROLL_KEYS = new Set([
+  'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Spacebar',
+]);
 
 export default function SmoothScroll() {
   useEffect(() => {
@@ -66,11 +80,34 @@ export default function SmoothScroll() {
     const maxScroll = () =>
       Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
 
+    /* Where our own last frame left the page.
+     *
+     * This is how a scroll the reader caused is told apart from one this loop
+     * caused — both fire the same event. If the page is somewhere other than
+     * where we put it, somebody else moved it and we get out of the way. A
+     * flag set before each jump would not do: a jump that changes nothing,
+     * at the very top or bottom, fires no event and would leave the flag
+     * stuck, so the reader's next scroll would be misread as ours. */
+    let lastSelfY = -1;
+
     // `behavior: 'instant'` is essential, not a detail. globals.css sets
     // `scroll-behavior: smooth` on <html> for anchor links; without the
     // override, every frame of this loop would start its own smooth scroll and
     // the result is slower and jerkier than doing nothing at all.
-    const jump = (top) => window.scrollTo({ top, behavior: 'instant' });
+    const jump = (top) => {
+      window.scrollTo({ top, behavior: 'instant' });
+      lastSelfY = window.scrollY;
+    };
+
+    /** Abandon both animations and accept wherever the reader has left things. */
+    const stop = () => {
+      cancelAnimationFrame(raf);
+      cancelAnimationFrame(innerRaf);
+      running = false;
+      innerRunning = false;
+      target = window.scrollY;
+      if (innerEl) innerTarget = innerEl.scrollTop;
+    };
 
     const tick = () => {
       const diff = target - window.scrollY;
@@ -135,14 +172,32 @@ export default function SmoothScroll() {
       if (!running) { running = true; raf = requestAnimationFrame(tick); }
     };
 
-    // Anything that moves the page by other means (anchor link, back-to-top,
-    // keyboard, scrollbar) must reset the target, or the next wheel tick would
-    // yank the reader back to where the animation thought they were.
-    const resync = () => { if (!running) target = window.scrollY; };
+    /* Anything that moves the page by other means — an anchor link, the
+     * back-to-top button, a key, a dragged scrollbar — must reset the target,
+     * or the next wheel tick would yank the reader back to where the
+     * animation thought they were.
+     *
+     * And if it happens WHILE a step is easing, the animation is abandoned
+     * outright. This is the bug that made the page impossible to park: the
+     * loop went on pulling toward its own destination and dragged the reader
+     * off the position they had just chosen with the scrollbar. */
+    const onScroll = () => {
+      if (!running) { target = window.scrollY; return; }
+      if (Math.abs(window.scrollY - lastSelfY) > 2) stop();
+    };
+
+    /* Grabbing the scrollbar begins with a mousedown, before any scroll event
+     * exists to notice. Stopping here means the drag starts from rest and the
+     * page is never tugged out from under the cursor. */
+    const onPointerDown = () => stop();
+    const onKeyDown = (e) => { if (SCROLL_KEYS.has(e.key)) stop(); };
 
     window.addEventListener('wheel', onWheel, { passive: false });
-    window.addEventListener('scroll', resync, { passive: true });
-    window.addEventListener('resize', resync, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', stop, { passive: true });
+    window.addEventListener('mousedown', onPointerDown, { passive: true });
+    window.addEventListener('touchstart', onPointerDown, { passive: true });
+    window.addEventListener('keydown', onKeyDown, { passive: true });
 
     return () => {
       cancelAnimationFrame(raf);
@@ -152,8 +207,11 @@ export default function SmoothScroll() {
       cancelAnimationFrame(innerRaf);
       innerEl = null;
       window.removeEventListener('wheel', onWheel);
-      window.removeEventListener('scroll', resync);
-      window.removeEventListener('resize', resync);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', stop);
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('touchstart', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
     };
   }, []);
 
