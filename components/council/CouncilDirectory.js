@@ -8,14 +8,18 @@ import { COLORS, FONT, MOTION } from '@/lib/design/tokens';
 import { initials } from '@/content/advisoryCouncil';
 import { academicTitle } from '@/lib/membership/options';
 
-/* 14px, not the 20px `rounded-tnr-lg` this used to carry. A directory of
- * small portrait cards reads as softer and less institutional the rounder it
- * gets; 14px is the radius the rest of the system uses for controls. */
-const shell = 'group relative flex flex-col overflow-hidden rounded-tnr bg-white '
-  + 'border border-[rgba(23,33,28,.09)] shadow-tnr-flat '
-  + 'transition-[transform,box-shadow,border-color] duration-standard ease-out '
-  + 'hover:-translate-y-[5px] hover:shadow-tnr-raise hover:border-[rgba(200,154,43,.55)] '
-  + 'focus-within:border-[rgba(200,154,43,.55)]';
+/* The card is a white frame around a tall portrait, not a photo with a text
+ * block bolted under it. The name sits ON the photograph, on frosted glass —
+ * which is what makes this read as a designed object rather than a database
+ * row: there is one subject per card and the type belongs to it.
+ *
+ * `overflow-visible` on the shell, `overflow-hidden` on the portrait. The
+ * frame has padding, so clipping at the outer edge would crop the padding
+ * rather than the image and the rounded photo corners would never show. */
+const shell = 'group relative flex flex-col rounded-2xl bg-white p-2.5 '
+  + 'shadow-[0_1px_2px_rgba(23,33,28,.05)] '
+  + 'transition-[transform,box-shadow] duration-standard ease-out '
+  + 'hover:-translate-y-[5px] hover:shadow-[0_14px_34px_-12px_rgba(10,61,44,.30)]';
 
 /* Where the face sits in the frame.
  *
@@ -41,9 +45,10 @@ function Card({ m, i }) {
       transition={{ duration: MOTION.reveal, delay: Math.min(i * 0.04, 0.3), ease: MOTION.ease }}>
 
       {/* ── Portrait ──
-          One container, one aspect ratio, one height for every card in the
-          row — whatever the source image's own proportions are. */}
-      <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-[#EEF2F0]">
+          3:4, not 4:3. A person is taller than they are wide, and the frosted
+          plate below needs room to sit over the photograph without covering
+          the face — which a landscape crop does not have. */}
+      <div className="relative aspect-[3/4] shrink-0 overflow-hidden rounded-xl bg-[#EEF2F0]">
         {m.photo_url ? (
           <Image src={m.photo_url} alt={m.name} fill
             /* Must track the column count exactly: 2 up to md, 3 to lg, 4
@@ -52,8 +57,8 @@ function Card({ m, i }) {
                A `sizes` that disagrees with the grid is worse than none — it
                confidently fetches the wrong file. */
             sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
-            className="object-cover transition-transform duration-standard ease-out
-              group-hover:scale-[1.03]"
+            className="object-cover transition-transform duration-[450ms] ease-out
+              group-hover:scale-[1.05]"
             style={{ objectPosition: m.photo_position || FOCUS_DEFAULT }} />
         ) : (
           <div role="img" aria-label={m.name}
@@ -63,102 +68,89 @@ function Card({ m, i }) {
           </div>
         )}
 
+        {/* A wash from the foot of the photograph upward.
+            The frosted plate alone is not enough: on a pale background —
+            a white wall, a bright sky — translucent glass over light pixels
+            leaves white type on near-white, and the name disappears. This
+            guarantees something dark under it whatever the photograph. */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5"
+          style={{ background: 'linear-gradient(to top, rgba(4,26,19,.78), transparent)' }} />
+
         {m.designation && (
-          <span className="absolute left-3 top-3 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide backdrop-blur-sm"
-            style={{ background: 'rgba(6,45,33,.78)', color: COLORS.gold400 }}>
-            {m.designation}
+          <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[.1em] backdrop-blur-md"
+            style={{ background: 'rgba(4,26,19,.55)', color: '#fff' }}>
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full"
+              style={{ background: COLORS.gold400 }} />
+            <span className="truncate max-w-[88px] sm:max-w-[120px]">{m.designation}</span>
           </span>
         )}
+
+        {/* The index, as on the reference. Decorative only — it is the
+            position in the roster, so it is hidden from screen readers rather
+            than read out as part of the person's name. */}
+        <span aria-hidden="true"
+          className="absolute right-2 top-2 rounded-full px-2 py-1 text-[9.5px] font-bold tabular-nums backdrop-blur-md"
+          style={{ background: 'rgba(255,255,255,.22)', color: '#fff' }}>
+          {String(i + 1).padStart(2, '0')}
+        </span>
+
+        {/* ── The name plate ──
+            Inside the photograph, on frosted glass. */}
+        <div className="absolute inset-x-2 bottom-2 rounded-xl px-2.5 py-2 backdrop-blur-md sm:px-3 sm:py-2.5"
+          style={{ background: 'rgba(10,61,44,.52)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.14)' }}>
+          {/* min-w-0 on the text, shrink-0 on the badge.
+              A flex child defaults to min-width:auto, so its min-content width
+              — the longest unbreakable run of the name — wins over the clamp
+              and pushes the plate wider than the photograph. min-w-0 lets it
+              actually shrink and the line-clamp do its job. */}
+          <h3 className="flex items-start gap-1 text-[13px] font-bold leading-tight text-white sm:text-[15.5px]">
+            <span className="min-w-0 line-clamp-2">{m.name}</span>
+            <VerifiedBadge size={13} className="mt-[2px] shrink-0" />
+          </h3>
+          {role && (
+            <p className="mt-0.5 text-[10.5px] leading-snug line-clamp-1 sm:text-[12px]"
+              style={{ color: 'rgba(255,255,255,.76)' }}>
+              {role}
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* ── Details ──
-          min-h rather than fixed h on each row. Fixed heights kept the buttons
-          aligned but clipped any name or employer that ran long — the page was
-          tidy at the cost of being wrong about people. min-h holds the rhythm
-          when the text is short; line-clamp holds it when the text is long;
-          mt-auto on the button keeps every call to action on the same line
-          either way. */}
-      {/* Two cards across a 360px phone leaves about 165px each, so the
-          smallest size gets tighter padding and a step down in type. Without
-          it the name wraps to three lines and the card stops looking designed.
-          Everything returns to the full scale from `sm` up. */}
-      <div className="flex flex-1 flex-col p-2.5 sm:p-4">
-        <h3 className="flex items-start gap-1 sm:gap-1.5 text-[13.5px] sm:text-[16px] font-bold leading-snug"
-          style={{ color: COLORS.green900 }}>
-          <span className="line-clamp-2 sm:line-clamp-1">{m.name}</span>
-          {/* ONE badge, not a small one and a large one behind breakpoint
-              classes. Two would both sit in the DOM and a screen reader would
-              announce "Verified member" twice on every card — a visual tidy
-              paid for with an audible stutter. 14px reads correctly against
-              both the 13.5px phone name and the 16px desktop one. */}
-          <VerifiedBadge size={14} />
-        </h3>
-
-        {role && (
-          <p className="mt-1 text-[11.5px] sm:text-[13px] font-medium leading-snug line-clamp-2 sm:line-clamp-1"
-            style={{ color: COLORS.green700 }}>
-            {role}
-          </p>
-        )}
-
+      {/* ── Below the portrait ──
+          Where the reference puts "PROFILE COMING SOON", TNR has something
+          true to say instead: where this person actually works. A status line
+          that never changes is decoration; the employer is the thing a
+          visitor is scanning the roster for. */}
+      <div className="flex flex-1 flex-col px-1 pt-2.5 sm:pt-3">
         {!!meta.length && (
-          <p className="mt-0.5 text-[10.5px] sm:text-[12px] leading-snug line-clamp-2"
+          <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[.1em] sm:text-[10px]"
             style={{ color: COLORS.muted }}>
-            {meta.join(' · ')}
+            <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ background: COLORS.green700 }} />
+            {/* min-w-0, same reason as the name plate. A long employer —
+                "Planning and Development Department, Gilgit-Baltistan" — was
+                setting this card's minimum width and making its column wider
+                than its neighbours', which is what broke the row. */}
+            <span className="min-w-0 line-clamp-1">{meta.join(' · ')}</span>
           </p>
         )}
 
-        {/* Only when there is something to say. An empty reserved block on the
-            members who have not written an introduction is whitespace that
-            looks like a loading failure.
-
-            Hidden below `sm`: at 165px wide two lines of 12px biography is a
-            grey smudge nobody reads, and it pushes the button off the fold. */}
-        {m.intro && (
-          <p className="mt-2 hidden sm:line-clamp-2 text-[12.5px] leading-relaxed"
-            style={{ color: COLORS.muted }}>
-            {m.intro}
-          </p>
-        )}
-
-        {/* One tag on a phone, two from `sm`. Two 10px pills side by side do
-            not fit 165px without wrapping into a second row. */}
-        {!!(m.expertise || []).length && (
-          <div className="mt-2 sm:mt-2.5 flex flex-wrap gap-1 sm:gap-1.5 overflow-hidden">
-            {m.expertise.slice(0, 1).map(e => (
-              <span key={e} className="rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[10.5px] font-semibold truncate max-w-full"
-                style={{ background: 'rgba(23,107,73,.08)', color: COLORS.green700 }}>{e}</span>
-            ))}
-            {m.expertise.slice(1, 2).map(e => (
-              <span key={e} className="hidden sm:inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
-                style={{ background: 'rgba(23,107,73,.08)', color: COLORS.green700 }}>{e}</span>
-            ))}
-            {m.expertise.length > 2 && (
-              <span className="hidden sm:inline px-1 py-0.5 text-[10.5px]" style={{ color: COLORS.muted }}>
-                +{m.expertise.length - 2}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* The wrapper carries BOTH jobs, because the button cannot.
-            `mt-auto` pushes it to the foot of the card so every button in the
-            row lines up; `pt-4` guarantees a gap above it on the shortest
-            card. Putting both on the <a> itself meant two conflicting margin
-            utilities on one element, where whichever Tailwind emitted last
-            silently won. */}
-        <div className="mt-auto pt-4">
-          {/* No focus utilities here on purpose: globals.css already gives
-              every :focus-visible a 2px gold outline, and .tnr-btn-profile
-              has its own keyboard treatment. Adding Tailwind's outline
-              classes on top would set a width with no colour and fight the
-              rule that is already right. */}
+        {/* mt-auto pushes the button to the foot so every one in the row lines
+            up; pt-2.5 keeps a gap above it on the card with no employer. */}
+        <div className="mt-auto pt-2.5 sm:pt-3">
           <a href={`/council/${m.slug}`}
-            className="tnr-btn-profile block rounded-[10px] py-2.5 text-center text-[12.5px] font-bold text-white"
-            style={{ background: `linear-gradient(180deg,${COLORS.green700},${COLORS.green900})` }}>
-            <span className="inline-flex items-center gap-1.5">
-              View Full Profile
-              <ArrowRight size={13} strokeWidth={2.5} aria-hidden="true" className="tnr-btn-arrow" />
+            className="group/btn flex items-center justify-between gap-2 rounded-full py-1.5 pl-3.5 pr-1.5
+              text-[11.5px] font-bold text-white transition-colors duration-standard sm:text-[12.5px]"
+            style={{ background: `linear-gradient(135deg,${COLORS.green700},${COLORS.green900})` }}>
+            <span className="truncate">View profile</span>
+            {/* The arrow in its own disc, as on the reference. It is the
+                detail that makes the button look considered rather than
+                default. */}
+            <span aria-hidden="true"
+              className="grid h-6 w-6 shrink-0 place-items-center rounded-full transition-transform
+                duration-standard group-hover/btn:translate-x-[2px] sm:h-7 sm:w-7"
+              style={{ background: 'rgba(255,255,255,.18)' }}>
+              <ArrowRight size={12} strokeWidth={2.75} />
             </span>
           </a>
         </div>
@@ -187,12 +179,12 @@ export default function CouncilDirectory({ limit, showFilters = true }) {
   const sel = 'rounded-tnr border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#176B49] bg-white';
 
   if (!d) return (
-    /* h-96, not h-80. The skeleton has to stand at roughly the height the real
-       card settles at — a 4:3 portrait plus its details block — or the page
+    /* The skeleton has to stand at roughly the height the real card settles
+       at — a 3:4 portrait plus the status line and the button — or the page
        jumps when the roster lands, which is the layout shift this placeholder
        exists to prevent in the first place. */
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
-      {Array.from({ length: limit || 8 }).map((_, i) => <Skeleton key={i} height="h-96" />)}
+      {Array.from({ length: limit || 8 }).map((_, i) => <Skeleton key={i} height="h-[26rem]" />)}
     </div>
   );
 
