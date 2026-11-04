@@ -16,7 +16,7 @@ import { academicTitle } from '@/lib/membership/options';
  * `overflow-visible` on the shell, `overflow-hidden` on the portrait. The
  * frame has padding, so clipping at the outer edge would crop the padding
  * rather than the image and the rounded photo corners would never show. */
-const shell = 'group relative flex flex-col rounded-2xl bg-white p-2.5 '
+const shell = 'group relative flex flex-col rounded-[28px] bg-white p-2.5 '
   + 'shadow-[0_1px_2px_rgba(23,33,28,.05)] '
   + 'transition-[transform,box-shadow] duration-standard ease-out '
   + 'hover:-translate-y-[5px] hover:shadow-[0_14px_34px_-12px_rgba(10,61,44,.30)]';
@@ -45,10 +45,11 @@ function Card({ m, i }) {
       transition={{ duration: MOTION.reveal, delay: Math.min(i * 0.04, 0.3), ease: MOTION.ease }}>
 
       {/* ── Portrait ──
-          3:4, not 4:3. A person is taller than they are wide, and the frosted
-          plate below needs room to sit over the photograph without covering
-          the face — which a landscape crop does not have. */}
-      <div className="relative aspect-[3/4] shrink-0 overflow-hidden rounded-xl bg-[#EEF2F0]">
+          4:5, and a 22px radius inside a 28px frame — the measurements the
+          reference actually uses, read off the live page rather than guessed
+          from a screenshot. A 10px frame around a 22px photo is what gives
+          the concentric, machined look; mismatched radii read as a mistake. */}
+      <div className="relative aspect-[4/5] shrink-0 overflow-hidden rounded-[22px] bg-[#EEF2F0]">
         {m.photo_url ? (
           <Image src={m.photo_url} alt={m.name} fill
             /* Must track the column count exactly: 2 up to md, 3 to lg, 4
@@ -57,8 +58,11 @@ function Card({ m, i }) {
                A `sizes` that disagrees with the grid is worse than none — it
                confidently fetches the wrong file. */
             sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
-            className="object-cover transition-transform duration-[450ms] ease-out
-              group-hover:scale-[1.05]"
+            /* 1.2s, not 250ms. A slow, long zoom is most of why the reference
+               feels expensive — a quick snap reads as a hover state, a drift
+               reads as the photograph being alive. */
+            className="object-cover transition-[scale] duration-[1200ms] ease-out
+              group-hover:scale-[1.06]"
             style={{ objectPosition: m.photo_position || FOCUS_DEFAULT }} />
         ) : (
           <div role="img" aria-label={m.name}
@@ -68,48 +72,52 @@ function Card({ m, i }) {
           </div>
         )}
 
-        {/* A wash from the foot of the photograph upward.
-            The frosted plate alone is not enough: on a pale background —
-            a white wall, a bright sky — translucent glass over light pixels
-            leaves white type on near-white, and the name disappears. This
-            guarantees something dark under it whatever the photograph. */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5"
-          style={{ background: 'linear-gradient(to top, rgba(4,26,19,.78), transparent)' }} />
+        {/* Two thirds of the photograph, not the bottom fifth.
+            The reference leans on this gradient rather than on a dark plate —
+            its name panel is only white/0.07, almost clear glass. That is why
+            the photograph still reads as a photograph under the type. A tall,
+            soft wash does the contrast work invisibly; a short hard one looks
+            like a band stuck across the picture. */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3"
+          style={{ background: 'linear-gradient(to top, rgba(4,26,19,.82), rgba(4,26,19,.35) 45%, transparent)' }} />
 
-        {m.designation && (
-          <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[.1em] backdrop-blur-md"
-            style={{ background: 'rgba(4,26,19,.55)', color: '#fff' }}>
-            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full"
-              style={{ background: COLORS.gold400 }} />
-            <span className="truncate max-w-[88px] sm:max-w-[120px]">{m.designation}</span>
+        <div className="absolute inset-x-2.5 top-2.5 flex items-start justify-between gap-2 sm:inset-x-3 sm:top-3">
+          {m.designation ? (
+            <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold backdrop-blur-md sm:px-2.5 sm:text-[11px]"
+              style={{ background: 'rgba(255,255,255,.14)', color: 'rgba(255,255,255,.92)' }}>
+              <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full"
+                style={{ background: COLORS.gold400 }} />
+              <span className="min-w-0 truncate">{m.designation}</span>
+            </span>
+          ) : <span />}
+
+          {/* A white pill with TNR green type, as the reference does it —
+              not white-on-translucent, which disappears over a pale photo.
+              Decorative: it is a position in a roster, not part of the
+              person's name, so it stays out of the accessibility tree. */}
+          <span aria-hidden="true"
+            className="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold tabular-nums sm:px-2.5"
+            style={{ background: 'rgba(255,255,255,.9)', color: COLORS.green700 }}>
+            {String(i + 1).padStart(2, '0')}
           </span>
-        )}
-
-        {/* The index, as on the reference. Decorative only — it is the
-            position in the roster, so it is hidden from screen readers rather
-            than read out as part of the person's name. */}
-        <span aria-hidden="true"
-          className="absolute right-2 top-2 rounded-full px-2 py-1 text-[9.5px] font-bold tabular-nums backdrop-blur-md"
-          style={{ background: 'rgba(255,255,255,.22)', color: '#fff' }}>
-          {String(i + 1).padStart(2, '0')}
-        </span>
+        </div>
 
         {/* ── The name plate ──
-            Inside the photograph, on frosted glass. */}
-        <div className="absolute inset-x-2 bottom-2 rounded-xl px-2.5 py-2 backdrop-blur-md sm:px-3 sm:py-2.5"
-          style={{ background: 'rgba(10,61,44,.52)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.14)' }}>
+            Near-clear glass with a hairline, floating on the gradient. */}
+        <div className="absolute inset-x-2.5 bottom-2.5 rounded-2xl px-3 py-2.5 backdrop-blur-md sm:inset-x-3 sm:bottom-3 sm:px-4 sm:py-3.5"
+          style={{ background: 'rgba(255,255,255,.07)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.16)' }}>
           {/* min-w-0 on the text, shrink-0 on the badge.
               A flex child defaults to min-width:auto, so its min-content width
               — the longest unbreakable run of the name — wins over the clamp
               and pushes the plate wider than the photograph. min-w-0 lets it
               actually shrink and the line-clamp do its job. */}
-          <h3 className="flex items-start gap-1 text-[13px] font-bold leading-tight text-white sm:text-[15.5px]">
+          <h3 className="flex items-start gap-1.5 text-[15px] font-bold leading-tight text-white sm:text-[20px]">
             <span className="min-w-0 line-clamp-2">{m.name}</span>
-            <VerifiedBadge size={13} className="mt-[2px] shrink-0" />
+            <VerifiedBadge size={14} className="mt-[3px] shrink-0" />
           </h3>
           {role && (
-            <p className="mt-0.5 text-[10.5px] leading-snug line-clamp-1 sm:text-[12px]"
-              style={{ color: 'rgba(255,255,255,.76)' }}>
+            <p className="mt-1 text-[11.5px] font-medium leading-snug line-clamp-2 sm:text-[14px]"
+              style={{ color: '#BFE3D1' }}>
               {role}
             </p>
           )}
@@ -180,11 +188,11 @@ export default function CouncilDirectory({ limit, showFilters = true }) {
 
   if (!d) return (
     /* The skeleton has to stand at roughly the height the real card settles
-       at — a 3:4 portrait plus the status line and the button — or the page
-       jumps when the roster lands, which is the layout shift this placeholder
-       exists to prevent in the first place. */
+       at — a 4:5 portrait, 10px of frame either side, the status line and the
+       button — or the page jumps when the roster lands, which is the layout
+       shift this placeholder exists to prevent in the first place. */
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
-      {Array.from({ length: limit || 8 }).map((_, i) => <Skeleton key={i} height="h-[26rem]" />)}
+      {Array.from({ length: limit || 8 }).map((_, i) => <Skeleton key={i} height="h-[25rem]" />)}
     </div>
   );
 
