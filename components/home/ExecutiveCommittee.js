@@ -44,14 +44,18 @@ export default function ExecutiveCommittee() {
           the request is slow, a visitor can screenshot office bearers who look
           unfilled when they are not. */}
       {loading ? (
-        <div className="mt-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" aria-hidden="true">
-          {[0, 1, 2].map(i => (
+        /* 2 / 3 / 4 across, matching the Advisory Council and the Ambassadors
+           so the three leadership rosters read as one set rather than three
+           separately-built grids. Four skeletons, not three, because that is
+           what a full desktop row now holds. */
+        <div className="mt-9 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6" aria-hidden="true">
+          {[0, 1, 2, 3].map(i => (
             <div key={i} className="h-[340px] rounded-tnr-lg border border-gray-100 bg-white/60 animate-pulse" />
           ))}
         </div>
       ) : (
         <RevealGroup key={executive.length}
-          className="mt-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          className="mt-9 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
           {executive.map(m => (
             // h-full on the wrapper AND the card: the extra div would otherwise
             // absorb the grid stretch and leave cards of unequal height.

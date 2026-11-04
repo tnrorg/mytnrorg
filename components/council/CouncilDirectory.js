@@ -46,10 +46,12 @@ function Card({ m, i }) {
       <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-[#EEF2F0]">
         {m.photo_url ? (
           <Image src={m.photo_url} alt={m.name} fill
-            /* The grid is 1 / 2 / 3 / 4 across. Without this the browser
-               assumes full width and downloads a 1440px portrait for a card
-               that renders at 330px. */
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+            /* Must track the column count exactly: 2 up to md, 3 to lg, 4
+               above. Without it the browser assumes full width and downloads
+               a 1440px portrait for a card that renders at 165px on a phone.
+               A `sizes` that disagrees with the grid is worse than none — it
+               confidently fetches the wrong file. */
+            sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
             className="object-cover transition-transform duration-standard ease-out
               group-hover:scale-[1.03]"
             style={{ objectPosition: m.photo_position || FOCUS_DEFAULT }} />
@@ -76,22 +78,31 @@ function Card({ m, i }) {
           when the text is short; line-clamp holds it when the text is long;
           mt-auto on the button keeps every call to action on the same line
           either way. */}
-      <div className="flex flex-1 flex-col p-4">
-        <h3 className="flex items-start gap-1.5 text-[16px] font-bold leading-snug"
+      {/* Two cards across a 360px phone leaves about 165px each, so the
+          smallest size gets tighter padding and a step down in type. Without
+          it the name wraps to three lines and the card stops looking designed.
+          Everything returns to the full scale from `sm` up. */}
+      <div className="flex flex-1 flex-col p-2.5 sm:p-4">
+        <h3 className="flex items-start gap-1 sm:gap-1.5 text-[13.5px] sm:text-[16px] font-bold leading-snug"
           style={{ color: COLORS.green900 }}>
-          <span className="line-clamp-1">{m.name}</span>
-          <VerifiedBadge size={15} />
+          <span className="line-clamp-2 sm:line-clamp-1">{m.name}</span>
+          {/* ONE badge, not a small one and a large one behind breakpoint
+              classes. Two would both sit in the DOM and a screen reader would
+              announce "Verified member" twice on every card — a visual tidy
+              paid for with an audible stutter. 14px reads correctly against
+              both the 13.5px phone name and the 16px desktop one. */}
+          <VerifiedBadge size={14} />
         </h3>
 
         {role && (
-          <p className="mt-1 min-h-[18px] text-[13px] font-medium leading-snug line-clamp-1"
+          <p className="mt-1 text-[11.5px] sm:text-[13px] font-medium leading-snug line-clamp-2 sm:line-clamp-1"
             style={{ color: COLORS.green700 }}>
             {role}
           </p>
         )}
 
         {!!meta.length && (
-          <p className="mt-0.5 min-h-[17px] text-[12px] leading-snug line-clamp-2"
+          <p className="mt-0.5 text-[10.5px] sm:text-[12px] leading-snug line-clamp-2"
             style={{ color: COLORS.muted }}>
             {meta.join(' · ')}
           </p>
@@ -99,21 +110,31 @@ function Card({ m, i }) {
 
         {/* Only when there is something to say. An empty reserved block on the
             members who have not written an introduction is whitespace that
-            looks like a loading failure. */}
+            looks like a loading failure.
+
+            Hidden below `sm`: at 165px wide two lines of 12px biography is a
+            grey smudge nobody reads, and it pushes the button off the fold. */}
         {m.intro && (
-          <p className="mt-2 text-[12.5px] leading-relaxed line-clamp-2" style={{ color: COLORS.muted }}>
+          <p className="mt-2 hidden sm:line-clamp-2 text-[12.5px] leading-relaxed"
+            style={{ color: COLORS.muted }}>
             {m.intro}
           </p>
         )}
 
+        {/* One tag on a phone, two from `sm`. Two 10px pills side by side do
+            not fit 165px without wrapping into a second row. */}
         {!!(m.expertise || []).length && (
-          <div className="mt-2.5 flex flex-wrap gap-1.5 overflow-hidden">
-            {m.expertise.slice(0, 2).map(e => (
-              <span key={e} className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
+          <div className="mt-2 sm:mt-2.5 flex flex-wrap gap-1 sm:gap-1.5 overflow-hidden">
+            {m.expertise.slice(0, 1).map(e => (
+              <span key={e} className="rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[10.5px] font-semibold truncate max-w-full"
+                style={{ background: 'rgba(23,107,73,.08)', color: COLORS.green700 }}>{e}</span>
+            ))}
+            {m.expertise.slice(1, 2).map(e => (
+              <span key={e} className="hidden sm:inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
                 style={{ background: 'rgba(23,107,73,.08)', color: COLORS.green700 }}>{e}</span>
             ))}
             {m.expertise.length > 2 && (
-              <span className="px-1 py-0.5 text-[10.5px]" style={{ color: COLORS.muted }}>
+              <span className="hidden sm:inline px-1 py-0.5 text-[10.5px]" style={{ color: COLORS.muted }}>
                 +{m.expertise.length - 2}
               </span>
             )}
@@ -170,7 +191,7 @@ export default function CouncilDirectory({ limit, showFilters = true }) {
        card settles at — a 4:3 portrait plus its details block — or the page
        jumps when the roster lands, which is the layout shift this placeholder
        exists to prevent in the first place. */
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
       {Array.from({ length: limit || 8 }).map((_, i) => <Skeleton key={i} height="h-96" />)}
     </div>
   );
@@ -227,7 +248,7 @@ export default function CouncilDirectory({ limit, showFilters = true }) {
             ? 'Try a different name, profession or country.'
             : 'Advisory Council profiles will appear here once published.'} />
       ) : (
-        <div className={`${showFilters ? 'mt-6' : ''} grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5`}>
+        <div className={`${showFilters ? 'mt-6' : ''} grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5`}>
           {members.map((m, i) => <Card key={m.slug} m={m} i={i} />)}
         </div>
       )}

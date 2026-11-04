@@ -61,8 +61,9 @@ export default function UniversityAmbassadors() {
           section: RevealGroup animates once, and the roster arrives
           asynchronously, so cards mounting after the observer has fired would
           stay at opacity 0 and the section would render as blank space. */}
+      {/* 2 / 3 / 4 across, the same as the CEC grid directly above it. */}
       <RevealGroup key={ambassadors.length}
-        className="mt-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        className="mt-9 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
         {ambassadors.map(m => (
           <RevealItem key={m.slug} className="h-full">
             <ExecutiveCard member={m} />

@@ -13,7 +13,13 @@ const C = { deep: COLORS.green900, green: COLORS.green700, gold: COLORS.gold500 
 
 export function ExecutivePhoto({ member, size = 'card' }) {
   const [failed, setFailed] = useState(false);
-  const box = size === 'large' ? 'w-44 h-44' : 'w-28 h-28';
+  /* w-20 below `sm`, w-28 above.
+   *
+   * Two cards across a 360px phone gives each about 165px. A fixed 112px
+   * portrait inside 24px of padding needs 160px of that — the circle filled
+   * the card edge to edge and the name underneath had nowhere to go. 80px
+   * leaves room for the text to breathe at the only size where it is tight. */
+  const box = size === 'large' ? 'w-44 h-44' : 'w-20 h-20 sm:w-28 sm:h-28';
 
   return (
     <div className={`${box} rounded-full p-[3px] mx-auto shrink-0`}
@@ -43,16 +49,18 @@ export default function ExecutiveCard({ member }) {
       border border-[rgba(200,154,43,.35)] shadow-tnr-flat transition-colors duration-standard
       hover:border-[rgba(200,154,43,.75)]">
       {/* deep-green crown behind the portrait, the way the printed cards read */}
-      <div className="h-20" style={{ background: `linear-gradient(135deg, ${C.deep}, ${C.green})` }} />
-      <div className="-mt-16 px-6 pb-6 flex flex-col flex-1">
+      {/* The crown and the overlap shrink with the portrait: a -mt-16 pull on
+          an 80px circle would hang it off the top of the band. */}
+      <div className="h-14 sm:h-20" style={{ background: `linear-gradient(135deg, ${C.deep}, ${C.green})` }} />
+      <div className="-mt-11 sm:-mt-16 px-3 pb-4 sm:px-6 sm:pb-6 flex flex-col flex-1">
         <ExecutivePhoto member={member} />
 
-        <div className="mt-4 text-center">
-          <div className="inline-block text-[10px] font-black uppercase tracking-[.18em] px-3 py-1 rounded-full"
+        <div className="mt-3 sm:mt-4 text-center">
+          <div className="inline-block text-[9px] sm:text-[10px] font-black uppercase tracking-[.14em] sm:tracking-[.18em] px-2 sm:px-3 py-1 rounded-full"
             style={{ background: '#F3E4B3', color: C.deep }}>{member.designation}</div>
         </div>
 
-        <h3 className="mt-3 text-center font-black text-[17px] leading-snug flex items-center justify-center gap-1.5"
+        <h3 className="mt-2.5 sm:mt-3 text-center font-black text-[14px] sm:text-[17px] leading-snug flex items-center justify-center gap-1 sm:gap-1.5"
           style={{ color: named ? C.deep : '#9CA3AF' }}>
           {named ? member.name : 'To Be Announced'}
           {/* Gold verified badge, same as the council and members directory —
