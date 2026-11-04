@@ -35,78 +35,55 @@ const shell = 'group relative flex flex-col rounded-[28px] bg-white p-1.5 sm:p-2
  * migration is needed to start using this; set it when a face needs it. */
 const FOCUS_DEFAULT = '50% 20%';
 
-/* ── Name and role ────────────────────────────────────────────────────────────
+/* ── The name plate ───────────────────────────────────────────────────────────
  *
- * Rendered in ONE OF TWO PLACES, and which one is not a style preference.
+ * Near-clear glass with a hairline, floating on the gradient, at every width —
+ * so the photograph fills the card on a phone exactly as it does on a desktop.
+ * Centred: the portrait behind it is centred, so left-aligned type sat
+ * off-axis against the face.
  *
- * Two cards across a 360px phone leaves each portrait 138px wide. Measured in
- * the real Mulish face, the longest name on the roster — "Sayyed Zaman Haider"
- * — is 159px at the plate's 15px, and still 106px at 10px, against the 74px
- * the plate had left after its insets, padding and the verified badge. There
- * is no type size at which it fits: that is why the name was breaking after
- * the comma and the role was running to two lines.
+ * THE MOBILE SIZES ARE MEASURED, NOT CHOSEN, because the plate is the tightest
+ * place on the card. Two cards across a 360px phone leaves each portrait 146px,
+ * and the plate inside that is 138px — 130px of text once its padding is off,
+ * and 118px for the name once the verified badge has its share. Every name on
+ * the roster was typeset in the real Mulish face at 360, 375, 390, 412 and
+ * 430px; the tightest, "Sayyed Zaman Haider" at 360, sets the numbers below
+ * and clears them by 10.8px. That margin is the point — an earlier pass
+ * cleared by 1px, which is not clearance at all: a device that hints the face
+ * a shade wider would have cut a member's name in half.
  *
- * So below `sm` the type comes off the photograph and sits in the white body,
- * where it has the whole card width — 134px rather than 74px — and both lines
- * fit at a readable size. From `sm` up, where a card is 297px and the plate
- * has room to spare, the frosted plate on the portrait is unchanged.
+ * clamp() rather than a fixed size, because the card is itself a fraction of
+ * the viewport: a size that fits 360px wastes the room a 430px phone has.
  *
- * The two copies never coexist: `hidden` is display:none, so exactly one is in
- * the accessibility tree at any width and the name is announced once.
+ * line-clamp-1 below `sm`, line-clamp-2 above. One line each is what keeps the
+ * plate from swallowing the face on a small card; from `sm` the card is 297px
+ * and a long name can afford to wrap. A role long enough to be cut is one like
+ * "Program Associate — U.S. Department of State-funded…", 149 characters of
+ * paragraph in a field meant for a job title; an ellipsis is the honest
+ * treatment of that. No name on the roster reaches the width where it is cut.
  */
-function Identity({ name, role, onPhoto }) {
-  if (onPhoto) return (
-    /* Near-clear glass with a hairline, floating on the gradient.
-       Centred: the portrait behind it is centred, so left-aligned type sat
-       off-axis against the face. */
-    <div className="absolute inset-x-3 bottom-3 hidden rounded-2xl px-4 py-3.5 text-center
-      backdrop-blur-md sm:block"
+function Identity({ name, role }) {
+  return (
+    <div className="absolute inset-x-1 bottom-1 rounded-xl px-1 py-1.5 text-center backdrop-blur-md
+      sm:inset-x-3 sm:bottom-3 sm:rounded-2xl sm:px-4 sm:py-3.5"
       style={{ background: 'rgba(255,255,255,.07)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.16)' }}>
-      {/* min-w-0 on the text, shrink-0 on the badge.
+      {/* min-w-0 on the text, shrink-0 on the badge (the badge carries its own).
           A flex child defaults to min-width:auto, so its min-content width —
           the longest unbreakable run of the name — wins over the clamp and
           pushes the plate wider than the photograph. min-w-0 lets it actually
           shrink and the line-clamp do its job. */}
-      <h3 className="flex items-start justify-center gap-1.5 text-[20px] font-bold leading-tight text-white">
-        <span className="min-w-0 line-clamp-2">{name}</span>
-        <VerifiedBadge size={14} className="mt-[3px] shrink-0" />
+      <h3 className="flex items-center justify-center gap-0.5 text-[clamp(10px,2.8vw,13px)]
+        font-bold leading-tight text-white sm:items-start sm:gap-1.5 sm:text-[20px]">
+        <span className="min-w-0 line-clamp-1 sm:line-clamp-2">{name}</span>
+        {/* One badge, resized by CSS. A class beats the SVG's width/height
+            attribute, so this is 10px on a phone and 14px from `sm` without a
+            second element that a screen reader could announce twice. */}
+        <VerifiedBadge className="h-2.5 w-2.5 sm:mt-[3px] sm:h-3.5 sm:w-3.5" />
       </h3>
       {role && (
-        <p className="mt-1 text-[14px] font-medium leading-snug line-clamp-2"
+        <p className="mt-0.5 line-clamp-1 text-[clamp(9px,2.4vw,11.5px)] font-medium leading-snug
+          sm:mt-1 sm:line-clamp-2 sm:text-[14px]"
           style={{ color: '#BFE3D1' }}>
-          {role}
-        </p>
-      )}
-    </div>
-  );
-
-  /* On the white body, below `sm`.
-   *
-   * clamp() rather than a fixed size, because the card is itself a fraction of
-   * the viewport: a size that fits 360px wastes the room a 430px phone has.
-   *
-   * THE COEFFICIENTS ARE MEASURED, NOT CHOSEN. Every name on the roster was
-   * typeset in the real Mulish face at 360, 375, 390, 412 and 430px, and the
-   * tightest fit — "Sayyed Zaman Haider" at 360 — decided the numbers. 3vw
-   * cleared it by 1px, which is not clearance at all: a device that hints the
-   * face a shade wider would have cut a member's name. 2.9vw with a 1.5-unit
-   * frame clears it by 11px at every width, which survives that variation.
-   *
-   * `truncate`, not `line-clamp-2` — one line each, which is the whole point.
-   * A role long enough to be cut is one like "Program Associate — U.S.
-   * Department of State-funded…", 149 characters of paragraph in a field meant
-   * for a job title; an ellipsis is the honest treatment of that. No name on
-   * the roster reaches the width where it would be cut. */
-  return (
-    <div className="sm:hidden">
-      <h3 className="flex items-center gap-1 text-[clamp(10px,2.9vw,12.5px)] font-bold leading-tight"
-        style={{ color: COLORS.green900 }}>
-        <span className="min-w-0 truncate">{name}</span>
-        <VerifiedBadge size={12} className="shrink-0" />
-      </h3>
-      {role && (
-        <p className="mt-0.5 truncate text-[clamp(9.5px,2.6vw,11.5px)] font-medium leading-snug"
-          style={{ color: COLORS.green700 }}>
           {role}
         </p>
       )}
@@ -194,23 +171,26 @@ function Card({ m, i, bodyLabel }) {
             its name panel is only white/0.07, almost clear glass. That is why
             the photograph still reads as a photograph under the type. A tall,
             soft wash does the contrast work invisibly; a short hard one looks
-            like a band stuck across the picture.
-
-            A quarter below `sm`, where there is no type on the photo for it to
-            back. Two thirds of a 138px portrait is most of the face in shadow
-            for no reason; a short base just seats the picture in its frame. */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 sm:h-2/3"
+            like a band stuck across the picture. */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3"
           style={{ background: 'linear-gradient(to top, rgba(4,26,19,.82), rgba(4,26,19,.35) 45%, transparent)' }} />
 
-        <div className="absolute inset-x-2.5 top-2.5 flex items-start justify-between gap-2 sm:inset-x-3 sm:top-3">
+        {/* inset matched to the name plate's, so the two float on the same
+            margin rather than on two slightly different ones. */}
+        <div className="absolute inset-x-1 top-1 flex items-start justify-between gap-2 sm:inset-x-3 sm:top-3">
           {/* The BODY, on every card — the way the reference stamps its team
               name on all four. This slot was wired to m.designation, which
               most advisory members do not have, so most cards showed an empty
               corner. A chip that appears on some cards and not others is not
               a brand mark, it is a gap. */}
-          <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold backdrop-blur-md sm:px-2.5 sm:text-[11px]"
+          {/* Small on a phone — 8.5px against the plate's 10px name, so it
+              reads as the quiet stamp it is rather than competing with the
+              person. It needs 66px of the 112px available, so it sets no
+              constraint on the card and keeps its full wording. */}
+          <span className="inline-flex min-w-0 items-center gap-1 rounded-full px-1.5 py-0.5
+            text-[8.5px] font-semibold backdrop-blur-md sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[11px]"
             style={{ background: 'rgba(255,255,255,.14)', color: 'rgba(255,255,255,.92)' }}>
-            <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full"
+            <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full sm:h-1.5 sm:w-1.5"
               style={{ background: COLORS.gold400 }} />
             <span className="min-w-0 truncate">{bodyLabel}</span>
           </span>
@@ -232,8 +212,7 @@ function Card({ m, i, bodyLabel }) {
           </span>
         </div>
 
-        {/* The name plate — from `sm` up only. See Identity above. */}
-        <Identity name={name} role={role} onPhoto />
+        <Identity name={name} role={role} />
       </div>
 
       {/* ── Below the portrait ──
@@ -242,9 +221,6 @@ function Card({ m, i, bodyLabel }) {
           that never changes is decoration; the employer is the thing a
           visitor is scanning the roster for. */}
       <div className="flex flex-1 flex-col px-1 pt-2 sm:pt-3">
-        {/* Below `sm` the name and role live here, not on the photograph. */}
-        <Identity name={name} role={role} />
-
         {!!meta.length && (
           <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[.1em] sm:text-[10px]"
             style={{ color: COLORS.muted }}>
@@ -328,13 +304,13 @@ export default function CouncilDirectory({
        button — or the page jumps when the roster lands, which is the layout
        shift this placeholder exists to prevent in the first place. */
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
-      {/* Two heights, because the card now has two layouts. Below `sm` the
-          name and role sit in the body rather than on the photograph, so the
-          card is shorter than the 25rem the plate version settles at. A
-          skeleton that guesses the wrong height reintroduces exactly the jump
-          it is here to prevent. */}
+      {/* Two heights, because the card is a proportion of its column and the
+          column halves on a phone: a 146px-wide 4:5 portrait plus the status
+          line and the button settles near 16rem, not the 25rem a desktop card
+          reaches. A skeleton that guesses the wrong height reintroduces
+          exactly the jump it is here to prevent. */}
       {Array.from({ length: limit || 8 })
-        .map((_, i) => <Skeleton key={i} height="h-[19rem] sm:h-[25rem]" />)}
+        .map((_, i) => <Skeleton key={i} height="h-[16rem] sm:h-[25rem]" />)}
     </div>
   );
 
