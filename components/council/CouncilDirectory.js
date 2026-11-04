@@ -50,6 +50,33 @@ function Card({ m, i, bodyLabel }) {
       initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
       transition={{ duration: MOTION.reveal, delay: Math.min(i * 0.04, 0.3), ease: MOTION.ease }}>
 
+      {/* ── The outline, drawn on hover ──
+          An SVG rectangle whose stroke is dashed to exactly its own length and
+          offset out of sight, then pulled back to zero — so the line appears
+          to travel around the card rather than simply fading in.
+          `pathLength="100"` is what makes that work without knowing the card's
+          pixel size: it renormalises the geometry so a dash of 100 is always
+          precisely one full lap, at any width, in any column count.
+          Green into gold, the two brand colours, so the stroke changes
+          character as it travels. The gradient id carries the slug because two
+          cards sharing one id means the second silently inherits the first. */}
+      <svg aria-hidden="true" focusable="false"
+        className="pointer-events-none absolute inset-[1px] h-[calc(100%-2px)] w-[calc(100%-2px)] overflow-visible">
+        <defs>
+          <linearGradient id={`tnr-outline-${m.slug}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={COLORS.green700} />
+            <stop offset="55%" stopColor={COLORS.gold500} />
+            <stop offset="100%" stopColor={COLORS.gold400} />
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="100%" height="100%" rx="27" ry="27" fill="none"
+          stroke={`url(#tnr-outline-${m.slug})`} strokeWidth="2" pathLength="100"
+          className="[stroke-dasharray:100] [stroke-dashoffset:100]
+            transition-[stroke-dashoffset] duration-[900ms] ease-out
+            group-hover:[stroke-dashoffset:0]" />
+      </svg>
+
+
       {/* ── Portrait ──
           4:5, and a 22px radius inside a 28px frame — the measurements the
           reference actually uses, read off the live page rather than guessed
@@ -112,15 +139,17 @@ function Card({ m, i, bodyLabel }) {
         </div>
 
         {/* ── The name plate ──
-            Near-clear glass with a hairline, floating on the gradient. */}
-        <div className="absolute inset-x-2.5 bottom-2.5 rounded-2xl px-3 py-2.5 backdrop-blur-md sm:inset-x-3 sm:bottom-3 sm:px-4 sm:py-3.5"
+            Near-clear glass with a hairline, floating on the gradient.
+            Centred: the portrait behind it is centred, so left-aligned type
+            sat off-axis against the face. */}
+        <div className="absolute inset-x-2.5 bottom-2.5 rounded-2xl px-3 py-2.5 text-center backdrop-blur-md sm:inset-x-3 sm:bottom-3 sm:px-4 sm:py-3.5"
           style={{ background: 'rgba(255,255,255,.07)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.16)' }}>
           {/* min-w-0 on the text, shrink-0 on the badge.
               A flex child defaults to min-width:auto, so its min-content width
               — the longest unbreakable run of the name — wins over the clamp
               and pushes the plate wider than the photograph. min-w-0 lets it
               actually shrink and the line-clamp do its job. */}
-          <h3 className="flex items-start gap-1.5 text-[15px] font-bold leading-tight text-white sm:text-[20px]">
+          <h3 className="flex items-start justify-center gap-1.5 text-[15px] font-bold leading-tight text-white sm:text-[20px]">
             <span className="min-w-0 line-clamp-2">{m.name}</span>
             <VerifiedBadge size={14} className="mt-[3px] shrink-0" />
           </h3>
@@ -156,16 +185,27 @@ function Card({ m, i, bodyLabel }) {
             up; pt-2.5 keeps a gap above it on the card with no employer. */}
         <div className="mt-auto pt-2.5 sm:pt-3">
           <a href={`/council/${m.slug}`}
-            className="group/btn flex items-center justify-between gap-2 rounded-full py-1.5 pl-3.5 pr-1.5
-              text-[11.5px] font-bold text-white transition-colors duration-standard sm:text-[12.5px]"
+            className="group/btn relative isolate flex items-center justify-between gap-2 overflow-hidden
+              rounded-full py-1.5 pl-3.5 pr-1.5 text-[11.5px] font-bold text-white
+              transition-colors duration-500 group-hover/btn:text-[#0A3D2C] sm:text-[12.5px]"
             style={{ background: `linear-gradient(135deg,${COLORS.green700},${COLORS.green900})` }}>
-            <span className="truncate">View profile</span>
-            {/* The arrow in its own disc, as on the reference. It is the
-                detail that makes the button look considered rather than
-                default. */}
+            {/* Gold, wiping in from the left.
+                scaleX from a left origin rather than a background-position
+                slide: a transform runs on the compositor, so it stays smooth
+                with twelve of these on screen, and it cannot be knocked out
+                of step by the card's own transition. */}
             <span aria-hidden="true"
-              className="grid h-6 w-6 shrink-0 place-items-center rounded-full transition-transform
-                duration-standard group-hover/btn:translate-x-[2px] sm:h-7 sm:w-7"
+              className="absolute inset-0 -z-10 origin-left scale-x-0 rounded-full
+                transition-transform duration-500 ease-out group-hover/btn:scale-x-100"
+              style={{ background: `linear-gradient(90deg,${COLORS.gold500},${COLORS.gold400})` }} />
+
+            <span className="truncate">View profile</span>
+            {/* The arrow in its own disc, as on the reference. Its wash flips
+                from white-on-green to green-on-gold, because a white veil over
+                gold all but disappears. */}
+            <span aria-hidden="true"
+              className="grid h-6 w-6 shrink-0 place-items-center rounded-full transition-all
+                duration-500 group-hover/btn:translate-x-[2px] group-hover/btn:bg-[rgba(10,61,44,.22)] sm:h-7 sm:w-7"
               style={{ background: 'rgba(255,255,255,.18)' }}>
               <ArrowRight size={12} strokeWidth={2.75} />
             </span>
