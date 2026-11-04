@@ -17,7 +17,18 @@ const G = '#063D2B';
  * The token is checked against the server rather than trusted: an expired or
  * revoked session must show LOGIN, not a name it read out of a stale token.
  */
-export default function AccountMenu({ variant = 'desktop', onNavigate }) {
+/* `tone`
+ *
+ * The desktop header is now a deep-green capsule, so the buttons that sit in
+ * it have to be light-on-dark. `tone="dark"` switches the desktop branch to
+ * that treatment; everything else — the mobile drawer, and any other place
+ * this component is used — keeps the original light-background styling.
+ *
+ * It is a prop rather than a rewrite because the same component still renders
+ * on light surfaces, and because getting LOGIN to 2:1 contrast on green by
+ * accident is exactly the kind of regression a shared restyle causes. */
+export default function AccountMenu({ variant = 'desktop', tone = 'light', onNavigate }) {
+  const dark = tone === 'dark';
   const [me, setMe] = useState(undefined);   // undefined = unknown, null = signed out
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -121,16 +132,29 @@ export default function AccountMenu({ variant = 'desktop', onNavigate }) {
      answer arrives. */
   if (me === undefined) return <span className="hidden xl:block w-[168px]" aria-hidden="true" />;
 
+  /* Signed out.
+   *
+   * On the dark capsule these become the reference pattern: a quiet outlined
+   * link, then one solid light pill carrying the primary action. Both are
+   * rounded-full so they sit inside the capsule rather than looking like
+   * rectangles dropped into it. */
   if (!me) return (
     <>
       <a href="/member/login"
-        className="hidden xl:inline-block px-3 py-2 rounded-xl text-[13px] font-semibold text-[#063D2B] border border-[#063D2B]/15 hover:bg-[#063D2B]/5">
-        LOGIN
+        className={dark
+          ? 'hidden xl:inline-block px-3.5 py-2 rounded-full text-[12.5px] font-semibold text-white/90 '
+            + 'border border-white/25 transition-colors duration-micro hover:bg-white/10 hover:text-white'
+          : 'hidden xl:inline-block px-3 py-2 rounded-xl text-[13px] font-semibold text-[#063D2B] border border-[#063D2B]/15 hover:bg-[#063D2B]/5'}>
+        {dark ? 'Login' : 'LOGIN'}
       </a>
       <a href="/membership/apply"
-        className="hidden xl:inline-block px-4 py-2 rounded-xl text-[13px] font-bold text-white"
-        style={{ background: 'linear-gradient(180deg,#0B6B4F,#063D2B)', border: '1px solid rgba(200,154,43,.4)' }}>
-        REGISTER
+        className={dark
+          ? 'hidden xl:inline-block px-4 py-2 rounded-full text-[12.5px] font-bold bg-white text-[#063D2B] '
+            + 'transition-colors duration-micro hover:bg-[#F3E4B3]'
+          : 'hidden xl:inline-block px-4 py-2 rounded-xl text-[13px] font-bold text-white'}
+        style={dark ? undefined
+          : { background: 'linear-gradient(180deg,#0B6B4F,#063D2B)', border: '1px solid rgba(200,154,43,.4)' }}>
+        {dark ? 'Register' : 'REGISTER'}
       </a>
     </>
   );
@@ -139,15 +163,16 @@ export default function AccountMenu({ variant = 'desktop', onNavigate }) {
     <div ref={ref} className="hidden xl:block relative">
       <button onClick={() => setOpen(o => !o)}
         aria-expanded={open} aria-haspopup="menu"
-        className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full border border-[#063D2B]/15
-          hover:bg-[#063D2B]/5 transition-colors">
+        className={`flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full border transition-colors
+          ${dark ? 'border-white/25 hover:bg-white/10' : 'border-[#063D2B]/15 hover:bg-[#063D2B]/5'}`}>
         <Avatar src={me.photo_url} gender={me.gender} name={me.full_name || 'Member'}
           className="w-8 h-8 shrink-0" />
-        <span className="text-[13px] font-bold max-w-[110px] truncate" style={{ color: G }}>
+        <span className="text-[13px] font-bold max-w-[110px] truncate"
+          style={{ color: dark ? '#FFFFFF' : G }}>
           {firstName}
         </span>
         <ChevronDown size={13} strokeWidth={2.5} aria-hidden="true"
-          className={`text-gray-400 transition ${open ? 'rotate-180' : ''}`} />
+          className={`transition ${dark ? 'text-white/60' : 'text-gray-400'} ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (

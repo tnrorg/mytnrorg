@@ -15,10 +15,23 @@
 const soon = (label, href) => ({ label, href, soon: true });
 const live = (label, href) => ({ label, href });
 
+/* ── `short`: the label the desktop capsule bar uses ──────────────────────────
+ *
+ * The header is a single floating pill, so every top-level label competes for
+ * one fixed width. Measured on the live site at a 1440px viewport, the eleven
+ * full labels need 1355px of bar — more than the 1400px container has left
+ * after the logo and the sign-in buttons, which is why items were being
+ * squeezed before this change.
+ *
+ * So the capsule renders `short` where one is given and `label` otherwise.
+ * `label` is still the real name of the section and is what the mobile drawer,
+ * the footer and every other consumer show — nothing about the information
+ * architecture is shortened, only the pixels in the bar. */
+
 export const NAV = [
   { label: 'Home', href: '/' },
 
-  { label: 'About TNR', href: '/about', items: [
+  { label: 'About TNR', short: 'About', href: '/about', items: [
     live('About Us', '/about'),
     live('Vision & Mission', '/about/vision-mission'),
     live('Constitution', '/about/constitution'),
@@ -82,7 +95,7 @@ export const NAV = [
    *
    * Same lesson as Opportunities above — the main navigation points at
    * something a visitor can actually read, not at a sign-in wall. */
-  { label: 'TNR Virtual Hall', href: '/virtual-hall', items: [
+  { label: 'TNR Virtual Hall', short: 'Virtual Hall', href: '/virtual-hall', items: [
     live('About the Virtual Hall', '/virtual-hall'),
     live('My Meetings (Member Portal)', '/member/meetings'),
     live('Member Login', '/member/login'),
@@ -91,7 +104,7 @@ export const NAV = [
   // The first entry is live and computed from membership records. The rest are
   // district-level facts about Roundu that member data cannot answer — they
   // need official sources, so they stay marked as planned.
-  { label: 'Roundu Statistics', href: '/statistics', items: [
+  { label: 'Roundu Statistics', short: 'Statistics', href: '/statistics', items: [
     live('TNR Membership in Numbers', '/statistics'),
     live('Education Statistics', '/statistics/education'),
     live('Employment Statistics', '/statistics/employment'),
@@ -127,7 +140,7 @@ export const NAV = [
     live('News & Announcements', '/media/news'),
   ]},
 
-  { label: 'Election Portal', href: '/election-portal', highlight: true, items: [
+  { label: 'Election Portal', short: 'Election', href: '/election-portal', highlight: true, items: [
     live('Current Election', '/election-portal'),
     live('Voter Verification', '/vote'),
     live('Election Results', '/results'),
