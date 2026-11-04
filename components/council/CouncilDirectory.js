@@ -35,9 +35,15 @@ const shell = 'group relative flex flex-col rounded-[28px] bg-white p-2.5 '
  * migration is needed to start using this; set it when a face needs it. */
 const FOCUS_DEFAULT = '50% 20%';
 
-function Card({ m, i }) {
+function Card({ m, i, bodyLabel }) {
   const meta = [m.organisation || m.affiliation, m.country].filter(Boolean);
-  const role = m.profession || academicTitle(m.qualification, m.field);
+  /* The office outranks the day job on a leadership card.
+   *
+   * "Convener" tells a visitor what this person does FOR TNR, which is the
+   * question the roster exists to answer; "Senior Research Officer" is who
+   * they are elsewhere. Both are on the profile page — only one fits here,
+   * and when someone holds an office it is that one. */
+  const role = m.designation || m.profession || academicTitle(m.qualification, m.field);
 
   return (
     <motion.article className={shell}
@@ -82,14 +88,17 @@ function Card({ m, i }) {
           style={{ background: 'linear-gradient(to top, rgba(4,26,19,.82), rgba(4,26,19,.35) 45%, transparent)' }} />
 
         <div className="absolute inset-x-2.5 top-2.5 flex items-start justify-between gap-2 sm:inset-x-3 sm:top-3">
-          {m.designation ? (
-            <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold backdrop-blur-md sm:px-2.5 sm:text-[11px]"
-              style={{ background: 'rgba(255,255,255,.14)', color: 'rgba(255,255,255,.92)' }}>
-              <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ background: COLORS.gold400 }} />
-              <span className="min-w-0 truncate">{m.designation}</span>
-            </span>
-          ) : <span />}
+          {/* The BODY, on every card — the way the reference stamps its team
+              name on all four. This slot was wired to m.designation, which
+              most advisory members do not have, so most cards showed an empty
+              corner. A chip that appears on some cards and not others is not
+              a brand mark, it is a gap. */}
+          <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold backdrop-blur-md sm:px-2.5 sm:text-[11px]"
+            style={{ background: 'rgba(255,255,255,.14)', color: 'rgba(255,255,255,.92)' }}>
+            <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ background: COLORS.gold400 }} />
+            <span className="min-w-0 truncate">{bodyLabel}</span>
+          </span>
 
           {/* A white pill with TNR green type, as the reference does it —
               not white-on-translucent, which disappears over a pale photo.
@@ -168,7 +177,17 @@ function Card({ m, i }) {
 }
 
 /** Council roster with search and filters. `limit` renders a homepage preview. */
-export default function CouncilDirectory({ limit, showFilters = true }) {
+/**
+ * Council roster with search and filters. `limit` renders a homepage preview.
+ *
+ * `bodyLabel` is the chip stamped on every card. It defaults to Advisory
+ * Council because that is the only body this endpoint serves today — but it
+ * is a prop, not a hardcoded string, so pointing the component at another
+ * roster later does not mean every card quietly mislabelling itself.
+ */
+export default function CouncilDirectory({
+  limit, showFilters = true, bodyLabel = 'Advisory Council',
+}) {
   const [d, setD] = useState(null);
   const [f, setF] = useState({ q: '', country: '', profession: '', expertise: '' });
   const [openFilters, setOpenFilters] = useState(false);
@@ -249,7 +268,7 @@ export default function CouncilDirectory({ limit, showFilters = true }) {
             : 'Advisory Council profiles will appear here once published.'} />
       ) : (
         <div className={`${showFilters ? 'mt-6' : ''} grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5`}>
-          {members.map((m, i) => <Card key={m.slug} m={m} i={i} />)}
+          {members.map((m, i) => <Card key={m.slug} m={m} i={i} bodyLabel={bodyLabel} />)}
         </div>
       )}
     </div>
