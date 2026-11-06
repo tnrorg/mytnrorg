@@ -80,14 +80,14 @@ export default function AudiencePicker({ audience, setAudience, memberIds, setMe
       {/* ── Groups ── */}
       <div>
         <span className="mb-2 block text-xs font-semibold text-gray-500">Invite groups</span>
+        {/* Rendered from the server's own AUDIENCE_KINDS, not from a copy of
+            the list kept here. The copy is how University Ambassadors came to
+            be missing: the body existed in lib/meetings.js and resolved
+            correctly on the server, but this hardcoded five never mentioned
+            it, so there was no chip to press. Anything needing a value — the
+            Union Council picker — is drawn separately below. */}
         <div className="flex flex-wrap gap-2">
-          {[
-            ['all', 'All active members'],
-            ['advisory', 'Advisory Council'],
-            ['cec', 'Central Executive Committee'],
-            ['uc_team', 'Union Council Teams'],
-            ['general', 'General members'],
-          ].map(([kind, label]) => {
+          {(meta?.kinds || []).filter(k => !k.needsValue).map(({ key: kind, label }) => {
             const on = hasGroup(kind, undefined);
             const n = counts[kind] ?? 0;
             return (
@@ -193,8 +193,11 @@ export default function AudiencePicker({ audience, setAudience, memberIds, setMe
   );
 }
 
+/* Shown on a searched member's chip, so these are deliberately short — the
+   chip is narrow and sits beside a name and a membership ID. */
 const ROLE_LABEL = {
-  advisory: 'Advisory Council', cec: 'CEC', uc_team: 'UC Team', general: 'General Member',
+  advisory: 'Advisory Council', cec: 'CEC', university_ambassador: 'Ambassador',
+  uc_team: 'UC Team', general: 'General Member',
 };
 
 /* A plain <img>, not next/image.

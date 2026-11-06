@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabaseServer';
 import { requireAdmin } from '@/lib/guard';
 import { ok, fail } from '@/lib/api';
-import { AUDIENCE_KINDS } from '@/lib/meetings';
+import { AUDIENCE_KINDS, AUDIENCE_ROLE_KEYS } from '@/lib/meetings';
 import { MEMBER_FIELDS, resolveAudience } from '@/lib/meetingsServer';
 
 export const dynamic = 'force-dynamic';
@@ -49,7 +49,10 @@ export async function GET(req) {
     .select('id', { count: 'exact', head: true }).eq('status', 'active').is('deleted_at', null);
   counts.all = all || 0;
 
-  for (const role of ['advisory', 'cec', 'uc_team', 'general']) {
+  /* Driven from AUDIENCE_ROLE_KEYS rather than a list repeated here. This was
+     a hardcoded four, so a body added to the picker came back with a count of
+     0 and rendered permanently disabled — present, but impossible to press. */
+  for (const role of AUDIENCE_ROLE_KEYS) {
     const { count } = await sb.from('membership_members')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'active').is('deleted_at', null).eq('role', role);
