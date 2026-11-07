@@ -260,9 +260,9 @@ export default function LeadershipCard({
             width and truncates either way.
 
             This comment sits HERE, above the guard, and not inside the
-            `{!!metaLine && ( … )}` below — a {'{/* … */}'} block in that
-            position is not a comment at all, it is an object literal, and it
-            does not compile. */}
+            metaLine check below. A braced comment in that position is not a
+            comment at all — it parses as an object literal and will not
+            compile. */}
         {!!metaLine && (
           <p className="flex items-center justify-center gap-1.5 text-[9px] font-bold uppercase
             tracking-[.1em] sm:text-[10px]"
