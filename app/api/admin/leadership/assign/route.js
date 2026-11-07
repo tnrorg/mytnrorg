@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabaseServer';
 import { requireAdmin } from '@/lib/guard';
 import { logAudit, clientIp } from '@/lib/audit';
 import { ok, fail, readJson } from '@/lib/api';
+import { BODY_KEYS } from '@/lib/membership/roles';
 
 // Same rule the manual create path uses, so slugs stay consistent.
 const slugify = (s) => String(s || '').toLowerCase().trim()
@@ -30,7 +31,19 @@ const BODY_ROLE = {
   advisory: 'advisory',
   executive: 'cec',
   ambassador: 'university_ambassador',
+  country_ambassador: 'country_ambassador',
 };
+
+/* Which migration an admin has to run when the database refuses a role.
+ *
+ * Naming the wrong file is worse than naming none: the admin runs it, nothing
+ * changes, and they conclude the feature is broken rather than un-migrated. */
+const ROLE_MIGRATION = {
+  university_ambassador: 'supabase/migration_university_ambassadors.sql',
+  country_ambassador: 'supabase/migration_country_ambassadors.sql',
+};
+const migrationHint = (body) =>
+  `Administrator: run ${ROLE_MIGRATION[BODY_ROLE[body]] || 'the latest migration in supabase/'}.`;
 
 // GET ?q=  — find an approved member by membership ID, email or name.
 export async function GET(req) {
@@ -52,7 +65,23 @@ export async function GET(req) {
 export async function POST(req) {
   const { admin, res } = await requireAdmin(req); if (res) return res;
   const b = await readJson(req);
-  const body = b.body === 'executive' ? 'executive' : 'advisory';
+  /* REJECTED, NOT DEFAULTED.
+   *
+   * This read `b.body === 'executive' ? 'executive' : 'advisory'` — a two-way
+   * ternary guarding a list that now has four entries. Every body it did not
+   * name was silently rewritten to 'advisory', so assigning a member as an
+   * ambassador of either kind filed them on the Advisory Council and set the
+   * advisory role to match. That is the same "the ambassadors and the advisory
+   * are mixed" fault that was traced to the roster before, from a second
+   * source nobody had looked at.
+   *
+   * Validating against BODY_KEYS means a body added to the vocabulary works
+   * here with no edit, and an unrecognised one is an error the caller sees —
+   * never a quiet reassignment to whichever body happened to be the default. */
+  const body = BODY_KEYS.includes(b.body) ? b.body : null;
+  if (!body) return fail('INVALID', 400, {
+    message: 'Choose which leadership body to assign this member to.' });
+
   const identifier = String(b.identifier || '').trim();
   if (!identifier) return fail('INVALID', 400, { message: 'Enter a Membership ID or email.' });
 
@@ -107,7 +136,7 @@ export async function POST(req) {
               + 'the database does not accept that role yet.'
             : 'The profile moved, but this member’s role could not be set.',
           detail: needsMigration
-            ? 'Administrator: run supabase/migration_university_ambassadors.sql.'
+            ? migrationHint(body)
             : String(roleErr.message || '').slice(0, 160),
         });
       }
@@ -176,7 +205,7 @@ export async function POST(req) {
           + 'the database does not accept that role yet.'
         : 'The profile was created, but this member’s role could not be set.',
       detail: needsMigration
-        ? 'Administrator: run supabase/migration_university_ambassadors.sql.'
+        ? migrationHint(body)
         : String(roleErr.message || '').slice(0, 160),
     });
   }

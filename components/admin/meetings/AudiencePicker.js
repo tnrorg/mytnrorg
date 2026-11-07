@@ -196,7 +196,8 @@ export default function AudiencePicker({ audience, setAudience, memberIds, setMe
 /* Shown on a searched member's chip, so these are deliberately short — the
    chip is narrow and sits beside a name and a membership ID. */
 const ROLE_LABEL = {
-  advisory: 'Advisory Council', cec: 'CEC', university_ambassador: 'Ambassador',
+  advisory: 'Advisory Council', cec: 'CEC',
+  country_ambassador: 'Country Amb.', university_ambassador: 'University Amb.',
   uc_team: 'UC Team', general: 'General Member',
 };
 

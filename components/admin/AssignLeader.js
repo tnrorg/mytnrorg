@@ -23,7 +23,24 @@ export default function AssignLeader({ body, bodyLabel, onDone, toast }) {
   const [affiliation, setAffiliation] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const isAmbassador = body === 'ambassador';
+  /* What `affiliation` MEANS differs between the two ambassador rosters: a
+     campus for one, a country for the other. Both are the same column and the
+     same public card line, so the only thing that changes is the wording an
+     admin is asked for — kept here as data rather than as a second branch
+     threaded through the markup. A body missing from this map is simply not
+     an ambassador body and shows no affiliation field at all. */
+  const AMBASSADOR_FIELD = {
+    ambassador: {
+      placeholder: 'University, e.g. COMSATS University Islamabad',
+      defaultTitle: 'University Ambassador',
+    },
+    country_ambassador: {
+      placeholder: 'Country, e.g. United Kingdom',
+      defaultTitle: 'Country Ambassador',
+    },
+  };
+  const amb = AMBASSADOR_FIELD[body] || null;
+  const isAmbassador = !!amb;
 
   useEffect(() => {
     if (q.trim().length < 2) { setHits([]); return; }
@@ -41,7 +58,7 @@ export default function AssignLeader({ body, bodyLabel, onDone, toast }) {
       identifier: picked.membership_id, body,
       /* An ambassador's designation is always the same thing, so it is filled
        * in rather than asked for — what varies is the campus. */
-      designation: isAmbassador ? (designation || 'University Ambassador') : designation,
+      designation: isAmbassador ? (designation || amb.defaultTitle) : designation,
       affiliation: isAmbassador ? affiliation : undefined,
     });
     setBusy(false);
@@ -95,18 +112,18 @@ export default function AssignLeader({ body, bodyLabel, onDone, toast }) {
               </div>
             )}
           </div>
-          {/* The university comes FIRST on the ambassador tab, because it is
-              the one thing that actually has to be filled in — the roster is
-              meaningless without it, and it is what the public card shows
-              under the person's name. */}
+          {/* The campus or country comes FIRST on an ambassador tab, because
+              it is the one thing that actually has to be filled in — the
+              roster is meaningless without it, and it is what the public card
+              shows under the person's name. */}
           {isAmbassador && (
             <input className={input} value={affiliation} autoFocus
               onChange={e => setAffiliation(e.target.value)}
-              placeholder="University, e.g. COMSATS University Islamabad" />
+              placeholder={amb.placeholder} />
           )}
           <input className={input} value={designation} onChange={e => setDesignation(e.target.value)}
             placeholder={body === 'executive' ? 'Designation, e.g. President'
-              : isAmbassador ? 'Title (optional) — defaults to “University Ambassador”'
+              : isAmbassador ? `Title (optional) — defaults to “${amb.defaultTitle}”`
                 : 'Designation (optional)'} />
           <div className="flex gap-2">
             <button className="btn-green" onClick={assign} disabled={busy}>

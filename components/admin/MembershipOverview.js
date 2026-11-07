@@ -12,8 +12,14 @@ const OverviewCharts = dynamic(() => import('./OverviewCharts'), {
   loading: () => <div className="h-72 grid place-items-center text-xs text-tnr-cream/40">Loading charts…</div>,
 });
 
+/* One colour per role, in ROLE_RANK order so the palette darkens with
+   seniority. The two ambassador bodies were missing — the overview fell back
+   to a plain cream for them, so on the chart they were indistinguishable from
+   each other and from anything else unmapped. */
 const ROLE_COLORS = {
-  advisory: '#C89A2B', cec: '#0E7A5A', uc_team: '#4FB088', general: '#A2D7C2',
+  advisory: '#C89A2B', cec: '#0E7A5A',
+  country_ambassador: '#1F8F68', university_ambassador: '#35A37C',
+  uc_team: '#4FB088', general: '#A2D7C2',
 };
 
 export default function MembershipOverview() {
