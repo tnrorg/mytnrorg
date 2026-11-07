@@ -63,7 +63,7 @@ export default function AmbassadorSection({ title, intro, members, loading }) {
           stayed at opacity 0 and the whole section rendered as blank space.
           A per-card observer has no such window. */}
       {/* 2 / 3 / 4 across, the same as the CEC grid. */}
-      <div className="mt-9 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+      <div className="mt-9 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
         {members.map((m, i) => <ExecutiveCard key={m.slug} member={m} index={i} />)}
       </div>
     </section>

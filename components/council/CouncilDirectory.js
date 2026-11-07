@@ -76,7 +76,7 @@ export default function CouncilDirectory({
        at — a 4:5 portrait, 10px of frame either side, the status line and the
        button — or the page jumps when the roster lands, which is the layout
        shift this placeholder exists to prevent in the first place. */
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
       {/* Two heights, because the card is a proportion of its column and the
           column halves on a phone: a 146px-wide 4:5 portrait plus the status
           line and the button settles near 16rem, not the 25rem a desktop card
@@ -139,7 +139,7 @@ export default function CouncilDirectory({
             ? 'Try a different name, profession or country.'
             : 'Advisory Council profiles will appear here once published.'} />
       ) : (
-        <div className={`${showFilters ? 'mt-6' : ''} grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5`}>
+        <div className={`${showFilters ? 'mt-6' : ''} grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5`}>
           {members.map((m, i) => <Card key={m.slug} m={m} i={i} bodyLabel={bodyLabel} />)}
         </div>
       )}

@@ -48,7 +48,7 @@ export default function ExecutiveCommittee() {
            so the three leadership rosters read as one set rather than three
            separately-built grids. Four skeletons, not three, because that is
            what a full desktop row now holds. */
-        <div className="mt-9 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6" aria-hidden="true">
+        <div className="mt-9 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6" aria-hidden="true">
           {[0, 1, 2, 3].map(i => (
             <div key={i} className="h-[340px] rounded-tnr-lg border border-gray-100 bg-white/60 animate-pulse" />
           ))}
@@ -60,7 +60,7 @@ export default function ExecutiveCommittee() {
            element's opacity. That also retires the `key={executive.length}`
            remount this grid needed, because RevealGroup fired once and cards
            arriving after the observer had run stayed invisible. */
-        <div className="mt-9 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="mt-9 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
           {executive.map((m, i) => <ExecutiveCard key={m.slug} member={m} index={i} />)}
         </div>
       )}

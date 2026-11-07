@@ -29,6 +29,7 @@ import { initials } from '@/content/advisoryCouncil';
  * rather than the image and the rounded photo corners would never show.
  */
 const shell = 'group relative flex flex-col rounded-[28px] bg-white p-1.5 sm:p-2.5 '
+  + '[container-type:inline-size] '
   + 'shadow-[0_1px_2px_rgba(23,33,28,.05)] '
   + 'transition-[transform,box-shadow] duration-standard ease-out '
   + 'hover:-translate-y-[5px] hover:shadow-[0_14px_34px_-12px_rgba(10,61,44,.30)]';
@@ -48,52 +49,62 @@ const FOCUS_DEFAULT = '50% 20%';
 
 /* ── The name plate ───────────────────────────────────────────────────────────
  *
- * Near-clear glass with a hairline, floating on the gradient, at every width —
- * so the photograph fills the card on a phone exactly as it does on a desktop.
- * Centred: the portrait behind it is centred, so left-aligned type sat
- * off-axis against the face.
+ * Near-clear glass with a hairline, floating on the gradient. Centred: the
+ * portrait behind it is centred, so left-aligned type sat off-axis against
+ * the face.
  *
- * THE MOBILE SIZES ARE MEASURED, NOT CHOSEN, because the plate is the tightest
- * place on the card. Two cards across a 360px phone leaves each portrait 146px,
- * and the plate inside that is 138px — 130px of text once its padding is off,
- * and 118px for the name once the verified badge has its share. Every name on
- * the roster was typeset in the real Mulish face at 360, 375, 390, 412 and
- * 430px; the tightest, "Sayyed Zaman Haider" at 360, sets the numbers below
- * and clears them by 10.8px. That margin is the point — an earlier pass
- * cleared by 1px, which is not clearance at all: a device that hints the face
- * a shade wider would have cut a member's name in half.
+ * THE TYPE IS SIZED AGAINST THE CARD, NOT THE VIEWPORT — `cqw`, not `vw`.
  *
- * clamp() rather than a fixed size, because the card is itself a fraction of
- * the viewport: a size that fits 360px wastes the room a 430px phone has.
+ * That is the whole fix, and the reason the previous attempt failed on
+ * desktop. A card's width is NOT monotonic in the viewport: it drops every
+ * time the grid gains a column. Measured on the live page, the Advisory
+ * Council card is 294px wide at a 640px viewport (2 across) and only 229px at
+ * 768px (3 across) — WIDER on a phone than on a tablet. A vw-based size that
+ * is right at 640 is far too big at 768, so `sm:text-[20px]` sent all twelve
+ * names onto two lines and eight of twelve roles with them, and the plate grew
+ * to cover 54% of the photograph.
  *
- * line-clamp-1 below `sm`, line-clamp-2 above. One line each is what keeps the
- * plate from swallowing the face on a small card; from `sm` the card is 297px
- * and a long name can afford to wrap.
+ * `container-type: inline-size` on the card makes 1cqw equal 1% of the CARD,
+ * so one rule tracks every grid change with no breakpoints at all. The
+ * coefficients come from the longest real name, "Sayyed Zaman Haider",
+ * typeset in Mulish against the plate's actual inner width:
+ *
+ *      card 158px (2-up, 360px phone) → 10.0px name, fits in 118px
+ *      card 229px (3-up, 768px tablet) → 14.0px name, fits in 149px
+ *      card 295px (4-up, 1280px) → 18.0px name, fits in 215px
+ *      card 335px (4-up, 1440px) → 19.0px (capped), fits in 245px
+ *
+ * line-clamp-1 on both lines, at every size. One line each is the point: it
+ * is what keeps the plate from swallowing the face, and a wrapped name under
+ * a truncated role is what "do it proper" was asking to be rid of.
  */
 function Identity({ name, role, verified }) {
   return (
+    /* Tighter than it was — inset-x-3/px-4/py-3.5 on a 179px photo left the
+       glass covering more than half the portrait. The face is the subject;
+       the plate is a caption on it. */
     <div className="absolute inset-x-1 bottom-1 rounded-xl px-1 py-1.5 text-center backdrop-blur-md
-      sm:inset-x-3 sm:bottom-3 sm:rounded-2xl sm:px-4 sm:py-3.5"
+      sm:inset-x-2 sm:bottom-2 sm:rounded-2xl sm:px-2.5 sm:py-2"
       style={{ background: 'rgba(255,255,255,.07)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.16)' }}>
       {/* min-w-0 on the text, shrink-0 on the badge (the badge carries its own).
           A flex child defaults to min-width:auto, so its min-content width —
           the longest unbreakable run of the name — wins over the clamp and
           pushes the plate wider than the photograph. min-w-0 lets it actually
           shrink and the line-clamp do its job. */}
-      <h3 className="flex items-center justify-center gap-0.5 text-[clamp(10px,2.8vw,13px)]
-        font-bold leading-tight text-white sm:items-start sm:gap-1.5 sm:text-[20px]">
-        <span className="min-w-0 line-clamp-1 sm:line-clamp-2">{name}</span>
-        {/* One badge, resized by CSS. A class beats the SVG's width/height
-            attribute, so this is 10px on a phone and 14px from `sm` without a
-            second element that a screen reader could announce twice.
+      <h3 className="flex items-center justify-center gap-1 text-[clamp(10px,6.1cqw,19px)]
+        font-bold leading-tight text-white">
+        <span className="min-w-0 line-clamp-1">{name}</span>
+        {/* One badge, scaled by the same container unit, so it keeps its
+            proportion to the name instead of looming over it on a small card.
 
             Only on a filled seat: a vacant post is not a verified person, and
             badging "To Be Announced" would be claiming somebody exists. */}
-        {verified && <VerifiedBadge className="h-2.5 w-2.5 sm:mt-[3px] sm:h-3.5 sm:w-3.5" />}
+        {verified && (
+          <VerifiedBadge className="h-[clamp(9px,4.4cqw,14px)] w-[clamp(9px,4.4cqw,14px)]" />
+        )}
       </h3>
       {role && (
-        <p className="mt-0.5 line-clamp-1 text-[clamp(9px,2.4vw,11.5px)] font-medium leading-snug
-          sm:mt-1 sm:line-clamp-2 sm:text-[14px]"
+        <p className="mt-0.5 line-clamp-1 text-[clamp(9px,5.2cqw,13px)] font-medium leading-snug"
           style={{ color: '#BFE3D1' }}>
           {role}
         </p>
@@ -164,12 +175,12 @@ export default function LeadershipCard({
       <div className="relative aspect-[4/5] shrink-0 overflow-hidden rounded-[22px] bg-[#EEF2F0]">
         {photoUrl ? (
           <Image src={photoUrl} alt={name} fill
-            /* Must track the column count exactly: 2 up to md, 3 to lg, 4
-               above. Without it the browser assumes full width and downloads
+            /* Must track the column count exactly: 2 up to md, 3 to xl, 4
+               above — the breakpoint moved with the grid below. Without it the browser assumes full width and downloads
                a 1440px portrait for a card that renders at 165px on a phone.
                A `sizes` that disagrees with the grid is worse than none — it
                confidently fetches the wrong file. */
-            sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
+            sizes="(max-width: 767px) 50vw, (max-width: 1279px) 33vw, 25vw"
             /* 1.2s, not 250ms. A slow, long zoom is most of why the reference
                feels expensive — a quick snap reads as a hover state, a drift
                reads as the photograph being alive. */
@@ -204,8 +215,12 @@ export default function LeadershipCard({
               person. Callers pass a SHORT label: the plate has about 112px at
               360px, so "Central Executive Committee" would be clipped where
               "Executive Committee" is not. */}
+          {/* Also sized off the card. At a fixed sm:11px this read
+              "Advisory Cou…" on a 179px desktop photo — the chip was being
+              clipped on the very screens that have the most room, for the
+              same non-monotonic reason as the name above. */}
           <span className="inline-flex min-w-0 items-center gap-1 rounded-full px-1.5 py-0.5
-            text-[8.5px] font-semibold backdrop-blur-md sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[11px]"
+            text-[clamp(8px,3.3cqw,11px)] font-semibold backdrop-blur-md sm:gap-1.5 sm:px-2 sm:py-1"
             style={{ background: 'rgba(255,255,255,.14)', color: 'rgba(255,255,255,.92)' }}>
             <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full sm:h-1.5 sm:w-1.5"
               style={{ background: COLORS.gold400 }} />
