@@ -20,7 +20,7 @@ export default function ExecutiveCommitteePage() {
                 <div key={i} aria-hidden="true"
                   className="h-[340px] rounded-tnr-lg border border-gray-100 bg-white/60 animate-pulse" />
               ))
-            : executive.map(m => <ExecutiveCard key={m.slug} member={m} />)}
+            : executive.map((m, i) => <ExecutiveCard key={m.slug} member={m} index={i} />)}
         </div>
       </Section>
 

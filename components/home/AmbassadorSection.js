@@ -1,6 +1,6 @@
 'use client';
 import ExecutiveCard from '@/components/site/ExecutiveCard';
-import { Reveal, RevealGroup, RevealItem } from '@/components/ui';
+import { Reveal } from '@/components/ui';
 
 const C = { deep: '#063D2B', gold: '#D4A72C' };
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
@@ -54,19 +54,18 @@ export default function AmbassadorSection({ title, intro, members, loading }) {
           different kind of person, and inventing a second card style here
           would make the page look assembled from two products.
 
-          `key` on the count is load-bearing, exactly as it is in the CEC
-          section: RevealGroup animates once, and the roster arrives
-          asynchronously, so cards mounting after the observer has fired would
-          stay at opacity 0 and the section would render as blank space. */}
+          NO RevealGroup/RevealItem AROUND THESE. The card animates itself —
+          it is a motion.article with its own whileInView and a stagger taken
+          from its index — so wrapping it in a second reveal put two
+          animations on one element's opacity. That also retires the
+          `key={members.length}` remount this grid used to need: RevealGroup
+          fired once, so cards arriving after the observer had already run
+          stayed at opacity 0 and the whole section rendered as blank space.
+          A per-card observer has no such window. */}
       {/* 2 / 3 / 4 across, the same as the CEC grid. */}
-      <RevealGroup key={members.length}
-        className="mt-9 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
-        {members.map(m => (
-          <RevealItem key={m.slug} className="h-full">
-            <ExecutiveCard member={m} />
-          </RevealItem>
-        ))}
-      </RevealGroup>
+      <div className="mt-9 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+        {members.map((m, i) => <ExecutiveCard key={m.slug} member={m} index={i} />)}
+      </div>
     </section>
   );
 }

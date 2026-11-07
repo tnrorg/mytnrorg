@@ -2,7 +2,7 @@
 import ExecutiveCard from '@/components/site/ExecutiveCard';
 import { CEC_INTRO } from '@/content/executiveCommittee';
 import { useLeadership } from '@/components/site/useLeadership';
-import { Reveal, RevealGroup, RevealItem } from '@/components/ui';
+import { Reveal } from '@/components/ui';
 
 const C = { deep: '#063D2B', gold: '#D4A72C' };
 const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' };
@@ -54,14 +54,15 @@ export default function ExecutiveCommittee() {
           ))}
         </div>
       ) : (
-        <RevealGroup key={executive.length}
-          className="mt-9 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
-          {executive.map(m => (
-            // h-full on the wrapper AND the card: the extra div would otherwise
-            // absorb the grid stretch and leave cards of unequal height.
-            <RevealItem key={m.slug} className="h-full"><ExecutiveCard member={m} /></RevealItem>
-          ))}
-        </RevealGroup>
+        /* No RevealGroup/RevealItem: the card animates itself now — a
+           motion.article with its own whileInView and a stagger from its
+           index — so a second reveal around it put two animations on one
+           element's opacity. That also retires the `key={executive.length}`
+           remount this grid needed, because RevealGroup fired once and cards
+           arriving after the observer had run stayed invisible. */
+        <div className="mt-9 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+          {executive.map((m, i) => <ExecutiveCard key={m.slug} member={m} index={i} />)}
+        </div>
       )}
     </section>
   );
