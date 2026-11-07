@@ -1,6 +1,7 @@
 'use client';
 import CouncilDirectory from '@/components/council/CouncilDirectory';
 import DocPage, { Section, P, TickList, Callout, C } from '@/components/site/DocPage';
+import Breakout from '@/components/site/Breakout';
 import { COUNCIL_TAGLINE, COUNCIL_MISSION } from '@/content/advisoryCouncil';
 import { ADC_INTRO, ADC_CRITERIA, ADC_DUTIES, ADC_FACTS, EGC } from '@/content/aboutTnr';
 
@@ -13,21 +14,8 @@ export default function AdvisoryCouncilPage() {
       <Section title="Role"><P>{ADC_INTRO}</P></Section>
 
       <Section title="Interim Advisory Council" kicker={COUNCIL_TAGLINE}>
-        {/* ── Out of the reading column ──
-            DocPage is a PROSE container: max-w-4xl, 896px, the right measure
-            for governance text and much too narrow for a four-column card
-            grid. Measured on the live page at a 1440px viewport, that left
-            each card 199px wide with 103px for the name — so every single
-            name wrapped and the plate swallowed the portrait.
-
-            Widening DocPage itself would wreck the line length of every
-            other governance document, so the roster breaks out instead:
-            centre on the viewport, take the page's own width up to 1400px,
-            and leave the prose around it untouched. */}
-        <div className="mx-auto w-[min(1400px,100vw-2.5rem)]
-          [margin-left:50%] [transform:translateX(-50%)]">
-          <CouncilDirectory />
-        </div>
+        {/* Out of the reading column — see components/site/Breakout.js. */}
+        <Breakout><CouncilDirectory /></Breakout>
         <div className="mt-6"><Callout label="Our Collective Mission">{COUNCIL_MISSION}</Callout></div>
       </Section>
 

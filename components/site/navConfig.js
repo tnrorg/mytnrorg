@@ -43,6 +43,8 @@ export const NAV = [
   { label: 'Leadership', href: '/about/executive-committee', items: [
     live('Central Executive Committee', '/about/executive-committee'),
     live('Advisory Council', '/about/advisory-council'),
+    live('Country Ambassadors', '/about/country-ambassadors'),
+    live('University Ambassadors', '/about/university-ambassadors'),
     live('Apply for an Executive Position', '/cec/apply'),
     live('Office Bearers', '/about/office-bearers'),
     soon('Election Committee', '/about/election-committee'),

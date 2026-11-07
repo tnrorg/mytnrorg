@@ -21,12 +21,20 @@ export const COUNTRY_AMBASSADORS_INTRO =
  * keeping each section independent and individually removable; if that ever
  * matters, lift the hook into app/page.js and pass the arrays down. */
 
+/* How many of each roster the home page shows before linking to the full one.
+ *
+ * Eight is two complete rows at the widest grid and a tidy block at every
+ * narrower one. A body with fewer than this shows in full and gets no button,
+ * which is why the Country roster — seven today — is unaffected. */
+const HOME_PREVIEW = 8;
+
 /** Country Ambassadors — directly after the Central Executive Committee. */
 export function CountryAmbassadors() {
   const { countryAmbassadors, loading } = useLeadership();
   return (
     <AmbassadorSection title="Country Ambassadors" intro={COUNTRY_AMBASSADORS_INTRO}
-      members={countryAmbassadors} loading={loading} />
+      members={countryAmbassadors} loading={loading}
+      limit={HOME_PREVIEW} viewAllHref="/about/country-ambassadors" />
   );
 }
 
@@ -35,6 +43,7 @@ export default function UniversityAmbassadors() {
   const { ambassadors, loading } = useLeadership();
   return (
     <AmbassadorSection title="University Ambassadors" intro={AMBASSADORS_INTRO}
-      members={ambassadors} loading={loading} />
+      members={ambassadors} loading={loading}
+      limit={HOME_PREVIEW} viewAllHref="/about/university-ambassadors" />
   );
 }
