@@ -2,6 +2,30 @@
 import { useEffect, useState } from 'react';
 import { aGet, aPost } from './adminApi';
 import { Card } from './ui';
+import CountrySelect from './CountrySelect';
+
+/* What `affiliation` MEANS differs between the two ambassador rosters: a
+ * campus for one, a country for the other. Both are the same column and the
+ * same public card line, so what changes is only how an admin is asked for it
+ * — free text for a university, because there is no usable list of every
+ * college on earth, and a picker for a country, because there is.
+ *
+ * Data rather than a branch threaded through the markup, and at module scope
+ * rather than inside the component, so it is built once instead of on every
+ * keystroke. A body missing from this map is simply not an ambassador body
+ * and shows no affiliation field at all. */
+const AMBASSADOR_FIELD = {
+  ambassador: {
+    kind: 'text',
+    placeholder: 'University, e.g. COMSATS University Islamabad',
+    defaultTitle: 'University Ambassador',
+  },
+  country_ambassador: {
+    kind: 'country',
+    placeholder: '— select a country —',
+    defaultTitle: 'Country Ambassador',
+  },
+};
 
 /** Assign an already-approved member to a leadership body.
  *  Preferred over "Add Profile": the person's name, photo, education and
@@ -23,22 +47,6 @@ export default function AssignLeader({ body, bodyLabel, onDone, toast }) {
   const [affiliation, setAffiliation] = useState('');
   const [busy, setBusy] = useState(false);
 
-  /* What `affiliation` MEANS differs between the two ambassador rosters: a
-     campus for one, a country for the other. Both are the same column and the
-     same public card line, so the only thing that changes is the wording an
-     admin is asked for — kept here as data rather than as a second branch
-     threaded through the markup. A body missing from this map is simply not
-     an ambassador body and shows no affiliation field at all. */
-  const AMBASSADOR_FIELD = {
-    ambassador: {
-      placeholder: 'University, e.g. COMSATS University Islamabad',
-      defaultTitle: 'University Ambassador',
-    },
-    country_ambassador: {
-      placeholder: 'Country, e.g. United Kingdom',
-      defaultTitle: 'Country Ambassador',
-    },
-  };
   const amb = AMBASSADOR_FIELD[body] || null;
   const isAmbassador = !!amb;
 
@@ -116,11 +124,18 @@ export default function AssignLeader({ body, bodyLabel, onDone, toast }) {
               it is the one thing that actually has to be filled in — the
               roster is meaningless without it, and it is what the public card
               shows under the person's name. */}
-          {isAmbassador && (
+          {isAmbassador && (amb.kind === 'country' ? (
+            /* A list, not a free-text box. Typed countries arrive as "UK",
+               "uae", "United kingdom" and "England", and the public cards then
+               show four spellings of two places with no way to group them.
+               The list is the same 198 the membership form uses. */
+            <CountrySelect className={input} value={affiliation} autoFocus
+              onChange={setAffiliation} placeholder={amb.placeholder} />
+          ) : (
             <input className={input} value={affiliation} autoFocus
               onChange={e => setAffiliation(e.target.value)}
               placeholder={amb.placeholder} />
-          )}
+          ))}
           <input className={input} value={designation} onChange={e => setDesignation(e.target.value)}
             placeholder={body === 'executive' ? 'Designation, e.g. President'
               : isAmbassador ? `Title (optional) — defaults to “${amb.defaultTitle}”`

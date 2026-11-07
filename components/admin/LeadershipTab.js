@@ -4,6 +4,7 @@ import AssignLeader from './AssignLeader';
 import { aGet, aPost, aPatch, aDel } from './adminApi';
 import { Card, Badge, Field } from './ui';
 import { LEADERSHIP_BODIES, bodyLabel } from '@/lib/membership/roles';
+import CountrySelect from './CountrySelect';
 
 /* Derived from the shared list in lib/membership/roles.js rather than typed
  * again here. Two copies of "what bodies exist" is how a tab ends up missing
@@ -236,9 +237,23 @@ export default function LeadershipTab({ toast }) {
             </Field>
           </div>
 
-          <Field label="Affiliation (university, employer, organisation)">
-            <input className="input" value={form.affiliation || ''}
-              onChange={e => setForm(s => ({ ...s, affiliation: e.target.value }))} />
+          {/* On the Country Ambassadors tab this is a country and nothing
+              else, so it is picked rather than typed — the same control the
+              assign form uses. Leaving it as free text here would have been a
+              back door straight past the picker: assign sets "United Kingdom",
+              somebody edits the profile, types "UK", and the roster has two
+              spellings of one country again. Every other body keeps the free
+              text box, because "employer or organisation" has no list. */}
+          <Field label={body === 'country_ambassador'
+            ? 'Country represented'
+            : 'Affiliation (university, employer, organisation)'}>
+            {body === 'country_ambassador' ? (
+              <CountrySelect className="input" value={form.affiliation || ''}
+                onChange={v => setForm(s => ({ ...s, affiliation: v }))} />
+            ) : (
+              <input className="input" value={form.affiliation || ''}
+                onChange={e => setForm(s => ({ ...s, affiliation: e.target.value }))} />
+            )}
           </Field>
 
             <Field label="Current Profession">
