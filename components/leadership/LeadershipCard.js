@@ -253,8 +253,19 @@ export default function LeadershipCard({
           country or campus they cover. A status line that never changes is
           decoration; this is the thing a visitor is scanning the roster for. */}
       <div className="flex flex-1 flex-col px-1 pt-2 sm:pt-3">
+        {/* CENTRED, like everything else on the card. It was left-aligned,
+            which on a country ambassador left "China" hanging at the far edge
+            under a centred name and a centred role — the one element off-axis.
+            Centring only shows on a short line: a long employer fills the
+            width and truncates either way.
+
+            This comment sits HERE, above the guard, and not inside the
+            `{!!metaLine && ( … )}` below — a {'{/* … */}'} block in that
+            position is not a comment at all, it is an object literal, and it
+            does not compile. */}
         {!!metaLine && (
-          <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[.1em] sm:text-[10px]"
+          <p className="flex items-center justify-center gap-1.5 text-[9px] font-bold uppercase
+            tracking-[.1em] sm:text-[10px]"
             style={{ color: COLORS.muted }}>
             {/* A flag where the line is a country, the green dot otherwise.
                 Not an emoji flag: Windows ships no flag glyphs at all, so 🇵🇱
