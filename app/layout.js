@@ -3,6 +3,7 @@ import { Mulish, Noto_Nastaliq_Urdu } from 'next/font/google';
 import BackToTop from '@/components/site/BackToTop';
 import VisitTracker from '@/components/site/VisitTracker';
 import SmoothScroll from '@/components/site/SmoothScroll';
+import MotionProvider from '@/components/site/MotionProvider';
 
 const mulish = Mulish({
   subsets: ['latin'],
@@ -97,12 +98,26 @@ export default function RootLayout({ children }) {
             anyone who needs to magnify text could not. Nothing on the site
             depends on the viewport being unscalable. */}
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* WITHOUT JAVASCRIPT, EVERY REVEALED SECTION WOULD BE INVISIBLE.
+            Framer Motion server-renders the `hidden` variant, so each Reveal
+            arrives in the HTML carrying an inline `opacity:0`. With scripts
+            blocked or broken nothing ever sets it back to 1, and most of the
+            home page is blank — a silent, total content loss for anyone on a
+            locked-down browser, a corporate proxy that strips bundles, or a
+            failed deploy. An inline style can only be beaten by !important,
+            which is why this is a stylesheet rule and not a class swap. */}
+        <noscript>
+          <style>{`.tnr-reveal{opacity:1!important;transform:none!important}`}</style>
+        </noscript>
       </head>
       <body>
         {/* Keyboard and screen-reader users can jump past the navigation.
             Hidden until focused — see .tnr-skip-link in globals.css. */}
         <a href="#main" className="tnr-skip-link">Skip to main content</a>
-        {children}
+        {/* Makes Framer Motion honour "reduce motion". The CSS block in
+            globals.css cannot: Framer animates inline styles from JS, not CSS
+            transitions. See components/site/MotionProvider.js. */}
+        <MotionProvider>{children}</MotionProvider>
         {/* One back-to-top control for the whole site — public pages, the
             member portal and the admin panel all get it. */}
         <BackToTop />
