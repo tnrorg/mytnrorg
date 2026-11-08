@@ -4,6 +4,7 @@ import useRefreshOnFocus from '@/components/site/useRefreshOnFocus';
 import { BRANDS, BrandGlyph } from '@/components/site/BrandMarks';
 import { HEADER_DEFAULTS, normaliseUrl } from '@/lib/siteHeader';
 import { COLORS, FONT } from '@/lib/design/tokens';
+import { Reveal } from '@/components/ui';
 
 /* "Follow TNR" — the social channels, above the footer.
  *
@@ -64,16 +65,29 @@ export default function FollowUs() {
             }} />
 
           <div className="relative">
-            <div className="text-[11px] font-bold uppercase tracking-[.28em]"
-              style={{ color: COLORS.gold400 }}>Stay Connected</div>
-            <h2 className="mt-3 text-2xl sm:text-3xl font-black text-white leading-tight">
-              Follow Tehreek-e-Nojawanan Roundu
-            </h2>
-            <p className="mt-3 text-white/75 text-[14.5px] max-w-xl mx-auto leading-relaxed">
-              Announcements, opportunities and the work of the committee — shared
-              first on our channels.
-            </p>
+            {/* The last section on the page was the only one that simply
+                appeared. Two reveals rather than one: the wording arrives,
+                then the channels a beat later, so the eye is led to the row
+                it is meant to act on instead of the whole panel landing at
+                once.
 
+                NOT a RevealGroup around the <ul>: that renders a div, and a
+                div between <ul> and <li> is invalid markup that assistive
+                technology reads as a broken list. The row reveals as a unit
+                instead — the icons are peers, not a sequence. */}
+            <Reveal>
+              <div className="text-[11px] font-bold uppercase tracking-[.28em]"
+                style={{ color: COLORS.gold400 }}>Stay Connected</div>
+              <h2 className="mt-3 text-2xl sm:text-3xl font-black text-white leading-tight">
+                Follow Tehreek-e-Nojawanan Roundu
+              </h2>
+              <p className="mt-3 text-white/75 text-[14.5px] max-w-xl mx-auto leading-relaxed">
+                Announcements, opportunities and the work of the committee — shared
+                first on our channels.
+              </p>
+            </Reveal>
+
+            <Reveal delay={0.12}>
             <ul className="mt-8 flex flex-wrap items-center justify-center gap-4 sm:gap-5">
               {live.map(({ brand, url }) => {
                 const b = BRANDS[brand];
@@ -100,6 +114,7 @@ export default function FollowUs() {
                 );
               })}
             </ul>
+            </Reveal>
           </div>
         </div>
       </div>

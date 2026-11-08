@@ -1,7 +1,10 @@
 'use client';
 import { useSyncExternalStore } from 'react';
 import { motion } from 'framer-motion';
-import { revealUp, revealUpMobile, staggerChildren, MOBILE_STAGGER } from '@/lib/design/tokens';
+import {
+  revealUp, revealUpMobile, staggerChildren, MOBILE_STAGGER,
+  imageReveal, imageRevealMobile,
+} from '@/lib/design/tokens';
 
 /* ── Scroll reveals ───────────────────────────────────────────────────────────
  *
@@ -79,6 +82,28 @@ export function RevealGroup({ children, className = '', gap }) {
   return (
     <motion.div className={`tnr-reveal ${className}`} initial="hidden" whileInView="show"
       viewport={{ once: true, margin: '0px 0px -10% 0px' }} variants={staggerChildren(step)}>
+      {children}
+    </motion.div>
+  );
+}
+
+/* A photograph settling into place as it scrolls in.
+ *
+ * A wrapper rather than an <Image> replacement, so it works with next/image
+ * `fill`, with a plain <img>, and with the placeholder tile a card shows when
+ * there is no photo — and so it cannot interfere with sizes, loading or the
+ * aspect-ratio box that keeps the layout from shifting.
+ *
+ * `overflow-hidden` is applied here, not left to the caller: the hidden
+ * variant scales to 1.03, and without clipping the picture pushes over its
+ * own rounded corner for the length of the animation. */
+export function RevealImage({ children, className = '' }) {
+  const phone = useIsPhone();
+  return (
+    <motion.div className={`tnr-reveal overflow-hidden ${className}`}
+      initial="hidden" whileInView="show"
+      viewport={{ once: true, margin: '0px 0px -8% 0px' }}
+      variants={phone ? imageRevealMobile : imageReveal}>
       {children}
     </motion.div>
   );

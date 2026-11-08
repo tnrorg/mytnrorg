@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import useRefreshOnFocus from '@/components/site/useRefreshOnFocus';
 import Image from 'next/image';
 import { ArrowRight, Newspaper, Clock } from 'lucide-react';
-import { SectionHeading, Reveal, RevealGroup, RevealItem } from '@/components/ui';
+import { SectionHeading, Reveal, RevealGroup, RevealItem, RevealImage } from '@/components/ui';
 import { COLORS, FONT } from '@/lib/design/tokens';
 import { CATEGORY_TONE, readingMinutes, fmtDate } from '@/lib/news';
 
@@ -104,11 +104,13 @@ export default function LatestNews() {
 }
 
 function Cover({ p, big }) {
+  /* RevealImage carries the overflow-hidden the scale step needs — without it
+     the 1.03 start pushes the picture over the card's rounded corner. */
   if (p.cover_url) return (
-    <div className={`relative ${big ? 'aspect-[16/9]' : 'aspect-[4/3]'} bg-gray-100`}>
+    <RevealImage className={`relative ${big ? 'aspect-[16/9]' : 'aspect-[4/3]'} bg-gray-100`}>
       <Image src={p.cover_url} alt="" fill
         sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover" />
-    </div>
+    </RevealImage>
   );
   return (
     <div className={`${big ? 'aspect-[16/9]' : 'aspect-[4/3]'} grid place-items-center`}
