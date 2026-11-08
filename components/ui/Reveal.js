@@ -77,7 +77,7 @@ export function RevealGroup({ children, className = '', gap }) {
      0.72s before the last one starts, and on a narrow screen the reader has
      usually scrolled past it by then — so the card they are looking at is the
      one still waiting its turn. */
-  const step = gap ?? (phone ? MOBILE_STAGGER : 0.06);
+  const step = gap ?? (phone ? MOBILE_STAGGER : 0.10);
 
   return (
     <motion.div className={`tnr-reveal ${className}`} initial="hidden" whileInView="show"

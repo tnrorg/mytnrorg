@@ -20,6 +20,30 @@ const DURATION = 6500;   // ms a slide stays before advancing
  * If there are no slides (migration not run, or every slide switched off) the
  * built-in <Hero /> renders instead, so the front page can never end up blank.
  */
+/* The hero's staged entrance.
+ *
+ * A parent that only schedules, and one child variant shared by every line —
+ * so the sequence is described in one place rather than as four hand-tuned
+ * delays that drift apart the moment somebody adds a fifth element.
+ *
+ * `delayChildren` waits for the slide image behind the text to settle before
+ * the first line moves; without it the copy races the photograph and both
+ * look rushed. */
+const heroStage = (reduce) => ({
+  hidden: {},
+  show: {
+    transition: reduce
+      ? { staggerChildren: 0, delayChildren: 0 }
+      : { staggerChildren: 0.12, delayChildren: 0.1 },
+  },
+  exit: { opacity: 0, y: reduce ? 0 : -14, transition: { duration: 0.3 } },
+});
+
+const heroItem = {
+  hidden: { opacity: 0, y: 26 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.62, ease: MOTION.easeOut } },
+};
+
 export default function HeroCarousel({ initialSlides = null }) {
   /* `initialSlides` comes from the server (app/page.js), so the first slide is
    * already in the HTML and the browser can start downloading the image while
@@ -203,17 +227,26 @@ export default function HeroCarousel({ initialSlides = null }) {
                 '--hero-text-m': `${s.text_size_mobile}px`,
                 '--hero-text-d': `${s.text_size_desktop}px`,
               }}
-              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 22 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -14 }}
-              transition={{ duration: reduce ? 0.15 : 0.55, ease: MOTION.ease }}>
+              /* STAGED, not one block.
+                 The whole copy column used to arrive as a single unit, which
+                 is why the hero read as a cross-fade rather than an entrance.
+                 Now the eyebrow lands, then the headline, then the sentence,
+                 then the button — about 0.12s apart, so the eye is walked
+                 down to the thing it is meant to press.
+
+                 Reduced motion collapses the stagger to nothing as well as
+                 the movement: a reader who asked for less motion should not
+                 be made to sit through a four-beat sequence either. */
+              variants={heroStage(reduce)}
+              initial="hidden" animate="show" exit="exit">
 
               {s.eyebrow && (
-                <div className="inline-flex items-center rounded-full px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[.16em]"
+                <motion.div variants={heroItem}
+                  className="inline-flex items-center rounded-full px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[.16em]"
                   style={{ background: 'rgba(255,255,255,.12)', color: COLORS.gold400,
                            border: `1px solid ${COLORS.gold500}55` }}>
                   {s.eyebrow}
-                </div>
+                </motion.div>
               )}
 
               {/* Two stacked shadows on the title: a tight dark one to lift the
@@ -221,32 +254,35 @@ export default function HeroCarousel({ initialSlides = null }) {
                   one that darkens the general area. One large blur alone leaves
                   thin strokes disappearing against a bright patch of sky. */}
               {s.title && (
-                <h1 className="hero-title mt-4 font-extrabold tracking-tight text-white"
+                <motion.h1 variants={heroItem}
+                  className="hero-title mt-4 font-extrabold tracking-tight text-white"
                   style={{ textShadow: '0 1px 3px rgba(0,0,0,.55), 0 4px 30px rgba(0,0,0,.45)' }}>
                   {s.title}
-                </h1>
+                </motion.h1>
               )}
 
               {s.subtitle && (
-                <p className={`hero-text mt-5 leading-relaxed ${s.align === 'center' ? 'mx-auto' : ''}`}
+                <motion.p variants={heroItem}
+                  className={`hero-text mt-5 leading-relaxed ${s.align === 'center' ? 'mx-auto' : ''}`}
                   style={{ color: 'rgba(255,255,255,.88)', maxWidth: '46rem',
                            textShadow: '0 1px 3px rgba(0,0,0,.5), 0 2px 18px rgba(0,0,0,.35)' }}>
                   {s.subtitle}
-                </p>
+                </motion.p>
               )}
 
               {/* One button, not two. Where a slide defines both a joining and
                   a signing-in link, they now live inside a menu behind a single
                   call to action — see HeroCtaMenu for why. */}
               {(s.cta1_label || s.cta2_label) && (
-                <div className={`mt-8 flex flex-wrap gap-3 ${s.align === 'center' ? 'justify-center' : ''}`}>
+                <motion.div variants={heroItem}
+                  className={`mt-8 flex flex-wrap gap-3 ${s.align === 'center' ? 'justify-center' : ''}`}>
                   <HeroCtaMenu
                     buttonLabel={s.cta_button_label}
                     cta1={{ label: s.cta1_label, href: s.cta1_href }}
                     cta2={{ label: s.cta2_label, href: s.cta2_href }}
                     align={s.align}
                   />
-                </div>
+                </motion.div>
               )}
             </motion.div>
           </AnimatePresence>
