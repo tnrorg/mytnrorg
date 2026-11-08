@@ -4,6 +4,7 @@ import { ok, fail, readJson } from '@/lib/api';
 import { clientIp } from '@/lib/audit';
 import { logMembershipAudit } from '@/lib/membership/core';
 import { ROLE_KEYS } from '@/lib/membership/roles';
+import { hashPassword } from '@/lib/membership/auth';
 import { uploadDataUrl } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
@@ -59,6 +60,80 @@ export async function PATCH(req, props) {
     if (!ROLE_KEYS.includes(b.role)) return fail('BAD_ROLE', 400, { message: 'Unknown membership type.' });
     patch.role = b.role;
     notes.push(`membership type ${m.role || 'general'} → ${b.role}`);
+  }
+
+  /* ── Full name ──
+     Plain correction of a typo or a married name. Audited like everything
+     else, because a name change on a membership record is how an impostor
+     would make a stolen account look like their own. */
+  if (b.full_name !== undefined) {
+    const next = String(b.full_name).trim().replace(/\s+/g, ' ');
+    if (!next) return fail('NAME_REQUIRED', 400, { message: 'A name is required.' });
+    if (next.length > 120) return fail('NAME_TOO_LONG', 400, { message: 'Keep the name under 120 characters.' });
+    if (next !== m.full_name) {
+      patch.full_name = next;
+      notes.push(`name "${m.full_name}" → "${next}"`);
+    }
+  }
+
+  /* ── Email ──
+     THE SIGN-IN IDENTIFIER, so this is an account-takeover surface and is
+     treated as one: normalised, checked for collisions against both the
+     member roll AND pending applications, and recorded with the old address
+     so the change can be traced back.
+
+     `email_normalized` is what the uniqueness and the login lookup actually
+     use — writing `email` alone would leave the member signing in with their
+     OLD address and the new one showing on screen, which is the worst of
+     both. */
+  if (b.email !== undefined) {
+    const raw = String(b.email).trim();
+    const next = raw.toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(next))
+      return fail('BAD_EMAIL', 400, { message: 'That does not look like an email address.' });
+
+    if (next !== (m.email_normalized || String(m.email || '').toLowerCase())) {
+      const { data: clash } = await sb.from('membership_members')
+        .select('id, membership_id').eq('email_normalized', next).neq('id', m.id).maybeSingle();
+      if (clash) return fail('EMAIL_TAKEN', 409, {
+        message: `That email already belongs to member ${clash.membership_id}.` });
+
+      const { data: pending } = await sb.from('membership_applications')
+        .select('id').eq('email_normalized', next).maybeSingle();
+      if (pending) return fail('EMAIL_PENDING', 409, {
+        message: 'That email is on a pending membership application.' });
+
+      patch.email = raw;
+      patch.email_normalized = next;
+      notes.push(`email ${m.email} → ${raw}`);
+    }
+  }
+
+  /* ── Password ──
+     Set directly by an admin, at the organisation's request, for members who
+     cannot be reached by email at all.
+
+     THE PASSWORD ITSELF NEVER LEAVES THIS BLOCK. It is hashed immediately,
+     never written to the audit note, never echoed in the response, and never
+     logged. What is recorded is only THAT an admin set it, and which admin.
+
+     `session_epoch` is bumped with it, exactly as a suspension does above.
+     Without that, anyone already signed in as this member — including whoever
+     the member was locked out by — keeps their session and the reset
+     achieves nothing. */
+  if (b.new_password !== undefined) {
+    const pw = String(b.new_password);
+    if (pw.length < 8) return fail('WEAK_PASSWORD', 400, {
+      message: 'Use at least 8 characters.' });
+    if (pw.length > 200) return fail('BAD_PASSWORD', 400, { message: 'That password is too long.' });
+
+    patch.password_hash = await hashPassword(pw);
+    patch.session_epoch = (m.session_epoch || 0) + 1;
+    /* Any outstanding invite or reset link is now meaningless and must not
+       remain usable — otherwise the old link could undo this password. */
+    patch.invite_token = null;
+    patch.invite_expires_at = null;
+    notes.push('password set by admin; signed out of all devices');
   }
 
   /* Profile photo.
