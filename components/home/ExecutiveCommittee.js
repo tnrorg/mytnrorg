@@ -19,7 +19,18 @@ const mont = { fontFamily: 'var(--font-mulish), Mulish, system-ui, sans-serif' }
 export default function ExecutiveCommittee() {
   const { executive, loading } = useLeadership();
   return (
-    <section className="max-w-[1400px] mx-auto px-4 py-14 w-full">
+    /* pb-16 and NO top padding — the convention every other section on this
+       page follows (CouncilSection, MembersPreview, CoreAreas). Each pads
+       only its own bottom, so neighbours produce one uniform 64px gap.
+
+       This was py-14, which added 56px of top padding ON TOP of the previous
+       section's 64px bottom: measured on the live page, the space between the
+       Advisory Council and this heading was 120px — the largest gap on the
+       page and nearly double the rhythm everywhere else.
+
+       A plain block comment, not a braced one: directly after `return (` the
+       braced form is an object literal, not a comment, and will not compile. */
+    <section className="max-w-[1400px] mx-auto px-4 pb-16 w-full">
       <Reveal className="flex items-center justify-center gap-3">
         <span className="h-px w-10 sm:w-20" style={{ background: `${C.gold}66` }} />
         <h2 style={{ ...mont, color: C.deep }} className="text-lg sm:text-xl font-black uppercase tracking-wide text-center">Central Executive Committee</h2>

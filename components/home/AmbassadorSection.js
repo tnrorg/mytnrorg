@@ -63,7 +63,10 @@ export default function AmbassadorSection({
   const hidden = members.length - shown.length;
 
   return (
-    <section className="max-w-[1400px] mx-auto px-4 py-14 w-full">
+    /* pb-16 and no top padding — see the note in ExecutiveCommittee. Every
+       section on this page pads only its own bottom, so the gaps stay at a
+       uniform 64px instead of compounding. */
+    <section className="max-w-[1400px] mx-auto px-4 pb-16 w-full">
       <Reveal className="flex items-center justify-center gap-3">
         <span className="h-px w-10 sm:w-20" style={{ background: `${C.gold}66` }} />
         <h2 style={{ ...mont, color: C.deep }}
