@@ -67,6 +67,45 @@ const TONE = {
   expired: 'bg-gray-500/15 text-gray-300 border-gray-500/30',
 };
 
+/* Correct a member's name and sign-in email.
+ *
+ * Separate from the password action below, deliberately. Fixing a misspelled
+ * name is routine housekeeping; resetting someone's credentials is not, and
+ * putting the two in one form is how a password gets reset by somebody who
+ * only meant to add a missing middle name.
+ *
+ * The email here IS the sign-in identifier, which the hint says plainly —
+ * an admin correcting a typo should know they are changing how that person
+ * logs in, not just what the directory displays. */
+function IdentityEditor({ m, onSave, onCancel }) {
+  const [name, setName] = useState(m.full_name || '');
+  const [email, setEmail] = useState(m.email || '');
+  const inp = 'rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-sm text-tnr-cream outline-none focus:border-tnr-gold w-full';
+
+  const changed = name.trim() !== (m.full_name || '') || email.trim() !== (m.email || '');
+
+  return (
+    <div className="mt-2 space-y-2 rounded-xl border border-white/10 bg-black/20 p-3">
+      <label className="block">
+        <span className="text-[11px] font-semibold text-tnr-cream/50">Full name</span>
+        <input className={inp} value={name} onChange={e => setName(e.target.value)} />
+      </label>
+      <label className="block">
+        <span className="text-[11px] font-semibold text-tnr-cream/50">
+          Email — this is what they sign in with
+        </span>
+        <input className={inp} type="email" value={email} autoCapitalize="off" spellCheck="false"
+          onChange={e => setEmail(e.target.value)} />
+      </label>
+      <div className="flex gap-2 pt-1">
+        <button className="btn-green text-sm" disabled={!changed}
+          onClick={() => onSave({ full_name: name.trim(), email: email.trim() })}>Save</button>
+        <button className="btn-ghost text-sm" onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 export default function MembersDirectoryTab({ toast }) {
   const [rows, setRows] = useState([]);
   const [status, setStatus] = useState('');
@@ -74,6 +113,7 @@ export default function MembersDirectoryTab({ toast }) {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
   const [areaId, setAreaId] = useState(null);   // member whose area is being edited
+  const [idId, setIdId] = useState(null);       // member whose name/email is being edited
 
   const load = () => {
     const q = new URLSearchParams({ status, search });
@@ -101,6 +141,38 @@ export default function MembersDirectoryTab({ toast }) {
     const r = await aPatch('/api/admin/membership/members/' + m.id, patch);
     if (!r.ok) return toast?.(r.message || 'Failed', 'err');
     toast?.('Member updated', 'ok'); load();
+  }
+
+  /* Set a member's password directly.
+   *
+   * Deliberately NOT part of the identity form: this is destructive in a way
+   * a name correction is not. It ends every session that member has open —
+   * including their own, on their own phone — and it invalidates any reset
+   * link already sitting in their inbox.
+   *
+   * Two confirmations, and the second one restates the consequence rather
+   * than asking "are you sure": a prompt nobody reads is not a safeguard.
+   *
+   * The typed password is handed straight to the request and never put in
+   * component state, so it does not sit in memory, in React DevTools, or in
+   * anything a later render could echo back onto the screen. */
+  async function setPassword(m) {
+    if (!confirm(
+      `Set a new password for ${m.full_name} (${m.membership_id})?\n\n`
+      + 'They will be signed out on every device, and any reset link already '
+      + 'sent to them will stop working.')) return;
+
+    const pw = prompt(
+      `New password for ${m.full_name}.\n\n`
+      + 'At least 8 characters. Tell it to them over a channel you trust, and '
+      + 'ask them to change it from My Settings once they are in.');
+    if (pw === null) return;                       // cancelled
+    if (pw.length < 8) return toast?.('Use at least 8 characters.', 'err');
+
+    const r = await aPatch('/api/admin/membership/members/' + m.id, { new_password: pw });
+    if (!r.ok) return toast?.(r.message || 'Could not set the password', 'err');
+    toast?.(`Password set for ${m.full_name}. They are now signed out everywhere.`, 'ok');
+    load();
   }
 
   /* Set or clear a member's directory photo.
@@ -170,6 +242,17 @@ export default function MembersDirectoryTab({ toast }) {
   /** Change a member's type.
    *  Promoting to Advisory or CEC publishes a public leadership profile, so
    *  that direction asks for confirmation; demoting does not need a prompt. */
+  /* Name and sign-in email. The endpoint rejects a duplicate email with a
+     message naming the member who already has it, so that is surfaced as-is
+     rather than flattened to "failed". */
+  async function saveIdentity(m, patch) {
+    const r = await aPatch('/api/admin/membership/members/' + m.id, patch);
+    if (!r.ok) return toast?.(r.message || 'Could not save', 'err');
+    setIdId(null);
+    toast?.(r.updated ? 'Member updated' : 'Nothing changed', 'ok');
+    load();
+  }
+
   async function changeRole(m, role) {
     if (role === (m.role || 'general')) return;
     if (LEADERSHIP_ROLES.includes(role) && !confirm(
@@ -266,8 +349,33 @@ export default function MembersDirectoryTab({ toast }) {
             {rows.map(m => (
               <tr key={m.id} className="border-t border-tnr-line/40 hover:bg-white/5">
                 <td className="px-3 py-2 font-mono text-xs text-tnr-gold/90 whitespace-nowrap">{m.membership_id}</td>
-                <td className="px-3 py-2 font-medium text-tnr-cream">{m.full_name}</td>
-                <td className="px-3 py-2 text-tnr-cream/70">{m.email}</td>
+                {/* Name and email open ONE editor spanning both columns —
+                    they are a single identity, and correcting a married name
+                    usually comes with a new address. */}
+                <td className="px-3 py-2 font-medium text-tnr-cream align-top" colSpan={idId === m.id ? 2 : 1}>
+                  {idId === m.id ? (
+                    <IdentityEditor m={m} onSave={(patch) => saveIdentity(m, patch)}
+                      onCancel={() => setIdId(null)} />
+                  ) : (
+                    <button onClick={() => setIdId(m.id)} title="Edit name or sign-in email"
+                      className="text-left hover:text-tnr-gold group">
+                      <span className="block">{m.full_name}</span>
+                      <span className="block text-[11px] text-tnr-cream/40 group-hover:text-tnr-goldLight">
+                        edit name / email
+                      </span>
+                    </button>
+                  )}
+                </td>
+                {idId !== m.id && (
+                  <td className="px-3 py-2 text-tnr-cream/70 align-top">
+                    <span className="block">{m.email}</span>
+                    <button onClick={() => setPassword(m)}
+                      title="Set a new password for this member"
+                      className="text-[11px] text-tnr-cream/40 hover:text-red-300">
+                      set password
+                    </button>
+                  </td>
+                )}
                 {/* Area — editable. Shows Union Council and village together,
                     because a village only means anything inside its council. */}
                 <td className="px-3 py-2 text-tnr-cream/70 align-top">
