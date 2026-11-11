@@ -12,6 +12,7 @@ import { validateApplication, REQUIRED_LABELS, ageFrom } from '@/lib/membership/
 import { GENDER_SELF_DESCRIBE, needsReferrer, needsHeardDetail } from '@/lib/membership/options';
 import { toNameCase } from '@/lib/membership/nameCase';
 import { ROLE_KEYS, roleLabel } from '@/lib/membership/roles';
+import { runDuplicateCheck } from '@/lib/membership/duplicateDetection';
 
 export const dynamic = 'force-dynamic';
 
@@ -305,6 +306,32 @@ export async function POST(req) {
   const saved = { ...row, reference_no };
   try { await sendApplicationReceived(saved); } catch {}
   try { await sendAdminNewApplication(saved, roleLabel(applied_role)); } catch {}
+
+  /* ── Duplicate detection ──
+   *
+   * Email and mobile are already unique, so the pair of checks at the top of
+   * this route catches the same person reapplying with the same contact
+   * details. This catches what those cannot: the same person with a brand new
+   * Gmail address and a brand new number.
+   *
+   * THREE THINGS IT DOES NOT DO, each one load-bearing:
+   *
+   * 1. It does not reject. The application is already stored, with status
+   *    pending_review, before this line runs. A score is a note for the
+   *    reviewing admin; a name resembling somebody else's is not grounds to
+   *    turn an applicant away, and in a valley where Muhammad Ali is a common
+   *    name it would turn away real people constantly.
+   *
+   * 2. It does not tell the applicant anything. The result is dropped on the
+   *    floor here on purpose. Reporting "this looks like an existing member"
+   *    would confirm to a stranger that a particular name, village and age
+   *    combination is already registered — a membership-roll oracle anybody
+   *    could query with a throwaway email, which is worse than the duplicate
+   *    problem it was meant to solve.
+   *
+   * 3. It cannot fail the submission. runDuplicateCheck never throws, and this
+   *    is wrapped anyway. */
+  try { await runDuplicateCheck({ kind: 'application', id: data.id }); } catch {}
 
   return ok({
     reference_no,

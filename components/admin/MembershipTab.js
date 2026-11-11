@@ -171,7 +171,28 @@ export default function MembershipTab({ toast, goTab }) {
                     ? <span className="font-mono text-xs font-bold text-emerald-300">{a.membership_id}</span>
                     : <span className="text-tnr-cream/30">—</span>}
                 </td>
-                <td className="px-3 py-2 font-medium text-tnr-cream">{a.full_name}</td>
+                <td className="px-3 py-2 font-medium text-tnr-cream">
+                  {a.full_name}
+                  {/* Possible-duplicate badge.
+                    *
+                    * Next to the NAME rather than in a column of its own,
+                    * because the name is what the badge is a claim about, and
+                    * because a reviewer scanning this table reads names — a
+                    * warning parked in the eighth column is a warning nobody
+                    * sees until after they have clicked Approve.
+                    *
+                    * Wording matters here: "may be a duplicate", not
+                    * "duplicate". The score says two records resemble each
+                    * other, and two different people in one village really do
+                    * share names. */}
+                  {a.duplicate_score ? (
+                    <span
+                      title={`Resembles an existing record (${a.duplicate_score}%). Open Duplicate Check to compare them.`}
+                      className="ml-2 inline-flex items-center rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-400/30 align-middle">
+                      may be a duplicate · {a.duplicate_score}%
+                    </span>
+                  ) : null}
+                </td>
                 <td className="px-3 py-2 text-tnr-cream/70">{a.email}</td>
                 <td className="px-3 py-2 text-tnr-cream/70">{a.union_council || '—'}</td>
                 <td className="px-3 py-2 text-tnr-cream/50 text-xs whitespace-nowrap">

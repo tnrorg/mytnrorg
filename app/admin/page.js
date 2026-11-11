@@ -10,6 +10,7 @@ import MembersTab from '@/components/admin/MembersTab';
 import MembershipTab from '@/components/admin/MembershipTab';
 import ProfileRequestsTab from '@/components/admin/ProfileRequestsTab';
 import MembersDirectoryTab from '@/components/admin/MembersDirectoryTab';
+import DuplicatesTab from '@/components/admin/DuplicatesTab';
 import CandidatesTab from '@/components/admin/CandidatesTab';
 import ElectionsTab from '@/components/admin/ElectionsTab';
 import RecordsTab from '@/components/admin/RecordsTab';
@@ -99,6 +100,9 @@ const MEMBERSHIP_TABS = [
   ['mapplications', 'Applications', '📝', 'membership'], ['mmembers', 'Members', '🪪', 'membership'],
   ['mrequests', 'Profile Requests', '✏️', 'membership'], ['mcard', 'Card Template', '🎫', 'membership'],
   ['mcert', 'Certificate Template', '📜', 'membership'], ['mareas', 'Areas', '📍', 'membership'],
+  // Directly after Applications in spirit, but kept at the end of the group so
+  // the tab order long-standing admins have learned does not shift under them.
+  ['mduplicates', 'Duplicate Check', '🔍', 'membership'],
 ];
 
 export default function Admin() {
@@ -321,6 +325,7 @@ export default function Admin() {
       {view === 'mapplications' && <MembershipTab toast={toast} goTab={setTab} />}
       {view === 'mrequests' && <ProfileRequestsTab toast={toast} />}
       {view === 'mmembers' && <MembersDirectoryTab toast={toast} />}
+      {view === 'mduplicates' && <DuplicatesTab toast={toast} />}
       {view === 'mcard' && <CardTemplateTab toast={toast} />}
       {view === 'mcert' && <CertificateTemplateTab toast={toast} />}
       {view === 'mareas' && <AreasTab toast={toast} />}

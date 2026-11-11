@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabaseServer';
 import { requireAdmin } from '@/lib/guard';
 import { ok, fail } from '@/lib/api';
+import { openFlagScores } from '@/lib/membership/duplicateDetection';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
@@ -26,6 +27,23 @@ export async function GET(req) {
   });
 
   const applications = await withMembershipIds(data || []);
+
+  /* Attach the duplicate-check score where the reviewing happens.
+   *
+   * The Duplicate Check tab already lists every flagged pair, but an admin
+   * approving applications works here and has no reason to open that tab
+   * first — so a flag raised on an application would reliably be found after
+   * the approval rather than before it. One extra field on this list is what
+   * makes detection actually reach the decision it exists to inform.
+   *
+   * Cosmetic and non-fatal, exactly like the membership numbers above: no
+   * score simply means no badge. */
+  const flags = await openFlagScores('application', applications.map(a => a.id));
+  for (const a of applications) {
+    const s = flags.get(a.id);
+    if (s) a.duplicate_score = s;
+  }
+
   return ok({ applications, total: applications.length });
 }
 
