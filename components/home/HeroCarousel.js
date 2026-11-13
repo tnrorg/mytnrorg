@@ -1,48 +1,87 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-// ArrowRight moved to HeroCtaMenu along with the call-to-action buttons.
-// The 'ArrowRight' further down is a keyboard key name, not this icon.
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import Hero from './Hero';
-import HeroCtaMenu from './HeroCtaMenu';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+// The 'ArrowRight' / 'ArrowLeft' strings further down are keyboard key names;
+// these are the icons.
+import { ArrowLeft, ArrowRight, Pause, Play } from 'lucide-react';
 import Image from 'next/image';
-import { COLORS, FONT, MOTION } from '@/lib/design/tokens';
+import HeroCtaMenu from './HeroCtaMenu';
+import { FONT, MOTION } from '@/lib/design/tokens';
+import { FALLBACK_SLIDES } from '@/lib/heroSlides';
+import { parseHeroTitle, plainHeroTitle } from '@/lib/heroTitle';
+import './hero.css';
 
-const DURATION = 6500;   // ms a slide stays before advancing
+/** How long a slide stays. Must match --hero-dur in hero.css, which drives the
+ *  progress line — it is set from here, on the section, so the two cannot
+ *  drift apart. */
+const DURATION = 7000;
 
 /* Admin-managed hero carousel.
  *
- * Everything visible here — image, wording, buttons, overlay strength and the
- * phone/desktop font sizes — comes from the hero_slides table. Nothing is
- * hardcoded.
+ * Everything a visitor reads here — picture, wording, buttons, tint and the
+ * phone/desktop font sizes — comes from the hero_slides table. Nothing about
+ * the content is hardcoded; this file and hero.css decide only how it is laid
+ * out and how it moves. The layout itself is explained at the top of hero.css.
  *
  * If there are no slides (migration not run, or every slide switched off) the
- * built-in <Hero /> renders instead, so the front page can never end up blank.
+ * built-in slide from lib/heroSlides.js is shown through this same component.
  */
-/* The hero's staged entrance.
- *
- * A parent that only schedules, and one child variant shared by every line —
- * so the sequence is described in one place rather than as four hand-tuned
- * delays that drift apart the moment somebody adds a fifth element.
- *
- * `delayChildren` waits for the slide image behind the text to settle before
- * the first line moves; without it the copy races the photograph and both
- * look rushed. */
-const heroStage = (reduce) => ({
-  hidden: {},
+
+// ── The entrance, described once ────────────────────────────────────────────
+//
+// A parent that only schedules, and children that each know how to arrive.
+// Order on screen: label → headline, word by word → sentence → buttons. On a
+// slide change the outgoing copy leaves quickly (0.24s) and the incoming one
+// waits for it, so two headlines are never on screen together.
+const EASE = MOTION.easeOut;
+
+const stage = (reduce, first) => ({
+  hidden: { transition: { staggerChildren: 0 } },
   show: {
     transition: reduce
       ? { staggerChildren: 0, delayChildren: 0 }
-      : { staggerChildren: 0.12, delayChildren: 0.1 },
+      // The first load waits a beat longer: the picture is still settling.
+      : { staggerChildren: 0.12, delayChildren: first ? 0.3 : 0.42 },
   },
-  exit: { opacity: 0, y: reduce ? 0 : -14, transition: { duration: 0.3 } },
 });
-
-const heroItem = {
-  hidden: { opacity: 0, y: 26 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.62, ease: MOTION.easeOut } },
+const rise = {
+  hidden: { opacity: 0, y: 18, transition: { duration: 0.24, ease: 'easeIn' } },
+  show:   { opacity: 1, y: 0,  transition: { duration: 0.75, ease: EASE } },
 };
+const titleStage = (reduce) => ({
+  hidden: {},
+  show: { transition: { staggerChildren: reduce ? 0 : 0.055 } },
+});
+const word = {
+  hidden: { opacity: 0, y: '108%', transition: { duration: 0.22, ease: 'easeIn' } },
+  show:   { opacity: 1, y: '0%',   transition: { duration: 0.85, ease: EASE } },
+};
+const buttons = {
+  hidden: { opacity: 0, y: 12, scale: 0.96, transition: { duration: 0.2, ease: 'easeIn' } },
+  show:   { opacity: 1, y: 0,  scale: 1,    transition: { duration: 0.7, ease: EASE } },
+};
+
+const hasCopy = (s) =>
+  !!(s.title || s.subtitle || s.eyebrow || s.cta1_label || s.cta2_label);
+
+/** Which of the three layouts a slide uses — see hero.css. */
+const layoutOf = (s) => (!hasCopy(s) ? 'full' : s.align === 'center' ? 'center' : 'split');
+
+/* The picture box is about three-quarters of the window on a desktop split
+   slide and the full width everywhere else. Telling the browser so lets it
+   fetch a smaller file for the split slides. */
+const sizesOf = (layout) => (layout === 'split' ? '(min-width: 1024px) 76vw, 100vw' : '100vw');
+
+// The admin's `overlay` value as a tint over the picture. Same formula as
+// before, so every existing slide keeps the strength its editor chose.
+const washOf = (s) => {
+  const o = Number(s.overlay) || 0;
+  return s.align === 'center'
+    ? `linear-gradient(180deg,rgba(6,45,33,${o / 140}),rgba(6,45,33,${o / 100}))`
+    : `linear-gradient(95deg,rgba(6,45,33,${Math.min(0.96, o / 80)}) 0%,rgba(6,45,33,${o / 100}) 45%,rgba(6,45,33,${o / 260}) 100%)`;
+};
+
+const pad = (n) => String(n).padStart(2, '0');
 
 export default function HeroCarousel({ initialSlides = null }) {
   /* `initialSlides` comes from the server (app/page.js), so the first slide is
@@ -52,9 +91,14 @@ export default function HeroCarousel({ initialSlides = null }) {
    *
    * The fetch is kept for any caller that renders this without slides, so the
    * component still works standalone. */
-  const [slides, setSlides] = useState(initialSlides);   // null = still loading
-  const [i, setI] = useState(0);
-  const [paused, setPaused] = useState(false);
+  const [fetched, setFetched] = useState(initialSlides);   // null = still loading
+  /* `turn` counts every change of slide. It is part of each picture layer's
+   * key, so a slide that comes back is a NEW layer placed on top — not the
+   * old one revived underneath whatever replaced it. Without it, stepping
+   * back to a slide within a second of leaving it made the picture pop
+   * instead of dissolve. */
+  const [pos, setPos] = useState({ i: 0, turn: 0 });
+  const rootRef = useRef(null);
   const reduce = useReducedMotion();
 
   useEffect(() => {
@@ -62,14 +106,26 @@ export default function HeroCarousel({ initialSlides = null }) {
     let off = false;
     fetch('/api/public/hero')
       .then(r => r.json())
-      .then(j => { if (!off) setSlides(j?.ok ? (j.slides || []) : []); })
-      .catch(() => { if (!off) setSlides([]); });
+      .then(j => { if (!off) setFetched(j?.ok ? (j.slides || []) : []); })
+      .catch(() => { if (!off) setFetched([]); });
     return () => { off = true; };
   }, [initialSlides]);
 
-  const n = slides?.length || 0;
-  // Wraps in both directions, so "previous" from the first slide lands on the last.
-  const go = useCallback((next) => setI(((next % n) + n) % n), [n]);
+  // Still loading, or nothing published: the built-in slide.
+  const slides = fetched?.length ? fetched : FALLBACK_SLIDES;
+  const n = slides.length;
+  const idx = Math.min(pos.i, n - 1);          // the list can shrink under us
+  const s = slides[idx];
+  const layout = layoutOf(s);
+
+  // Wraps in both directions, so "previous" from the first slide lands on the
+  // last. Asking for the slide already showing changes nothing at all.
+  const go = useCallback((to) => setPos(p => {
+    const cur = Math.min(p.i, n - 1);
+    const want = typeof to === 'function' ? to(cur) : to;
+    const next = ((want % n) + n) % n;
+    return next === cur ? p : { i: next, turn: p.turn + 1 };
+  }), [n]);
 
   /* Autoplay waits for the page to finish loading.
    *
@@ -77,12 +133,11 @@ export default function HeroCarousel({ initialSlides = null }) {
    * the first advance was landing while the rest of the page was still
    * arriving — a second large image competing for bandwidth with content the
    * visitor is trying to read. Waiting costs nothing: someone who has been on
-   * the page for six seconds has loaded it.
+   * the page for seven seconds has loaded it.
    *
    * `document.readyState` is checked as well as the event, because the load
    * event may already have fired before this effect runs — in which case
-   * listening for it would mean waiting forever.
-   */
+   * listening for it would mean waiting forever. */
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     if (document.readyState === 'complete') { setLoaded(true); return; }
@@ -91,265 +146,367 @@ export default function HeroCarousel({ initialSlides = null }) {
     return () => window.removeEventListener('load', done);
   }, []);
 
-  // Stops on hover, on keyboard focus, and while the tab is in the background
-  // — a carousel that silently advances off-screen just wastes battery and
-  // loses the reader's place.
-  useEffect(() => {
-    if (n < 2 || paused || !loaded) return;
-    const t = setTimeout(() => setI(p => (p + 1) % n), DURATION);
-    return () => clearTimeout(t);
-  }, [i, n, paused, loaded]);
+  /* Four separate reasons to hold the slide, kept separate so that one ending
+   * cannot cancel another — the pointer leaving the hero must not restart a
+   * carousel the visitor paused with the button. */
+  const [hover, setHover] = useState(false);     // a mouse is over it
+  const [focus, setFocus] = useState(false);     // keyboard focus is inside it
+  const [away, setAway] = useState(false);       // the tab is in the background
+  const [held, setHeld] = useState(false);       // the pause button
 
   useEffect(() => {
-    const onVis = () => setPaused(document.hidden);
+    const onVis = () => setAway(document.hidden);
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
-  // Still loading, or nothing published: show the built-in hero.
-  if (slides === null || n === 0) return <Hero />;
+  /* Reduced motion switches autoplay OFF, not just the animation: a page that
+     changes its own content every few seconds is motion, whatever the
+     transition between the two states looks like. */
+  const running = n > 1 && loaded && !reduce && !hover && !focus && !away && !held;
 
-  const s = slides[i];
+  /* The timer resumes where it stopped.
+   *
+   * It used to restart from zero every time the pointer left the hero, while
+   * the progress line showed "full" for as long as it was paused — so the line
+   * and the timer told different stories. Now the time already spent on a
+   * slide is remembered across a pause, and the CSS line is paused in place
+   * alongside it; both pick up from the same point.
+   *
+   * Declared before the timer so that on a slide change the timer's cleanup
+   * (which adds to `spent`) runs first and this reset has the last word. */
+  const spent = useRef(0);
+  useEffect(() => { spent.current = 0; }, [idx]);
+  useEffect(() => {
+    if (!running) return;
+    const started = performance.now();
+    const t = setTimeout(() => go(c => c + 1), Math.max(0, DURATION - spent.current));
+    return () => { clearTimeout(t); spent.current += performance.now() - started; };
+  }, [idx, n, running, go]);
+
+  /* Is KEYBOARD focus inside the hero right now?
+   *
+   * Asked of the document, not tracked from focus and blur events alone,
+   * because a focused element that is removed or made inert fires no blur —
+   * a keyboard visitor on a slide's button who pressed an arrow key left the
+   * carousel believing focus was still inside, and it never moved again.
+   * So this is re-asked every time the slide changes.
+   *
+   * Only keyboard focus counts (:focus-visible). Clicking an arrow with the
+   * mouse also focuses it, and that used to freeze the carousel until the
+   * visitor clicked somewhere else. */
+  const syncFocus = useCallback(() => {
+    const el = document.activeElement, root = rootRef.current;
+    let inside = !!(root && el && el !== document.body && root.contains(el) && !el.closest('[inert]'));
+    if (inside) { try { inside = el.matches(':focus-visible'); } catch { /* old browser: assume yes */ } }
+    setFocus(inside);
+  }, []);
+  useEffect(() => { syncFocus(); }, [idx, syncFocus]);
+
+  /* ── Pointer parallax ──────────────────────────────────────────────────────
+   * Motion values, not state: moving the mouse updates three transforms and
+   * re-renders nothing. The spring is what makes it feel like weight rather
+   * than a picture glued to the cursor.
+   *
+   * Mouse only. A finger has no hover position, and tilting the artwork under
+   * a thumb that is trying to scroll is a bug, not a flourish. */
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const spring = { stiffness: 70, damping: 20, mass: 0.6 };
+  const sx = useSpring(mx, spring);
+  const sy = useSpring(my, spring);
+  // Three depths: the picture drifts against the pointer, the light with it,
+  // the words barely at all.
+  const imgX = useTransform(sx, v => v * -10);
+  const imgY = useTransform(sy, v => v * -7);
+  const glowX = useTransform(sx, v => v * 30);
+  const glowY = useTransform(sy, v => v * 18);
+  const copyX = useTransform(sx, v => v * 5);
+  const copyY = useTransform(sy, v => v * 3);
+
+  const onPointerMove = (e) => {
+    if (reduce || e.pointerType !== 'mouse') return;
+    const r = e.currentTarget.getBoundingClientRect();
+    mx.set(((e.clientX - r.left) / r.width - 0.5) * 2);     // −1 … 1
+    my.set(((e.clientY - r.top) / r.height - 0.5) * 2);
+  };
+
+  // Swipe. Horizontal intent has to clearly beat vertical, so scrolling the
+  // page with a thumb that drifts sideways does not change the slide.
+  const touch = useRef(null);
+  const onTouchStart = (e) => {
+    const t = e.touches[0];
+    touch.current = t ? { x: t.clientX, y: t.clientY } : null;
+  };
+  const onTouchEnd = (e) => {
+    const from = touch.current; touch.current = null;
+    const t = e.changedTouches[0];
+    if (!from || !t || n < 2) return;
+    const dx = t.clientX - from.x, dy = t.clientY - from.y;
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) go(idx + (dx < 0 ? 1 : -1));
+  };
+
+  const next = slides[(idx + 1) % n];
+  const nextLayout = layoutOf(next);
 
   return (
     <section
-      className="relative w-full overflow-hidden isolate"
-      style={FONT}
+      ref={rootRef}
+      className="tnr-hero"
+      style={{ ...FONT, '--hero-dur': `${DURATION}ms` }}
       aria-roledescription="carousel"
       aria-label="TNR highlights"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocusCapture={() => setPaused(true)}
-      onBlurCapture={() => setPaused(false)}
+      /* pointerenter, not mouseenter: a tap on a phone fires mouseenter and
+         never the matching leave, which used to leave the carousel paused for
+         good after the first touch. */
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') setHover(true); }}
+      onPointerLeave={() => { setHover(false); mx.set(0); my.set(0); }}
+      onPointerMove={onPointerMove}
+      onFocusCapture={syncFocus}
+      onBlurCapture={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setFocus(false); }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
       onKeyDown={(e) => {
-        if (e.key === 'ArrowRight') { e.preventDefault(); go(i + 1); }
-        if (e.key === 'ArrowLeft')  { e.preventDefault(); go(i - 1); }
+        if (n < 2) return;
+        if (e.key === 'ArrowRight') { e.preventDefault(); go(idx + 1); }
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); go(idx - 1); }
       }}>
 
-      <div className="relative min-h-[520px] sm:min-h-[580px] lg:min-h-[660px]">
-        {/* Default (sync) mode: the outgoing and incoming images overlap, which
-            is what makes the change read as a crossfade rather than a flash. */}
-        <AnimatePresence initial={false}>
-          <motion.div
-            key={s.id}
-            className="absolute inset-0"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: reduce ? 0 : 0.7, ease: MOTION.ease }}
-            // Swipe on touch. Threshold is generous so a vertical page scroll
-            // that drifts sideways does not change the slide by accident.
-            drag={n > 1 ? 'x' : false}
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.12}
-            onDragEnd={(e, info) => {
-              if (info.offset.x < -80) go(i + 1);
-              else if (info.offset.x > 80) go(i - 1);
-            }}>
+      {/* ── Pictures ── */}
+      {/* `initial={false}`: the first slide is NOT faded in from nothing. It is
+          in the server's HTML at full opacity, which is what makes it the
+          Largest Contentful Paint the moment its bytes arrive. */}
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={`${s.id}:${pos.turn}`}
+          className="tnr-hero-layer"
+          data-layout={layout}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          /* A true cross-dissolve. The outgoing slide stays fully opaque
+             underneath until the incoming one has finished arriving on top of
+             it, and only then leaves. Fading both at once dips through the
+             background colour halfway — every change would flash green. */
+          exit={{ opacity: 0, transition: { duration: 0.01, delay: reduce ? 0 : 1.15 } }}
+          transition={{ duration: reduce ? 0 : 1.15, ease: MOTION.ease }}>
 
-            {/* Background image, drifting slowly (Ken Burns) so a static photo
-                still feels alive. Disabled for reduced-motion users. */}
-            {/* next/image, not a raw <img>.
-              *
-              * These photographs are Supabase Storage files that predate the
-              * Cloudinary migration, so the Cloudinary srcset helper is a
-              * deliberate no-op on them and every "optimisation" it applied
-              * was doing nothing: a phone was downloading a 216 KB full-size
-              * JPEG with a one-hour cache.
-              *
-              * Next's optimiser handles ANY host listed in remotePatterns,
-              * and *.supabase.co is already there — so this converts to
-              * AVIF/WebP, resizes to the device, and caches for a year,
-              * without re-uploading a single file.
-              *
-              * The Ken Burns drift moved to this wrapper because `fill` needs
-              * to control the image's own positioning.
-              */}
-            {s.image_url && (
-              <motion.div
-                className="absolute inset-0"
-                initial={reduce ? false : { scale: 1.06 }}
-                animate={reduce ? {} : { scale: 1 }}
-                transition={{ duration: DURATION / 1000 + 2, ease: 'linear' }}>
-                <Image
-                  src={s.image_url}
-                  alt=""
-                  aria-hidden="true"
-                  fill
-                  // The hero spans the viewport at every breakpoint, so the
-                  // browser picks by viewport width rather than guessing.
-                  sizes="100vw"
-                  /* `priority` on the first slide is what emits the preload
-                   * link and fetchpriority="high" — the one LCP check still
-                   * failing in the audit. Later slides are reached by a click,
-                   * and claiming urgency for those would have them compete
-                   * with whatever the visitor is actually reading. */
-                  priority={i === 0}
-                  quality={70}
-                  className="object-cover select-none"
-                  draggable="false"
-                />
-              </motion.div>
-            )}
-
-            {/* Readability wash. Strength is the admin's `overlay` value. */}
-            <div className="absolute inset-0" aria-hidden="true" style={{
-              background: s.align === 'center'
-                ? `linear-gradient(180deg,rgba(6,45,33,${s.overlay / 140}),rgba(6,45,33,${s.overlay / 100}))`
-                : `linear-gradient(95deg,rgba(6,45,33,${Math.min(0.96, s.overlay / 80)}) 0%,rgba(6,45,33,${s.overlay / 100}) 45%,rgba(6,45,33,${s.overlay / 260}) 100%)`,
-            }} />
-            {/* Gold hairline at the foot, tying the hero to the rest of the site. */}
-            <div className="absolute inset-x-0 bottom-0 h-[3px]" aria-hidden="true"
-              style={{ background: `linear-gradient(90deg,transparent,${COLORS.gold500},transparent)` }} />
-          </motion.div>
-        </AnimatePresence>
-
-        {/* ── Copy ── */}
-        {/* Copy sits in the lower part of the frame rather than dead centre:
-            it leaves the top of the photograph clear for faces and sky, which
-            is where the eye lands first. The bottom padding clears the dots. */}
-        <div className={`relative max-w-tnr-wide mx-auto px-5 sm:px-8 pt-24 pb-24 lg:pt-32 lg:pb-28
-            min-h-[520px] sm:min-h-[580px] lg:min-h-[660px] flex flex-col justify-end
-            ${s.align === 'center' ? 'items-center text-center' : 'items-start'}`}>
-          <AnimatePresence mode="wait">
-            {/* Copy sits directly on the photograph — no panel. Readability
-                comes from the gradient wash on the image plus the text shadows
-                below, which darken only the pixels behind the glyphs rather
-                than boxing off a rectangle of the picture. */}
-            <motion.div
-              key={s.id}
-              className={s.align === 'center' ? 'max-w-3xl' : 'max-w-2xl'}
-              // Font sizes arrive as custom properties; globals.css picks the
-              // phone or desktop one at the 1024px breakpoint.
-              style={{
-                '--hero-title-m': `${s.title_size_mobile}px`,
-                '--hero-title-d': `${s.title_size_desktop}px`,
-                '--hero-text-m': `${s.text_size_mobile}px`,
-                '--hero-text-d': `${s.text_size_desktop}px`,
-              }}
-              /* STAGED, not one block.
-                 The whole copy column used to arrive as a single unit, which
-                 is why the hero read as a cross-fade rather than an entrance.
-                 Now the eyebrow lands, then the headline, then the sentence,
-                 then the button — about 0.12s apart, so the eye is walked
-                 down to the thing it is meant to press.
-
-                 Reduced motion collapses the stagger to nothing as well as
-                 the movement: a reader who asked for less motion should not
-                 be made to sit through a four-beat sequence either. */
-              variants={heroStage(reduce)}
-              initial="hidden" animate="show" exit="exit">
-
-              {s.eyebrow && (
-                <motion.div variants={heroItem}
-                  className="inline-flex items-center rounded-full px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[.16em]"
-                  style={{ background: 'rgba(255,255,255,.12)', color: COLORS.gold400,
-                           border: `1px solid ${COLORS.gold500}55` }}>
-                  {s.eyebrow}
-                </motion.div>
-              )}
-
-              {/* Two stacked shadows on the title: a tight dark one to lift the
-                  glyph off whatever is immediately behind it, and a wide soft
-                  one that darkens the general area. One large blur alone leaves
-                  thin strokes disappearing against a bright patch of sky. */}
-              {s.title && (
-                <motion.h1 variants={heroItem}
-                  className="hero-title mt-4 font-extrabold tracking-tight text-white"
-                  style={{ textShadow: '0 1px 3px rgba(0,0,0,.55), 0 4px 30px rgba(0,0,0,.45)' }}>
-                  {s.title}
-                </motion.h1>
-              )}
-
-              {s.subtitle && (
-                <motion.p variants={heroItem}
-                  className={`hero-text mt-5 leading-relaxed ${s.align === 'center' ? 'mx-auto' : ''}`}
-                  style={{ color: 'rgba(255,255,255,.88)', maxWidth: '46rem',
-                           textShadow: '0 1px 3px rgba(0,0,0,.5), 0 2px 18px rgba(0,0,0,.35)' }}>
-                  {s.subtitle}
-                </motion.p>
-              )}
-
-              {/* One button, not two. Where a slide defines both a joining and
-                  a signing-in link, they now live inside a menu behind a single
-                  call to action — see HeroCtaMenu for why. */}
-              {(s.cta1_label || s.cta2_label) && (
-                <motion.div variants={heroItem}
-                  className={`mt-8 flex flex-wrap gap-3 ${s.align === 'center' ? 'justify-center' : ''}`}>
-                  <HeroCtaMenu
-                    buttonLabel={s.cta_button_label}
-                    cta1={{ label: s.cta1_label, href: s.cta1_href }}
-                    cta2={{ label: s.cta2_label, href: s.cta2_href }}
-                    align={s.align}
+          {s.image_url && (
+            <div className="tnr-hero-media">
+              <motion.div className="tnr-hero-pan" style={{ x: imgX, y: imgY }}>
+                {/* The slow push-in is a CSS animation on this wrapper, because
+                    next/image's `fill` needs to own the image's positioning. */}
+                <div className="tnr-hero-kb">
+                  {/* next/image, not a raw <img>: it converts to AVIF/WebP,
+                      resizes to the device and caches for a year, for any host
+                      in remotePatterns — without re-uploading a single file. */}
+                  <Image
+                    src={s.image_url}
+                    alt=""
+                    aria-hidden="true"
+                    fill
+                    sizes={sizesOf(layout)}
+                    /* `priority` on the first slide emits the preload link and
+                       fetchpriority="high". Later slides are warmed up below,
+                       after the page has loaded, so they never compete with
+                       it. */
+                    priority={idx === 0}
+                    quality={72}
+                    draggable={false}
                   />
-                </motion.div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* ── Controls (only worth showing for more than one slide) ── */}
-        {n > 1 && (
-          <>
-            <Arrow side="left"  onClick={() => go(i - 1)} />
-            <Arrow side="right" onClick={() => go(i + 1)} />
-
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2.5">
-              {slides.map((sl, k) => (
-                <button key={sl.id} onClick={() => go(k)}
-                  aria-label={`Go to slide ${k + 1}${sl.title ? `: ${sl.title}` : ''}`}
-                  aria-current={k === i}
-                  /* The dot you see is 10px; the button you press is 24px tall
-                   * with 4px of padding either side. A 10px target is below
-                   * every published minimum and is genuinely hard to hit with
-                   * a thumb — the padding is transparent, so the design is
-                   * unchanged and only the hit area grows.
-                   *
-                   * The pill moved into an inner span so the button itself can
-                   * be the larger, invisible target. */
-                  className="group relative flex h-6 min-w-6 items-center justify-center transition-all duration-300"
-                  style={{ width: Math.max(24, k === i ? 40 : 10) }}>
-                  <span className="relative block h-2.5 overflow-hidden rounded-full transition-all duration-300"
-                    style={{
-                      width: k === i ? 40 : 10,
-                      background: k === i ? 'rgba(255,255,255,.30)' : 'rgba(255,255,255,.45)',
-                    }}>
-                    {/* The active dot fills as the slide's time runs out. While
-                        paused it simply sits full, rather than animating with a
-                        timer that is no longer running. */}
-                    {k === i && (paused || reduce
-                      ? <span className="absolute inset-0 rounded-full" style={{ background: COLORS.gold400 }} />
-                      : <motion.span key={`bar-${sl.id}-${i}`} className="absolute inset-y-0 left-0 rounded-full"
-                          style={{ background: COLORS.gold400 }}
-                          initial={{ width: '0%' }} animate={{ width: '100%' }}
-                          transition={{ duration: DURATION / 1000, ease: 'linear' }} />
-                    )}
-                  </span>
-                </button>
-              ))}
+                </div>
+              </motion.div>
+              <div className="tnr-hero-wash" aria-hidden="true" style={{ background: washOf(s) }} />
             </div>
-          </>
+          )}
+          <div className="tnr-hero-scrim" aria-hidden="true" />
+        </motion.div>
+      </AnimatePresence>
+
+      {/* The next picture, fetched ahead and kept invisible, so the dissolve
+          never opens onto a half-loaded image. Same box and same `sizes` as it
+          will have on screen, so the browser picks the same file and the real
+          slide is a cache hit. Not until the page has loaded. */}
+      {loaded && n > 1 && next.image_url && (
+        <div className="tnr-hero-layer" data-layout={nextLayout} aria-hidden="true"
+          style={{ opacity: 0, pointerEvents: 'none' }}>
+          <div className="tnr-hero-media">
+            <Image key={next.id} src={next.image_url} alt="" fill sizes={sizesOf(nextLayout)}
+              quality={72} loading="eager" />
+          </div>
+        </div>
+      )}
+
+      {/* First paint only — see .tnr-hero-veil. */}
+      <div className="tnr-hero-veil" aria-hidden="true" />
+
+      <motion.div className="tnr-hero-glow" aria-hidden="true" style={{ x: glowX, y: glowY }}>
+        <i />
+      </motion.div>
+
+      {/* ── Copy and controls ── */}
+      <div className="tnr-hero-inner">
+        <motion.div className="tnr-hero-copies" style={{ x: copyX, y: copyY }}>
+          {slides.map((sl, k) => (
+            <SlideCopy key={sl.id} slide={sl} index={k} active={k === idx} reduce={reduce} />
+          ))}
+        </motion.div>
+
+        {/* Only worth showing for more than one slide. */}
+        {n > 1 && (
+          <motion.div className="tnr-hero-controls tnr-reveal"
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: reduce ? 0 : 1.2, ease: EASE }}>
+
+            <span className="tnr-hero-count" aria-hidden="true">
+              {pad(idx + 1)} <span>/ {pad(n)}</span>
+            </span>
+
+            <div className="tnr-hero-segs" role="group" aria-label="Choose a slide">
+              {slides.map((sl, k) => {
+                const name = plainHeroTitle(sl.title);
+                return (
+                  <button key={sl.id} type="button" className="tnr-hero-seg"
+                    onClick={() => go(k)}
+                    aria-label={`Go to slide ${k + 1}${name ? `: ${name}` : ''}`}
+                    aria-current={k === idx ? 'true' : undefined}>
+                    <i>
+                      {k === idx && (
+                        /* With autoplay off there is no time to count down, so
+                           the line is simply full. */
+                        reduce
+                          ? <b />
+                          : <b key={`${sl.id}:${pos.turn}`} data-run=""
+                              style={{ animationPlayState: running ? 'running' : 'paused' }} />
+                      )}
+                    </i>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="tnr-hero-nav">
+              {/* A way to stop it that does not depend on keeping a pointer
+                  still over the hero. Hidden when autoplay is already off. */}
+              {!reduce && (
+                <button type="button" className="tnr-hero-ctl"
+                  onClick={() => setHeld(h => !h)}
+                  aria-label={held ? 'Play slideshow' : 'Pause slideshow'}>
+                  {held
+                    ? <Play size={16} strokeWidth={2.4} aria-hidden="true" />
+                    : <Pause size={16} strokeWidth={2.4} aria-hidden="true" />}
+                </button>
+              )}
+              <button type="button" className="tnr-hero-ctl tnr-hero-ctl--step"
+                onClick={() => go(idx - 1)} aria-label="Previous slide">
+                <ArrowLeft size={18} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+              <button type="button" className="tnr-hero-ctl tnr-hero-ctl--step"
+                onClick={() => go(idx + 1)} aria-label="Next slide">
+                <ArrowRight size={18} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            </div>
+          </motion.div>
         )}
       </div>
 
       {/* Announced to screen readers instead of the animation. */}
-      <span className="tnr-sr-only" aria-live="polite">Slide {i + 1} of {n}</span>
+      <span className="tnr-sr-only" aria-live="polite">
+        Slide {idx + 1} of {n}{s.title ? `: ${plainHeroTitle(s.title)}` : ''}
+      </span>
     </section>
   );
 }
 
-function Arrow({ side, onClick }) {
-  const Icon = side === 'left' ? ChevronLeft : ChevronRight;
+/* One slide's words.
+ *
+ * EVERY slide's copy is rendered, all the time, stacked in one grid cell; only
+ * the active one is visible (hero.css explains why: it is what holds the hero
+ * at a constant height with no guessed number). The others are `inert`, so
+ * their links cannot be reached by Tab or by a screen reader.
+ *
+ * The first slide's headline is the page's <h1>. The rest are <h2>: a page has
+ * one main heading, and it should be the one that is in the HTML first.
+ *
+ * `tnr-reveal` on every animated element is what the <noscript> rule in
+ * app/layout.js targets — without JavaScript these would otherwise stay at the
+ * opacity:0 they are server-rendered with.
+ */
+const SlideCopy = memo(function SlideCopy({ slide: s, index, active, reduce }) {
+  const title = useMemo(() => parseHeroTitle(s.title), [s.title]);
+  if (!hasCopy(s)) return null;
+
+  const Heading = index === 0 ? motion.h1 : motion.h2;
+  const align = s.align === 'center' ? 'center' : 'left';
+
   return (
-    <button onClick={onClick} aria-label={side === 'left' ? 'Previous slide' : 'Next slide'}
-      className={`absolute top-1/2 -translate-y-1/2 z-10 hidden sm:grid place-items-center
-        h-11 w-11 rounded-full backdrop-blur transition
-        hover:bg-white/25 active:scale-95 ${side === 'left' ? 'left-4' : 'right-4'}`}
-      style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.35)' }}>
-      <Icon size={20} strokeWidth={2.5} color="#fff" aria-hidden="true" />
-    </button>
+    /* A plain element carries `inert`, not the motion one: the animation
+       library decides for itself which props reach the DOM, and the one
+       attribute that keeps hidden links out of the Tab order is not something
+       to leave to that. */
+    <div
+      className="tnr-hero-copy"
+      data-active={active ? 'true' : 'false'}
+      data-align={align}
+      inert={!active}
+      aria-hidden={!active}
+      // Font sizes arrive as custom properties; hero.css picks the phone or
+      // desktop one at the 1024px breakpoint.
+      style={{
+        '--hero-title-m': `${s.title_size_mobile}px`,
+        '--hero-title-d': `${s.title_size_desktop}px`,
+        '--hero-text-m': `${s.text_size_mobile}px`,
+        '--hero-text-d': `${s.text_size_desktop}px`,
+      }}>
+    <motion.div
+      variants={stage(reduce, index === 0)}
+      initial="hidden"
+      animate={active ? 'show' : 'hidden'}>
+
+      {s.eyebrow && (
+        <motion.div variants={rise} className="tnr-hero-eyebrow tnr-reveal">{s.eyebrow}</motion.div>
+      )}
+
+      {title.wordCount > 0 && (
+        /* The label is the headline as one plain sentence; the spans below are
+           hidden from assistive tech, which would otherwise read a word-by-
+           word animation as a list of fragments. */
+        <Heading className="tnr-hero-title" variants={titleStage(reduce)} aria-label={title.plain}>
+          {title.lines.map((line, li) => (
+            <span key={li} className="tnr-hero-line" aria-hidden="true">
+              {line.map((w, wi) => (
+                <span key={wi}>
+                  <span className="tnr-hero-word">
+                    <motion.span variants={word}
+                      className={w.gold ? 'tnr-reveal tnr-hero-gold' : 'tnr-reveal'}>
+                      {w.text}
+                    </motion.span>
+                  </span>{' '}
+                </span>
+              ))}
+            </span>
+          ))}
+        </Heading>
+      )}
+
+      {s.subtitle && (
+        <motion.p variants={rise} className="tnr-hero-text tnr-reveal">{s.subtitle}</motion.p>
+      )}
+
+      {(s.cta1_label || s.cta2_label) && (
+        <motion.div variants={buttons} className="tnr-hero-actions tnr-reveal">
+          <HeroCtaMenu
+            buttonLabel={s.cta_button_label}
+            cta1={{ label: s.cta1_label, href: s.cta1_href }}
+            cta2={{ label: s.cta2_label, href: s.cta2_href }}
+            align={align}
+            inert={!active}
+          />
+        </motion.div>
+      )}
+    </motion.div>
+    </div>
   );
-}
+});
 
 /** True when the visitor has asked their OS to reduce animation. */
 function useReducedMotion() {

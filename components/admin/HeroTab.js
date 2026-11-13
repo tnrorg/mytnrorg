@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { aGet, aPost, aPatch, aDel } from './adminApi';
 import { Card, Field } from './ui';
 import { SLIDE_LIMITS, blankSlide, clampField } from '@/lib/heroSlides';
+import { plainHeroTitle } from '@/lib/heroTitle';
 import { resizeImage, kb } from '@/lib/imageResize';
 
 /* Hero carousel editor.
@@ -110,7 +111,7 @@ function SlideEditor({ row, isNew, toast, onDone, onCancel }) {
   return <Card>
     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
       <h3 className="font-black text-tnr-cream">
-        {isNew ? 'New slide' : (f.title || '(no headline)')}
+        {isNew ? 'New slide' : (plainHeroTitle(f.title) || '(no headline)')}
       </h3>
       {!isNew && (
         <span className={`text-[11px] px-2 py-1 rounded-full ${f.active
@@ -155,7 +156,14 @@ function SlideEditor({ row, isNew, toast, onDone, onCancel }) {
       </Field>
     </div>
     <Field label="Headline">
-      <input className="input" value={f.title || ''} onChange={set('title')} />
+      <input className="input" value={f.title || ''} onChange={set('title')}
+        placeholder="EMPOWERING YOUTH. UNITING ROUNDU. BUILDING THE FUTURE." />
+      {/* What the hero does with the headline — see lib/heroTitle.js. Said
+          here because none of it is visible in the field itself. */}
+      <span className="block mt-1 text-[11px] text-tnr-cream/40">
+        Each sentence is set on its own line. The closing line (or last word) is gold —
+        to choose the gold words yourself, wrap them in asterisks: EMPOWERING *YOUTH.*
+      </span>
     </Field>
     <Field label="Supporting text">
       <textarea className="input min-h-[90px]" value={f.subtitle || ''} onChange={set('subtitle')} />
@@ -163,19 +171,21 @@ function SlideEditor({ row, isNew, toast, onDone, onCancel }) {
 
     {/* ── Buttons ── */}
     <div className="grid sm:grid-cols-2 gap-3">
-      {/* The two buttons are shown as ONE button that opens a menu. This is the
-          text on that button; the two below are the choices inside it. */}
-      <Field label="Menu button — text (optional)">
+      {/* Empty: the slide shows Button 1 (gold) and Button 2 (outline) side by
+          side. Filled in: ONE button with this text, opening a menu of the
+          two — used for "Join / Login". See HeroCtaMenu. */}
+      <Field label="Combine into one menu button — text (optional)">
         <input className="input" value={f.cta_button_label || ''} onChange={set('cta_button_label')}
-          placeholder="Join/Login TNR" />
+          placeholder="Leave empty for two buttons" />
         <span className="block mt-1 text-[11px] text-tnr-cream/40">
-          Leave empty to reuse Button 1’s text.
+          Empty = two buttons side by side. Type text here (e.g. “Join/Login TNR”) to show
+          one button that opens a menu of the two instead.
         </span>
       </Field>
       <Field label="Button 1 — text"><input className="input" value={f.cta1_label || ''} onChange={set('cta1_label')} placeholder="Join TNR" /></Field>
       <Field label="Button 1 — link"><input className="input" value={f.cta1_href || ''} onChange={set('cta1_href')} placeholder="/membership/apply" /></Field>
-      <Field label="Button 2 — text"><input className="input" value={f.cta2_label || ''} onChange={set('cta2_label')} placeholder="Explore Our Work" /></Field>
-      <Field label="Button 2 — link"><input className="input" value={f.cta2_href || ''} onChange={set('cta2_href')} placeholder="/about" /></Field>
+      <Field label="Button 2 — text"><input className="input" value={f.cta2_label || ''} onChange={set('cta2_label')} placeholder="Explore Our Initiatives" /></Field>
+      <Field label="Button 2 — link"><input className="input" value={f.cta2_href || ''} onChange={set('cta2_href')} placeholder="/#initiatives" /></Field>
     </div>
     <p className="-mt-1 mb-3 text-[11px] text-tnr-cream/40">
       Leave a button’s text empty to hide it. Links starting with “/” stay on this site.
@@ -200,9 +210,19 @@ function SlideEditor({ row, isNew, toast, onDone, onCancel }) {
       <input type="range" min={SLIDE_LIMITS.overlay.min} max={SLIDE_LIMITS.overlay.max}
         value={overlay} onChange={setNum('overlay')} className="w-full accent-tnr-gold" />
     </Field>
-    {overlay < 35 && (
-      <p className="-mt-2 mb-3 text-[11px] text-amber-300">
-        Below about 35% the white headline can be hard to read over a bright photo.
+    {/* The warning used to apply to every slide. With left-aligned copy the
+        words now sit on the green field beside the picture, not on it, so
+        this setting only tints the image and cannot hurt legibility. Centred
+        copy on a wide screen still sits over the picture. */}
+    {f.align === 'center' ? (
+      overlay < 35 && (
+        <p className="-mt-2 mb-3 text-[11px] text-amber-300">
+          Centred text sits over the picture on wide screens — below about 35% it can be hard to read on a bright photo.
+        </p>
+      )
+    ) : (
+      <p className="-mt-2 mb-3 text-[11px] text-tnr-cream/40">
+        With left-aligned text this only tints the picture — the words sit on the green beside it and stay readable at any setting.
       </p>
     )}
 

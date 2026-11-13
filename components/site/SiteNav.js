@@ -62,6 +62,7 @@ export default function SiteNav() {
   const [mobile, setMobile] = useState(false);
   const [acc, setAcc] = useState(null);        // mobile accordion
   const [search, setSearch] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const ref = useRef(null);
   const pathname = usePathname() || '/';
 
@@ -109,6 +110,20 @@ export default function SiteNav() {
       document.removeEventListener('click', close);
       document.removeEventListener('keydown', onKey);
     };
+  }, []);
+
+  /* Has the page moved? Once it has, the capsule is floating over content
+     rather than over the top of the page, and it is given a deeper shadow and
+     a frosted edge to say so.
+
+     Passive, and it only sets state when the answer CHANGES — so scrolling the
+     whole page costs two renders, not one per frame. Nothing about the
+     capsule's size changes, so the page beneath never shifts. */
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   // Full-screen mobile menu: stop the page behind it from scrolling.
@@ -172,8 +187,19 @@ export default function SiteNav() {
         className="pointer-events-auto relative mx-auto flex max-w-[1400px] items-center gap-2 rounded-full p-2"
         style={{
           ...mont,
-          background: 'linear-gradient(100deg,#0A3D2C,#0E5138 55%,#0A3D2C)',
-          boxShadow: '0 12px 32px -12px rgba(4,26,19,.50), inset 0 0 0 1px rgba(200,154,43,.22)',
+          /* Very slightly translucent once scrolled, so the blur behind it
+             has something to show through; the gold ring brightens a touch.
+             Only the shadow animates — a gradient cannot be tweened, and at
+             94% the swap is not visible. */
+          background: scrolled
+            ? 'linear-gradient(100deg,rgba(10,61,44,.94),rgba(14,81,56,.94) 55%,rgba(10,61,44,.94))'
+            : 'linear-gradient(100deg,#0A3D2C,#0E5138 55%,#0A3D2C)',
+          WebkitBackdropFilter: scrolled ? 'blur(14px) saturate(140%)' : undefined,
+          backdropFilter: scrolled ? 'blur(14px) saturate(140%)' : undefined,
+          boxShadow: scrolled
+            ? '0 18px 44px -14px rgba(4,26,19,.62), 0 2px 8px -2px rgba(4,26,19,.30), inset 0 0 0 1px rgba(200,154,43,.34)'
+            : '0 12px 32px -12px rgba(4,26,19,.50), inset 0 0 0 1px rgba(200,154,43,.22)',
+          transition: 'box-shadow .35s ease',
         }}>
         {/* Logo, left on every breakpoint — where a reader looks for "home",
             and where a screen reader lands first.

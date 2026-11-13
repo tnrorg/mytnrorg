@@ -231,18 +231,9 @@ button, input, textarea, select, option { font-family: inherit; }
   overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
 }
 
-/* ── Hero carousel type scale ──────────────────────────────────────────────
-   Each slide carries its own phone and desktop font sizes, chosen by an admin.
-   Inline styles cannot hold a media query, so the sizes arrive as CSS custom
-   properties on the slide and these two rules pick the right one. A size that
-   reads well on a 15-inch screen is unusable on a phone, which is why the two
-   are stored and applied separately rather than scaled from one number. */
-.hero-title { font-size: var(--hero-title-m); line-height: 1.08; }
-.hero-text  { font-size: var(--hero-text-m); }
-@media (min-width: 1024px) {
-  .hero-title { font-size: var(--hero-title-d); }
-  .hero-text  { font-size: var(--hero-text-d); }
-}
+/* The home hero's styles — including the phone/desktop type scale that used
+   to live here — are in components/home/hero.css, beside the one component
+   that uses them. */
 
 /* ── Smooth scrolling ──────────────────────────────────────────────────────
    Applies to in-page anchor jumps and the back-to-top control. The

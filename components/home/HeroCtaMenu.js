@@ -1,28 +1,34 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ChevronDown, UserPlus, LogIn } from 'lucide-react';
-import { COLORS } from '@/lib/design/tokens';
 
-/* The hero's call to action.
+/* The hero's calls to action.
  *
- * ONE button. Pressing it opens a short menu holding the slide's two links —
- * registering and signing in — rather than putting two competing buttons side
- * by side. Two equally weighted buttons make the reader choose before they
- * have decided anything; one button asks them to step forward, and the choice
- * comes after.
+ * TWO BUTTONS, with different weights: the slide's first link is the gold
+ * primary, its second a quiet outline. They are not equals and are not drawn
+ * as equals — one says "do this", the other "or look around first" — which is
+ * what stops two buttons side by side from reading as a choice the visitor has
+ * to make before they have decided anything.
  *
- * Both destinations still come from the slide record, so an admin changes the
- * wording and the links in Admin → Hero Slides without touching code. When a
- * slide has only one CTA there is nothing to choose between, and this renders
- * as an ordinary link with no menu.
+ * Both come from the slide record (Admin → Hero Slides), so wording and
+ * destinations are changed there, not here.
+ *
+ * THE MENU IS STILL AVAILABLE. A slide that sets its own button label —
+ * "Join / Login TNR" — is asking for one button that opens onto its two links,
+ * and gets exactly that. Leaving the label empty gives two buttons. Nothing
+ * about an existing slide changes until an admin edits it.
+ *
+ * `inert` — the slide is not the one on screen. Its links stay in the page (so
+ * the hero keeps a constant height) but must not be reachable by Tab.
  */
-export default function HeroCtaMenu({ cta1, cta2, buttonLabel, align = 'left' }) {
+export default function HeroCtaMenu({ cta1, cta2, buttonLabel, align = 'left', inert = false }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const btnRef = useRef(null);
   const firstItemRef = useRef(null);
 
   const items = [cta1, cta2].filter(c => c?.label);
+  const asMenu = items.length === 2 && !!buttonLabel?.trim();
 
   /* Close on outside click and on Escape.
    *
@@ -50,79 +56,54 @@ export default function HeroCtaMenu({ cta1, cta2, buttonLabel, align = 'left' })
   // behind on the button with a menu floating unreachable below it.
   useEffect(() => { if (open) firstItemRef.current?.focus(); }, [open]);
 
+  // A menu left open must not survive its slide leaving the screen.
+  useEffect(() => { if (inert) setOpen(false); }, [inert]);
+
   if (!items.length) return null;
+  const tab = inert ? -1 : undefined;
 
-  const primary =
-    'group inline-flex items-center gap-2 rounded-tnr px-6 py-3.5 font-bold text-white ' +
-    'shadow-tnr-raise transition-transform duration-micro hover:-translate-y-[2px] ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#D7AE4A] focus-visible:ring-offset-transparent';
-  const primaryStyle = {
-    background: `linear-gradient(180deg,${COLORS.green700},${COLORS.green900})`,
-    border: `1px solid ${COLORS.gold500}66`,
-  };
-
-  // A single CTA needs no menu — a button that opens a list of one is a wasted
-  // press and reads as though something is missing.
-  if (items.length === 1) {
-    const only = items[0];
+  if (asMenu) {
+    // First item is the joining action, second is signing in — matching the
+    // order the slide defines them in.
+    const ICONS = [UserPlus, LogIn];
     return (
-      <a href={only.href || '#'} className={primary} style={primaryStyle}>
-        {only.label}
-        <ArrowRight size={17} strokeWidth={2.5} aria-hidden="true"
-          className="transition-transform duration-micro group-hover:translate-x-0.5" />
-      </a>
+      <div ref={wrapRef} className="relative inline-flex">
+        <button ref={btnRef} type="button" tabIndex={tab}
+          onClick={() => setOpen(o => !o)}
+          aria-haspopup="menu" aria-expanded={open}
+          className="tnr-hero-btn tnr-hero-btn--primary w-full sm:w-auto">
+          <span>{buttonLabel.trim()}</span>
+          <ChevronDown size={17} strokeWidth={2.6} aria-hidden="true" className="tnr-hero-chevron" />
+        </button>
+
+        {open && (
+          <div role="menu" aria-label={buttonLabel.trim()} className="tnr-hero-menu animate-fade-up"
+            style={align === 'center' ? { left: '50%', marginLeft: '-7.5rem' } : undefined}>
+            {items.map((c, i) => {
+              const Icon = ICONS[i] || ArrowRight;
+              return (
+                <a key={`${c.label}-${i}`} ref={i === 0 ? firstItemRef : null}
+                  role="menuitem" href={c.href || '#'}>
+                  <Icon size={16} strokeWidth={2.4} aria-hidden="true" style={{ color: '#176B49' }} />
+                  {c.label}
+                </a>
+              );
+            })}
+          </div>
+        )}
+      </div>
     );
   }
 
-  // First item is the joining action, second is signing in — matching the
-  // order the slide defines them in.
-  const ICONS = [UserPlus, LogIn];
-
   return (
-    <div ref={wrapRef} className="relative inline-block">
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className={primary}
-        style={primaryStyle}>
-        {/* The button's own text, so it can differ from the first choice
-            inside the menu — "Join/Login TNR" opening onto "Join TNR" and
-            "Login TNR". Falls back to cta1's label when an admin has not set
-            one, which is how every existing slide keeps working. */}
-        {buttonLabel?.trim() || cta1.label}
-        <ChevronDown size={17} strokeWidth={2.5} aria-hidden="true"
-          className={`transition-transform duration-micro ${open ? 'rotate-180' : ''}`} />
-      </button>
-
-      {open && (
-        <div
-          role="menu"
-          aria-label={cta1.label}
-          className={`absolute z-30 mt-2 w-60 overflow-hidden rounded-tnr border shadow-tnr-raise
-            ${align === 'center' ? 'left-1/2 -translate-x-1/2' : 'left-0'}`}
-          style={{ background: '#fff', borderColor: 'rgba(0,0,0,.10)' }}>
-          {items.map((c, i) => {
-            const Icon = ICONS[i] || ArrowRight;
-            return (
-              <a
-                key={`${c.label}-${i}`}
-                ref={i === 0 ? firstItemRef : null}
-                role="menuitem"
-                href={c.href || '#'}
-                className="flex items-center gap-3 px-4 py-3.5 text-sm font-bold transition-colors
-                  hover:bg-[rgba(23,107,73,.08)] focus:bg-[rgba(23,107,73,.08)] focus:outline-none
-                  border-b last:border-b-0"
-                style={{ color: COLORS.green900, borderColor: 'rgba(0,0,0,.06)' }}>
-                <Icon size={16} strokeWidth={2.4} aria-hidden="true" style={{ color: COLORS.green700 }} />
-                {c.label}
-              </a>
-            );
-          })}
-        </div>
-      )}
-    </div>
+    <>
+      {items.map((c, i) => (
+        <a key={`${c.label}-${i}`} href={c.href || '#'} tabIndex={tab}
+          className={`tnr-hero-btn ${i === 0 ? 'tnr-hero-btn--primary' : 'tnr-hero-btn--ghost'}`}>
+          <span>{c.label}</span>
+          <ArrowRight size={17} strokeWidth={2.6} aria-hidden="true" className="tnr-hero-arrow" />
+        </a>
+      ))}
+    </>
   );
 }

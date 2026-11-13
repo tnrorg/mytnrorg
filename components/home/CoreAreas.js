@@ -23,7 +23,9 @@ const AREAS = [
 
 export default function CoreAreas() {
   return (
-    <section className="max-w-tnr-wide mx-auto px-4 pb-16 w-full" style={FONT}>
+    /* id: the hero's "Explore Our Initiatives" button lands here. The page's
+       scroll-padding (globals.css) keeps the heading clear of the sticky nav. */
+    <section id="initiatives" className="max-w-tnr-wide mx-auto px-4 pb-16 w-full" style={FONT}>
       <SectionHeading align="center" eyebrow="What We Do" title="Our Core Areas"
         lead="Nine areas where TNR members contribute their time, skills and expertise." />
 

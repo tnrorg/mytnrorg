@@ -1,0 +1,432 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   TNR home hero
+   ════════════════════════════════════════════════════════════════════════════
+
+   THE IDEA. The artwork does not sit behind the words; it bleeds out of a
+   field of TNR green, and the words live on the field.
+
+     Desktop — field on the left, artwork on the right, one dissolving into
+               the other. The copy never rests on the picture's pale areas.
+     Phone   — artwork on top, shown almost whole, dissolving DOWN into the
+               field, with the copy beneath it.
+
+   Why not text over a full-bleed image, as before: the slides are an
+   illustration on cream, two photographs and a landscape. No single wash is
+   dark enough for white type on cream and still light enough to see a
+   photograph through, so the old hero had a 20% wash and unreadable copy.
+   Here legibility comes from the layout, not from dimming the picture.
+
+   Everything that moves animates `transform` or `opacity` only, so the browser
+   can do it on the compositor without re-laying-out the page.
+
+   Kept in its own file, imported by HeroCarousel, rather than in globals.css:
+   it is long, and it belongs to exactly one component.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.tnr-hero {
+  /* How tall the artwork is on a phone or tablet. Tall enough to show a 3:2
+     illustration nearly edge to edge at phone width, short enough that the
+     headline and the first button are still on the first screen. */
+  --hero-media-h: clamp(236px, 36vh, 330px);
+  --hero-green: #062D21;
+  --hero-gold: #D7AE4A;
+  --hero-dur: 7000ms;
+
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: 100%;
+  color: #fff;
+  background: var(--hero-green);
+  /* A horizontal swipe changes slide; a vertical one must still scroll the
+     page. Without this the browser waits to see which it is and both lag. */
+  touch-action: pan-y;
+}
+@supports (height: 1svh) {
+  .tnr-hero { --hero-media-h: clamp(236px, 36svh, 330px); }
+}
+@media (min-width: 640px) {
+  .tnr-hero { --hero-media-h: clamp(300px, 44vh, 470px); }
+}
+
+/* Gold hairline at the foot — the same line the rest of the site uses to
+   close a dark band. */
+.tnr-hero::after {
+  content: '';
+  position: absolute; inset: auto 0 0 0; height: 2px; z-index: 3;
+  background: linear-gradient(90deg, transparent, #C89A2B 30%, #C89A2B 70%, transparent);
+  opacity: .8;
+  pointer-events: none;
+}
+
+/* ── Slide layers ──────────────────────────────────────────────────────────
+   One per slide, stacked, cross-fading. Each owns its picture AND the shading
+   that belongs to its layout, so a change from a split slide to a full-bleed
+   one is a single dissolve rather than a picture fading while its frame
+   jumps. */
+.tnr-hero-layer { position: absolute; inset: 0; z-index: 0; }
+
+.tnr-hero-media {
+  position: absolute; left: 0; right: 0; top: 0;
+  height: var(--hero-media-h);
+  overflow: hidden;
+}
+/* A slide with no words is a picture. Show all of it. */
+.tnr-hero-layer[data-layout='full'] .tnr-hero-media { height: auto; bottom: 0; }
+
+/* Mouse parallax moves this box by a few pixels; the negative inset is the
+   spare picture that movement reveals, so an edge never shows. */
+.tnr-hero-pan { position: absolute; inset: -14px; }
+
+/* The slow push-in. Linear and long: it should still be moving when the slide
+   leaves, never arrive and stop. */
+.tnr-hero-kb {
+  position: absolute; inset: 0;
+  transform-origin: 60% 45%;
+  animation: tnr-hero-kb 13s linear both;
+  will-change: transform;
+}
+.tnr-hero-kb img {
+  object-fit: cover;
+  /* Slightly above centre: when a picture has to be cropped top and bottom,
+     faces are nearly always in the upper half. */
+  object-position: 50% 34%;
+  user-select: none;
+}
+@keyframes tnr-hero-kb {
+  from { transform: scale(1)    translate3d(0, 0, 0); }
+  to   { transform: scale(1.05) translate3d(-1.1%, 0, 0); }
+}
+
+/* The admin's own "overlay" setting, as a tint over the picture. */
+.tnr-hero-wash { position: absolute; inset: 0; pointer-events: none; }
+
+/* The dissolve between picture and field.
+   Phone: bottom-up, so the picture melts into the green the copy sits on, plus
+   a little shade at the top so the floating navbar reads against a pale sky. */
+.tnr-hero-scrim {
+  position: absolute; left: 0; right: 0; top: 0;
+  height: var(--hero-media-h);
+  pointer-events: none;
+  background:
+    linear-gradient(0deg, var(--hero-green) 0%, rgba(6,45,33,.74) 15%, rgba(6,45,33,0) 46%),
+    linear-gradient(180deg, rgba(4,31,23,.42) 0%, rgba(4,31,23,0) 24%);
+}
+.tnr-hero-layer[data-layout='full'] .tnr-hero-scrim {
+  height: auto; bottom: 0;
+  /* Only enough to seat the controls. */
+  background: linear-gradient(0deg, rgba(4,31,23,.72) 0%, rgba(4,31,23,0) 30%);
+}
+
+/* First paint only: the picture arrives out of the green instead of simply
+   being there. It starts at HALF strength, not hidden — the image is visible
+   in the very first frame, which is what keeps Largest Contentful Paint where
+   it was. Pure CSS, so it plays before any JavaScript has loaded. */
+.tnr-hero-veil {
+  position: absolute; inset: 0; z-index: 1;
+  background: var(--hero-green);
+  pointer-events: none;
+  animation: tnr-hero-veil 1.5s cubic-bezier(.22, .61, .36, 1) both;
+}
+@keyframes tnr-hero-veil { from { opacity: .5; } to { opacity: 0; } }
+
+/* One soft gold light near the seam. Low, wide and slow — a warmth in the
+   green, not a glow effect. */
+.tnr-hero-glow {
+  position: absolute; z-index: 1; pointer-events: none;
+  left: -15%; width: 130%;
+  top: calc(var(--hero-media-h) - 150px); height: 300px;
+}
+.tnr-hero-glow > i {
+  display: block; width: 100%; height: 100%;
+  background: radial-gradient(closest-side, rgba(215,174,74,.13), rgba(215,174,74,0));
+  animation: tnr-hero-glow 15s ease-in-out infinite alternate;
+}
+@keyframes tnr-hero-glow {
+  from { transform: translate3d(-3%, 0, 0) scale(1);    opacity: .75; }
+  to   { transform: translate3d(4%, -3%, 0) scale(1.08); opacity: 1; }
+}
+
+/* ── Copy ──────────────────────────────────────────────────────────────── */
+.tnr-hero-inner {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column;
+  width: 100%; max-width: 1440px; margin: 0 auto;
+  padding: calc(var(--hero-media-h) - 26px) 20px 0;
+}
+
+/* EVERY slide's copy is in the page, stacked in one grid cell; only the active
+   one is visible. The cell is therefore as tall as the tallest slide, and the
+   hero is exactly the same height on every slide — so nothing below it moves
+   when the carousel advances, with no height guessed in advance. */
+.tnr-hero-copies { display: grid; flex: 1; align-items: start; }
+.tnr-hero-copy {
+  grid-area: 1 / 1;
+  min-width: 0;
+  visibility: hidden;
+  /* Stays in place just long enough to fade out, then leaves. */
+  transition: visibility 0s linear .34s;
+}
+.tnr-hero-copy[data-active='true'] { visibility: visible; transition-delay: 0s; }
+.tnr-hero-copy[data-align='center'] { text-align: center; }
+
+.tnr-hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 10px;
+  color: var(--hero-gold);
+  font-size: 11px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase;
+}
+.tnr-hero-eyebrow::before {
+  content: ''; width: 26px; height: 1px; background: #C89A2B; flex: none;
+}
+.tnr-hero-copy[data-align='center'] .tnr-hero-eyebrow::after {
+  content: ''; width: 26px; height: 1px; background: #C89A2B; flex: none;
+}
+
+.tnr-hero-title {
+  margin: 14px 0 0;
+  /* The admin's size, but never wider than a phone can hold. */
+  font-size: min(var(--hero-title-m, 32px), 9.2vw);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -.022em;
+  text-wrap: balance;
+}
+.tnr-hero-line { display: block; }
+/* Each word rises out of its own slot. The slot clips it; the padding is room
+   for accents and descenders, taken back by the negative margin so the line
+   spacing is unchanged. */
+/* The gap between words is a real space in the markup, not a margin — so the
+   headline is still "EMPOWERING YOUTH." to a search engine and to copy-paste,
+   not "EMPOWERINGYOUTH.". */
+.tnr-hero-word {
+  display: inline-block; vertical-align: top; overflow: hidden;
+  padding: .1em 0 .14em; margin: -.1em 0 -.14em;
+}
+.tnr-hero-word > span { display: inline-block; will-change: transform; }
+.tnr-hero-gold { color: var(--hero-gold); }
+
+.tnr-hero-text {
+  margin: 14px 0 0;
+  max-width: 31rem;
+  font-size: var(--hero-text-m, 15px);
+  line-height: 1.62;
+  color: rgba(255, 255, 255, .84);
+}
+.tnr-hero-copy[data-align='center'] .tnr-hero-text { margin-left: auto; margin-right: auto; }
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+.tnr-hero-actions {
+  margin-top: 22px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+@media (min-width: 640px) {
+  .tnr-hero-actions { flex-direction: row; flex-wrap: wrap; gap: 14px; }
+  .tnr-hero-copy[data-align='center'] .tnr-hero-actions { justify-content: center; }
+}
+
+.tnr-hero-btn {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 52px; padding: 0 26px;
+  border-radius: 999px;
+  font-size: 15px; font-weight: 800; letter-spacing: .01em; line-height: 1;
+  white-space: nowrap; cursor: pointer;
+  transition:
+    transform .28s cubic-bezier(.16, 1, .3, 1),
+    box-shadow .28s ease, background-color .28s ease, border-color .28s ease;
+}
+.tnr-hero-btn:hover  { transform: translateY(-2px); }
+.tnr-hero-btn:active { transform: translateY(0) scale(.985); transition-duration: .08s; }
+.tnr-hero-btn:focus-visible { outline: 2px solid #E4C25B; outline-offset: 3px; }
+
+.tnr-hero-btn--primary {
+  color: #062D21;
+  background: linear-gradient(180deg, #E4C25B 0%, #C89A2B 100%);
+  box-shadow: 0 12px 26px -14px rgba(200,154,43,.75), inset 0 1px 0 rgba(255,255,255,.38);
+}
+.tnr-hero-btn--primary:hover {
+  box-shadow: 0 18px 34px -14px rgba(200,154,43,.9), inset 0 1px 0 rgba(255,255,255,.45);
+}
+/* A single pass of light across the gold on hover. */
+.tnr-hero-btn--primary::after {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,.5) 50%, transparent 62%);
+  transform: translateX(-130%);
+  transition: transform .75s cubic-bezier(.16, 1, .3, 1);
+}
+.tnr-hero-btn--primary:hover::after { transform: translateX(130%); }
+
+.tnr-hero-btn--ghost {
+  color: #fff;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .34);
+}
+.tnr-hero-btn--ghost:hover {
+  border-color: var(--hero-gold);
+  background: rgba(215, 174, 74, .1);
+}
+.tnr-hero-btn--ghost .tnr-hero-arrow { color: var(--hero-gold); }
+
+.tnr-hero-arrow { flex: none; transition: transform .32s cubic-bezier(.16, 1, .3, 1); }
+.tnr-hero-btn:hover .tnr-hero-arrow,
+.tnr-hero-btn:focus-visible .tnr-hero-arrow { transform: translateX(5px); }
+.tnr-hero-btn[aria-expanded='true'] .tnr-hero-chevron { transform: rotate(180deg); }
+.tnr-hero-chevron { flex: none; transition: transform .25s ease; }
+
+/* The join / sign-in chooser, when a slide uses one. */
+.tnr-hero-menu {
+  position: absolute; z-index: 30; left: 0; top: calc(100% + 8px);
+  width: 15rem; overflow: hidden;
+  border-radius: 16px; background: #fff;
+  box-shadow: 0 24px 50px -18px rgba(4,26,19,.6), 0 0 0 1px rgba(0,0,0,.06);
+  text-align: left;
+}
+.tnr-hero-menu a {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  font-size: 14px; font-weight: 700; color: #0A3D2C;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  transition: background-color .15s ease;
+}
+.tnr-hero-menu a:last-child { border-bottom: 0; }
+.tnr-hero-menu a:hover, .tnr-hero-menu a:focus { background: rgba(23,107,73,.08); outline: none; }
+
+/* ── Controls ──────────────────────────────────────────────────────────── */
+.tnr-hero-controls {
+  display: flex; align-items: center; gap: 14px;
+  padding: 22px 0 24px;
+}
+.tnr-hero-count {
+  font-size: 12.5px; font-weight: 800; letter-spacing: .1em;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.tnr-hero-count span { opacity: .5; }
+
+.tnr-hero-segs { display: flex; gap: 6px; flex: 1; max-width: 300px; }
+/* The line you see is 2px; the button you press is 28px tall. */
+.tnr-hero-seg {
+  flex: 1; height: 28px; padding: 0; border: 0; background: none; cursor: pointer;
+  display: flex; align-items: center;
+  transition: flex-grow .5s cubic-bezier(.16, 1, .3, 1);
+}
+.tnr-hero-seg[aria-current='true'] { flex-grow: 2.4; }
+.tnr-hero-seg > i {
+  position: relative; display: block; width: 100%; height: 2px; overflow: hidden;
+  border-radius: 2px; background: rgba(255, 255, 255, .28);
+  transition: background-color .2s ease;
+}
+.tnr-hero-seg:hover > i { background: rgba(255, 255, 255, .55); }
+.tnr-hero-seg:focus-visible { outline: 2px solid #E4C25B; outline-offset: 2px; border-radius: 4px; }
+.tnr-hero-seg b {
+  position: absolute; inset: 0; background: var(--hero-gold);
+  transform-origin: left center;
+}
+/* Fills over exactly the time the slide stays. Paused, it holds where it is —
+   and the timer behind it holds too, so the two never disagree. */
+.tnr-hero-seg b[data-run] {
+  animation: tnr-hero-progress var(--hero-dur) linear both;
+}
+@keyframes tnr-hero-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Beside the progress lines, NOT pushed to the far right: the site's floating
+   "Ask TNR AI" button is fixed to the bottom-right corner of the window, and
+   arrows placed there sat directly underneath it. */
+.tnr-hero-nav { display: flex; gap: 8px; }
+/* On a phone the row runs the full width, so whatever comes last lands under
+   that same floating button. The pause control goes before the progress lines
+   there; the lines can run under the bubble harmlessly, a button cannot. */
+@media (max-width: 639px) { .tnr-hero-nav { order: 1; } .tnr-hero-segs { order: 2; } }
+.tnr-hero-ctl {
+  width: 44px; height: 44px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  color: #fff; background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(255, 255, 255, .28);
+  cursor: pointer;
+  transition: transform .25s cubic-bezier(.16, 1, .3, 1), background-color .25s ease,
+              border-color .25s ease, color .25s ease;
+}
+.tnr-hero-ctl:hover { border-color: var(--hero-gold); background: rgba(215,174,74,.14); color: #E4C25B; }
+.tnr-hero-ctl:active { transform: scale(.94); }
+.tnr-hero-ctl:focus-visible { outline: 2px solid #E4C25B; outline-offset: 3px; }
+/* Previous / next are a swipe on a phone; the buttons would only crowd it. */
+.tnr-hero-ctl--step { display: none; }
+@media (min-width: 640px) { .tnr-hero-ctl--step { display: grid; } }
+
+/* ── Desktop: field left, artwork right ────────────────────────────────── */
+@media (min-width: 1024px) {
+  .tnr-hero { min-height: clamp(600px, 84vh, 820px); }
+  @supports (height: 1svh) { .tnr-hero { min-height: clamp(600px, 84svh, 820px); } }
+
+  .tnr-hero-layer[data-layout='split'] .tnr-hero-media {
+    left: 24%; height: auto; bottom: 0;
+  }
+  /* Solid field as far as the picture's left edge, so that edge is never
+     seen; then a long dissolve.
+
+     THESE STOPS ARE MEASURED, NOT CHOSEN BY EYE. The copy column can end as
+     far across as 45% of the hero's width, so the green must still be 76%
+     opaque there. Composited over the real illustration — whose background is
+     cream, the worst case for white type — that gives, at the lightest pixel
+     anywhere under the text block, from 1024px to 1920px wide:
+
+         body text       6.5:1 or better   (AA needs 4.5)
+         gold headline   4.0:1 or better   (AA needs 3.0 for large type)
+         white headline  8.4:1 or better
+
+     A first version faded sooner (66% at 43%) and looked right, but measured
+     4.3:1 for body text and 2.6:1 for gold at 1024px. If these stops are ever
+     loosened to show more picture, re-measure rather than trust the look. */
+  .tnr-hero-layer[data-layout='split'] .tnr-hero-scrim {
+    height: auto; bottom: 0;
+    background:
+      linear-gradient(90deg,
+        var(--hero-green) 0%, var(--hero-green) 24%,
+        rgba(6,45,33,.95) 33%, rgba(6,45,33,.76) 45%,
+        rgba(6,45,33,.42) 54%, rgba(6,45,33,.14) 62%, rgba(6,45,33,0) 70%),
+      linear-gradient(0deg, rgba(4,31,23,.55) 0%, rgba(4,31,23,0) 24%);
+  }
+  /* Centred copy sits on the picture, so the shade rises from below instead. */
+  .tnr-hero-layer[data-layout='center'] .tnr-hero-media { height: auto; bottom: 0; }
+  .tnr-hero-layer[data-layout='center'] .tnr-hero-scrim {
+    height: auto; bottom: 0;
+    background: linear-gradient(0deg,
+      rgba(6,45,33,.96) 0%, rgba(6,45,33,.86) 34%, rgba(6,45,33,.5) 62%, rgba(6,45,33,.2) 100%);
+  }
+
+  .tnr-hero-glow { left: 26%; top: -22%; width: 48%; height: 92%; }
+  .tnr-hero-glow > i { background: radial-gradient(closest-side, rgba(215,174,74,.16), rgba(215,174,74,0)); }
+
+  .tnr-hero-inner { min-height: inherit; padding: 44px 32px 0; }
+  .tnr-hero-copies { align-items: center; }
+  .tnr-hero-copy { max-width: min(36rem, 42vw); }
+  .tnr-hero-copy[data-align='center'] { max-width: 50rem; margin: 0 auto; align-self: end; padding-bottom: 12px; }
+
+  .tnr-hero-eyebrow { font-size: 12px; letter-spacing: .22em; gap: 12px; }
+  .tnr-hero-eyebrow::before,
+  .tnr-hero-copy[data-align='center'] .tnr-hero-eyebrow::after { width: 36px; }
+  .tnr-hero-title {
+    margin-top: 20px;
+    /* The admin's size, scaled down on narrower laptops so a long word still
+       fits the column. */
+    font-size: min(var(--hero-title-d, 56px), 4.1vw);
+    line-height: 1.03;
+  }
+  .tnr-hero-text { margin-top: 20px; font-size: var(--hero-text-d, 17px); line-height: 1.65; }
+  .tnr-hero-actions { margin-top: 32px; }
+  .tnr-hero-btn { min-height: 54px; }
+  .tnr-hero-controls { padding: 18px 0 26px; gap: 18px; }
+  .tnr-hero-segs { max-width: 280px; }
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────────
+   The site-wide rule already shortens every animation to nothing, which would
+   leave the picture parked at the END of its push-in — slightly enlarged and
+   shifted. These put each thing where it belongs when it is not moving. */
+@media (prefers-reduced-motion: reduce) {
+  .tnr-hero-kb, .tnr-hero-glow > i { animation: none; transform: none; }
+  .tnr-hero-veil { animation: none; opacity: 0; }
+  .tnr-hero-seg b[data-run] { animation: none; transform: none; }
+  .tnr-hero-btn:hover, .tnr-hero-ctl:active { transform: none; }
+  .tnr-hero-btn--primary::after { display: none; }
+}
