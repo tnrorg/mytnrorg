@@ -1,6 +1,6 @@
 'use client';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { AnimatePresence, motion, useMotionValue, useScroll, useSpring, useTransform } from 'framer-motion';
 import Image from 'next/image';
 import HeroCtaMenu from './HeroCtaMenu';
 import { FONT, MOTION } from '@/lib/design/tokens';
@@ -10,6 +10,7 @@ import './hero.css';
 
 /** How long a slide stays before the next one dissolves in. */
 const DURATION = 7000;
+const SCROLL_RANGE = 900;   // px of page scroll over which the hero's depth effect plays out
 
 /* Admin-managed hero carousel.
  *
@@ -209,11 +210,42 @@ export default function HeroCarousel({ initialSlides = null }) {
   // Three depths: the picture drifts against the pointer, the light with it,
   // the words barely at all.
   const imgX = useTransform(sx, v => v * -10);
-  const imgY = useTransform(sy, v => v * -7);
   const glowX = useTransform(sx, v => v * 30);
   const glowY = useTransform(sy, v => v * 18);
   const copyX = useTransform(sx, v => v * 5);
-  const copyY = useTransform(sy, v => v * 3);
+
+  /* ── Scroll depth ──────────────────────────────────────────────────────────
+   * As the page is scrolled, the picture leaves more slowly than the page
+   * (15% of the distance held back) and the words slightly more slowly than
+   * that (6%), fading as they go. Three things moving at three speeds is what
+   * reads as depth; the hero stops being a flat panel sliding off the top.
+   *
+   * The picture never shows a gap. It is shifted DOWN inside a box that clips
+   * it, and the strip it uncovers at the top is always shorter than the part
+   * of the hero already above the window.
+   *
+   * Desktop with a mouse only, and off for reduced motion. On a phone the
+   * picture is a band above the text rather than a backdrop, and a thumb
+   * scroll that drags the artwork at a different speed from the page looks
+   * like lag, not depth. `depth` is a ref, so switching it re-renders nothing.
+   *
+   * SCROLL_RANGE caps the effect at roughly the hero's own height: beyond it
+   * the values stop changing, so scrolling the rest of the page costs
+   * nothing here. */
+  const { scrollY } = useScroll();
+  const depth = useRef(false);
+  useEffect(() => {
+    const mq = window.matchMedia?.('(min-width: 1024px) and (hover: hover) and (pointer: fine)');
+    const sync = () => { depth.current = !!mq?.matches && !reduce; };
+    sync();
+    mq?.addEventListener?.('change', sync);
+    return () => mq?.removeEventListener?.('change', sync);
+  }, [reduce]);
+  const scrolledBy = (v) => (depth.current ? Math.min(SCROLL_RANGE, Math.max(0, v)) : 0);
+
+  const imgY = useTransform([sy, scrollY], ([m, y]) => m * -7 + scrolledBy(y) * 0.15);
+  const copyY = useTransform([sy, scrollY], ([m, y]) => m * 3 + scrolledBy(y) * 0.06);
+  const copyFade = useTransform(scrollY, y => 1 - (scrolledBy(y) / SCROLL_RANGE) * 0.6);
 
   const onPointerMove = (e) => {
     if (reduce || e.pointerType !== 'mouse') return;
@@ -336,7 +368,7 @@ export default function HeroCarousel({ initialSlides = null }) {
 
       {/* ── Copy and controls ── */}
       <div className="tnr-hero-inner">
-        <motion.div className="tnr-hero-copies" style={{ x: copyX, y: copyY }}>
+        <motion.div className="tnr-hero-copies" style={{ x: copyX, y: copyY, opacity: copyFade }}>
           {slides.map((sl, k) => (
             <SlideCopy key={sl.id} slide={sl} index={k} active={k === idx} reduce={reduce} />
           ))}

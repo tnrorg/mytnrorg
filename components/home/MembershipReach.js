@@ -43,10 +43,12 @@ export default function MembershipReach() {
 
   return (
     <section className="max-w-tnr-wide mx-auto px-4 pb-16 w-full" style={FONT}>
-      <Reveal>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <SectionHeading eyebrow="Our Reach" title="Membership Beyond Roundu"
-            lead="Where our approved members live and work today." />
+      {/* Not wrapped in <Reveal>: the heading runs its own sequence, and the
+          link follows it in — see components/ui/SectionHeading.js. */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <SectionHeading eyebrow="Our Reach" title="Membership Beyond Roundu"
+          lead="Where our approved members live and work today." />
+        <Reveal delay={0.3}>
           <a href="/statistics"
             className="group inline-flex items-center gap-1.5 rounded-tnr px-5 py-2.5 text-sm font-bold
               transition-colors duration-micro hover:bg-[rgba(23,107,73,.14)]"
@@ -55,8 +57,8 @@ export default function MembershipReach() {
             <ArrowRight size={14} strokeWidth={2.5} aria-hidden="true"
               className="transition-transform duration-micro group-hover:translate-x-0.5" />
           </a>
-        </div>
-      </Reveal>
+        </Reveal>
+      </div>
 
       <div className="mt-8 grid lg:grid-cols-2 gap-5">
         {/* ── Pakistan ── */}

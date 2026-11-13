@@ -46,18 +46,22 @@ export default function OpinionsPreview() {
 
   return (
     <section className="max-w-tnr-wide mx-auto px-4 pb-16 w-full" style={FONT}>
-      <Reveal className="flex flex-wrap items-end justify-between gap-4">
+      {/* Not wrapped in <Reveal>: the heading runs its own sequence, and the
+          link follows it in — see components/ui/SectionHeading.js. */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <SectionHeading eyebrow="In Their Own Words" title="Opinions"
           lead="Members writing on education, leadership, service and the future of Roundu." />
-        <a href="/media/opinions"
-          className="group inline-flex items-center gap-1.5 rounded-tnr px-5 py-2.5 text-sm font-bold
-            transition-colors duration-micro hover:bg-[rgba(23,107,73,.14)]"
-          style={{ background: 'rgba(23,107,73,.08)', color: COLORS.green700 }}>
-          Read all opinions
-          <ArrowRight size={14} strokeWidth={2.5} aria-hidden="true"
-            className="transition-transform duration-micro group-hover:translate-x-0.5" />
-        </a>
-      </Reveal>
+        <Reveal delay={0.3}>
+          <a href="/media/opinions"
+            className="group inline-flex items-center gap-1.5 rounded-tnr px-5 py-2.5 text-sm font-bold
+              transition-colors duration-micro hover:bg-[rgba(23,107,73,.14)]"
+            style={{ background: 'rgba(23,107,73,.08)', color: COLORS.green700 }}>
+            Read all opinions
+            <ArrowRight size={14} strokeWidth={2.5} aria-hidden="true"
+              className="transition-transform duration-micro group-hover:translate-x-0.5" />
+          </a>
+        </Reveal>
+      </div>
 
       <RevealGroup className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {rows.map(o => (

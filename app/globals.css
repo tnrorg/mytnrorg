@@ -231,6 +231,33 @@ button, input, textarea, select, option { font-family: inherit; }
   overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
 }
 
+/* ── Scroll reveals: the blur ──────────────────────────────────────────────
+   Framer animates --tnr-reveal-filter from blur(6px) to blur(0px) and then
+   sets it to `none` (lib/design/tokens.js). This rule is the only thing that
+   turns that into an actual filter, and only where it is worth the cost: a
+   wide screen with a real pointer. Everywhere else the variable changes and
+   nothing is drawn differently.
+
+   The default is `none`, so an element with this class and no variable — a
+   hero line, an image reveal — gets no filter and no stacking context.
+
+   `inherits: false` matters. Custom properties are inherited by default, so a
+   revealing card would hand its half-way blur to every .tnr-reveal inside it
+   — a heading, a grid of items — and those would be blurred twice over, once
+   by the card and once by themselves. Registering the property keeps each
+   element's blur its own. (A browser too old for @property just inherits, and
+   shows the slightly heavier blur for under a second.) */
+@property --tnr-reveal-filter {
+  syntax: '*';
+  inherits: false;
+}
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+  .tnr-reveal { filter: var(--tnr-reveal-filter, none); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tnr-reveal { filter: none !important; }
+}
+
 /* The home hero's styles — including the phone/desktop type scale that used
    to live here — are in components/home/hero.css, beside the one component
    that uses them. */

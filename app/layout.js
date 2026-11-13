@@ -107,7 +107,7 @@ export default function RootLayout({ children }) {
             failed deploy. An inline style can only be beaten by !important,
             which is why this is a stylesheet rule and not a class swap. */}
         <noscript>
-          <style>{`.tnr-reveal{opacity:1!important;transform:none!important}`}</style>
+          <style>{`.tnr-reveal{opacity:1!important;transform:none!important;filter:none!important}`}</style>
         </noscript>
       </head>
       <body>

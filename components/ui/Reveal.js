@@ -2,7 +2,7 @@
 import { useSyncExternalStore } from 'react';
 import { motion } from 'framer-motion';
 import {
-  revealUp, revealUpMobile, staggerChildren, MOBILE_STAGGER,
+  revealUp, revealUpMobile, revealTransition, staggerChildren, MOBILE_STAGGER,
   imageReveal, imageRevealMobile,
 } from '@/lib/design/tokens';
 
@@ -64,7 +64,10 @@ export function Reveal({ children, className = '', delay = 0, as = 'div' }) {
     // from the bottom edge starts the reveal as the section rises into view.
     <M className={`tnr-reveal ${className}`} initial="hidden" whileInView="show"
       viewport={{ once: true, margin: '0px 0px -12% 0px' }}
-      variants={{ ...base, show: { ...base.show, transition: { ...base.show.transition, delay } } }}>
+      /* The desktop reveal times its fade and its movement separately, so a
+         delay cannot simply be added on top — see revealTransition. */
+      variants={{ ...base, show: { ...base.show,
+        transition: phone ? { ...base.show.transition, delay } : revealTransition(delay) } }}>
       {children}
     </M>
   );

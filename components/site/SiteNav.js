@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
+import { motion, useScroll, useSpring } from 'framer-motion';
 import { NAV } from './navConfig';
 import AccountMenu from './AccountMenu';
 import SearchOverlay from '@/components/search/SearchOverlay';
@@ -62,6 +63,12 @@ export default function SiteNav() {
   const [acc, setAcc] = useState(null);        // mobile accordion
   const [search, setSearch] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  /* How far down the page the reader is, 0 → 1, as a motion value: scrolling
+     updates one transform on one element and re-renders nothing. The spring
+     only takes the steps out of it — a mouse wheel moves the page in jumps,
+     and a bar that jumps with it looks like a loading bar that is struggling. */
+  const { scrollYProgress } = useScroll();
+  const progress = useSpring(scrollYProgress, { stiffness: 140, damping: 26, mass: 0.3 });
   const ref = useRef(null);
   const pathname = usePathname() || '/';
 
@@ -275,6 +282,18 @@ export default function SiteNav() {
                 strokeLinecap="round" /></svg>
           </button>
         </div>
+
+        {/* Reading progress: a gold hairline along the foot of the capsule that
+            fills as the page is scrolled. Inset far enough to stay inside the
+            capsule's rounded ends, decorative (aria-hidden) and click-through,
+            and empty at the top of the page — so it is not there at all until
+            the reader has started moving. */}
+        <span aria-hidden="true" data-nav-progress=""
+          className="pointer-events-none absolute bottom-[3px] left-8 right-8 h-[2px] overflow-hidden rounded-full">
+          <motion.span className="block h-full w-full origin-left rounded-full"
+            style={{ scaleX: progress,
+              background: 'linear-gradient(90deg,rgba(200,154,43,.55),#E6C36A 60%,#F4DC9A)' }} />
+        </span>
       </header>
 
     </div>

@@ -42,7 +42,25 @@ import { useEffect } from 'react';
  * toward its old destination, and the page slides away from where it was put.
  * That is not smoothness, it is the page arguing.
  */
-const EASE = 0.22;      // fraction of the remaining distance covered per frame
+/* THE GLIDE IS MEASURED IN TIME, NOT IN FRAMES.
+ *
+ * This used to cover 22% of the remaining distance on every frame. That ties
+ * the feel to the screen: on a 120Hz or 144Hz monitor there are twice as many
+ * frames a second, so the same step finished in half the time and felt abrupt,
+ * while a 60Hz laptop got the intended ease.
+ *
+ * GLIDE is a time constant instead: after every GLIDE milliseconds, about 63%
+ * of whatever distance remained has been covered — whatever the refresh rate.
+ * At 110ms a wheel notch settles in roughly half a second: long enough that
+ * consecutive notches run into one continuous movement, short enough that the
+ * page has stopped by the time the reader's eye has. (The old setting worked
+ * out at about 67ms on a 60Hz screen.)
+ *
+ * A longer glide is only acceptable because of the rule above. The page is
+ * still moving for longer after each notch, so there is more time in which the
+ * reader might grab the scrollbar — and when they do, it stops at once. */
+const GLIDE = 110;      // ms
+const MAX_FRAME = 50;   // ms — a stalled tab must not turn into one huge lurch
 const SETTLE = 1;       // px below which the animation stops
 const MAX_STEP = 1400;  // cap so a violent flick cannot fling the whole page
 
@@ -60,6 +78,20 @@ export default function SmoothScroll() {
     let target = window.scrollY;
     let raf = 0;
     let running = false;
+    /* Our own record of where the page is, kept as a fraction.
+     *
+     * The browser snaps scroll positions to whole device pixels. Easing from
+     * what it reports back therefore stalls near the end: a step of a third
+     * of a pixel is rounded away, the page does not move, and the next frame
+     * asks for the same third of a pixel again — a loop that never finishes
+     * and never arrives. Advancing our own number and handing the browser the
+     * result cannot stall, because the number always moves. */
+    let pos = window.scrollY;
+    let lastT = 0;
+
+    /** How much of the remaining distance to cover, given the time elapsed. */
+    const share = (now, then) =>
+      1 - Math.exp(-Math.min(MAX_FRAME, Math.max(0, now - then)) / GLIDE);
 
     /* The inner scroller being eased, if any, and where it is headed.
      * Only ever one at a time — a wheel has a single pointer. */
@@ -67,6 +99,8 @@ export default function SmoothScroll() {
     let innerTarget = 0;
     let innerRaf = 0;
     let innerRunning = false;
+    let innerPos = 0;
+    let innerLastT = 0;
 
     /** The nearest ancestor that scrolls on its own, or null for the page. */
     const innerScrollerAt = (el) => {
@@ -109,27 +143,32 @@ export default function SmoothScroll() {
       if (innerEl) innerTarget = innerEl.scrollTop;
     };
 
-    const tick = () => {
-      const diff = target - window.scrollY;
+    const tick = (now) => {
+      const diff = target - pos;
       if (Math.abs(diff) < SETTLE) {
+        pos = target;
         jump(target);
         running = false;
         return;
       }
-      jump(window.scrollY + diff * EASE);
+      pos += diff * share(now, lastT);
+      lastT = now;
+      jump(pos);
       raf = requestAnimationFrame(tick);
     };
 
     /* The same easing, applied to one element's scrollTop. */
-    const innerTick = () => {
+    const innerTick = (now) => {
       if (!innerEl) { innerRunning = false; return; }
-      const diff = innerTarget - innerEl.scrollTop;
+      const diff = innerTarget - innerPos;
       if (Math.abs(diff) < SETTLE) {
         innerEl.scrollTop = innerTarget;
         innerRunning = false;
         return;
       }
-      innerEl.scrollTop += diff * EASE;
+      innerPos += diff * share(now, innerLastT);
+      innerLastT = now;
+      innerEl.scrollTop = innerPos;
       innerRaf = requestAnimationFrame(innerTick);
     };
 
@@ -163,13 +202,23 @@ export default function SmoothScroll() {
         }
         e.preventDefault();
         innerTarget = Math.max(0, Math.min(limit, innerTarget + step));
-        if (!innerRunning) { innerRunning = true; innerRaf = requestAnimationFrame(innerTick); }
+        if (!innerRunning) {
+          innerRunning = true;
+          innerPos = el.scrollTop;
+          innerLastT = performance.now();
+          innerRaf = requestAnimationFrame(innerTick);
+        }
         return;
       }
 
       e.preventDefault();
       target = Math.max(0, Math.min(maxScroll(), target + step));
-      if (!running) { running = true; raf = requestAnimationFrame(tick); }
+      if (!running) {
+        running = true;
+        pos = window.scrollY;
+        lastT = performance.now();
+        raf = requestAnimationFrame(tick);
+      }
     };
 
     /* Anything that moves the page by other means — an anchor link, the
