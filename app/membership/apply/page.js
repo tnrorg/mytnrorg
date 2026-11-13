@@ -12,7 +12,9 @@ import {
 import {
   validateApplication, STEPS, stepErrors, isStepComplete, REQUIRED_LABELS, ageFrom,
   MIN_AGE, MAX_AGE, organisationLabel, needsOrganisation, organisationOptional,
+  suggestsUniversity,
 } from '@/lib/membership/validateApplication';
+import { PK_UNIVERSITY_OPTIONS } from '@/lib/edu/pakistanUniversities';
 import AddressSelect from '@/components/membership/AddressSelect';
 import PhoneInput from '@/components/membership/PhoneInput';
 import Combobox from '@/components/ui/Combobox';
@@ -539,8 +541,22 @@ export default function ApplyPage() {
                 <Field label={organisationLabel(f.current_position)}
                   req={!organisationOptional(f.current_position)}
                   error={showErr('organization_name')}>
-                  <Input value={f.organization_name} onChange={v => set('organization_name', v)}
-                    onBlur={() => blur('organization_name')} bad={!!showErr('organization_name')} />
+                  {/* A searchable list of Pakistani universities for students
+                      and teachers; a plain box for everyone else, whose
+                      organisation is an employer rather than an institution.
+                      The combobox still accepts anything typed into it, so a
+                      member studying abroad is never stuck. */}
+                  {suggestsUniversity(f.current_position) ? (
+                    <Combo value={f.organization_name} options={PK_UNIVERSITY_OPTIONS}
+                      listId="tnr-universities"
+                      placeholder="Type your university, or its short name (e.g. KIU)"
+                      onChange={v => set('organization_name', v)}
+                      onBlur={() => blur('organization_name')}
+                      bad={!!showErr('organization_name')} />
+                  ) : (
+                    <Input value={f.organization_name} onChange={v => set('organization_name', v)}
+                      onBlur={() => blur('organization_name')} bad={!!showErr('organization_name')} />
+                  )}
                 </Field>
               )}
               {f.current_position === 'Other' && (
