@@ -3,7 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import useRefreshOnFocus from '@/components/site/useRefreshOnFocus';
 import Image from 'next/image';
 import { ArrowRight, PenLine, Clock, Eye, MessageSquare } from 'lucide-react';
-import { SectionHeading, Reveal, RevealGroup, RevealItem } from '@/components/ui';
+import { SectionHeading, Reveal } from '@/components/ui';
+import CardCarousel from '@/components/ui/CardCarousel';
 import Avatar from '@/components/ui/Avatar';
 import OpinionLike from '@/components/site/OpinionLike';
 import ShareButtons from '@/components/site/ShareButtons';
@@ -15,7 +16,21 @@ const fmt = (d) => (d ? new Date(d).toLocaleDateString('en-GB', {
   day: 'numeric', month: 'short', year: 'numeric',
 }) : '');
 
-/* The three most recent member Opinions, on the home page.
+/* The cover's real width at each breakpoint — the wide carousel shows 1.15
+   cards on a phone, 2.2 on a tablet and 3 on a desktop. */
+const COVER_SIZES = '(max-width: 639px) 85vw, (max-width: 1023px) 45vw, 460px';
+
+/* Every published member Opinion, on the home page, as a slowly moving row.
+ *
+ * It used to be the three most recent in a grid, which meant a piece dropped
+ * off the home page the moment three newer ones were approved. Now they all
+ * pass through in turn, newest first — the same moving row as the Advisory
+ * Council above (components/ui/CardCarousel.js), with a wider card because an
+ * opinion carries a picture and a paragraph. "All" is everything the endpoint
+ * returns, which is the sixty most recent.
+ *
+ * With three or fewer published the row has nothing to rotate, so it stands
+ * still and centred — which is what the old grid looked like.
  *
  * Renders NOTHING until something has been published — the same rule the
  * leadership messages and reach sections follow. An empty "Opinions" heading
@@ -28,7 +43,7 @@ export default function OpinionsPreview() {
   const load = useCallback(() => {
     fetch('/api/public/opinions', { cache: 'no-store' })
       .then(r => r.json())
-      .then(j => setRows(j?.ok ? (j.opinions || []).slice(0, 3) : []))
+      .then(j => setRows(j?.ok ? (j.opinions || []) : []))
       .catch(() => setRows([]));
   }, []);
 
@@ -37,7 +52,7 @@ export default function OpinionsPreview() {
   // help if the component was never re-mounted. See the hook.
   useRefreshOnFocus(load);
 
-  // One request for all three cards, not one each.
+  // One request for every card, not one each.
   // Called before the early return below — a hook cannot be skipped.
   const { liked, known } = useLikedSlugs((rows || []).map(o => o.slug));
 
@@ -63,82 +78,94 @@ export default function OpinionsPreview() {
         </Reveal>
       </div>
 
-      <RevealGroup className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {rows.map(o => (
-          <RevealItem key={o.id} className="h-full">
-            <article className="tnr-pop group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100
-              bg-white shadow-tnr-flat">
-              <a href={`/media/opinions/${o.slug}`} className="block">
-                {o.published_cover ? (
-                  <div className="relative aspect-[16/9] overflow-hidden bg-gray-100">
-                    <Image src={o.published_cover} alt="" fill
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                      className="tnr-pop-img object-cover" />
-                  </div>
-                ) : (
-                  <div className="aspect-[16/9] grid place-items-center"
-                    style={{ background: `linear-gradient(140deg, ${COLORS.green700}, ${COLORS.green950})` }}>
-                    <PenLine size={28} className="text-white/40" aria-hidden="true" />
-                  </div>
-                )}
+      <Reveal className="mt-10" delay={0.08}>
+        {/* No whole-card click here, unlike the council row: this card has its
+            own links (cover, title, comments) and its own buttons (like,
+            share), and a click between them should do nothing rather than
+            guess which one was meant. */}
+        <CardCarousel items={rows} className="tnr-cc--wide" label="Member opinions" noun="opinions"
+          renderItem={(o, _i, { near }) => (
+          <article className="tnr-pop group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100
+            bg-white shadow-tnr-flat">
+            <a href={`/media/opinions/${o.slug}`} className="block">
+              {o.published_cover ? (
+                <div className="relative aspect-[16/9] overflow-hidden bg-gray-100">
+                  <Image src={o.published_cover} alt="" fill
+                    sizes={COVER_SIZES}
+                    /* Once the row is near the screen, fetch now: a card
+                       clipped just outside the row is not "nearly visible"
+                       to the browser's lazy loading, and would slide in
+                       with an empty cover. */
+                    loading={near ? 'eager' : undefined}
+                    draggable={false}
+                    className="tnr-pop-img object-cover" />
+                </div>
+              ) : (
+                <div className="aspect-[16/9] grid place-items-center"
+                  style={{ background: `linear-gradient(140deg, ${COLORS.green700}, ${COLORS.green950})` }}>
+                  <PenLine size={28} className="text-white/40" aria-hidden="true" />
+                </div>
+              )}
+            </a>
+
+            <div className="flex flex-1 flex-col p-5">
+              <a href={`/media/opinions/${o.slug}`}>
+                {/* Three lines at most. Every card in the row is as tall as the
+                    tallest one, so a single very long headline would stretch
+                    all of them. */}
+                <h3 className="font-black text-[16px] leading-snug line-clamp-3 group-hover:underline"
+                  style={{ color: COLORS.green900 }}>{o.published_title}</h3>
               </a>
+              <p className="mt-2 text-[13px] text-gray-600 leading-relaxed line-clamp-2">
+                {o.published_summary}
+              </p>
 
-              <div className="flex flex-1 flex-col p-5">
-                <a href={`/media/opinions/${o.slug}`}>
-                  <h3 className="font-black text-[16px] leading-snug group-hover:underline"
-                    style={{ color: COLORS.green900 }}>{o.published_title}</h3>
-                </a>
-                <p className="mt-2 text-[13px] text-gray-600 leading-relaxed line-clamp-2">
-                  {o.published_summary}
-                </p>
-
-                {/* Byline pinned to the bottom so the three cards line up. */}
-                <div className="mt-auto pt-4 flex items-center gap-2.5">
-                  <Avatar src={o.author?.photo_url} gender={o.author?.gender}
-                    name={o.author?.full_name || 'Member'} className="w-8 h-8 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-[12.5px] font-bold truncate" style={{ color: COLORS.green900 }}>
-                      {o.author?.full_name || 'TNR Member'}
-                    </div>
-                    <div className="text-[11px] text-gray-500 flex flex-wrap items-center gap-2">
-                      <span>{fmt(o.published_at)}</span>
+              {/* Byline pinned to the bottom so the cards line up. */}
+              <div className="mt-auto pt-4 flex items-center gap-2.5">
+                <Avatar src={o.author?.photo_url} gender={o.author?.gender}
+                  name={o.author?.full_name || 'Member'} className="w-8 h-8 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-[12.5px] font-bold truncate" style={{ color: COLORS.green900 }}>
+                    {o.author?.full_name || 'TNR Member'}
+                  </div>
+                  <div className="text-[11px] text-gray-500 flex flex-wrap items-center gap-2">
+                    <span>{fmt(o.published_at)}</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Clock size={10} aria-hidden="true" />
+                      {readingMinutes(o.published_body)} min
+                    </span>
+                    {/* Counts only — never who. */}
+                    {o.views > 0 && (
                       <span className="inline-flex items-center gap-1">
-                        <Clock size={10} aria-hidden="true" />
-                        {readingMinutes(o.published_body)} min
+                        <Eye size={10} aria-hidden="true" />
+                        {o.views.toLocaleString()}
                       </span>
-                      {/* Counts only — never who. */}
-                      {o.views > 0 && (
-                        <span className="inline-flex items-center gap-1">
-                          <Eye size={10} aria-hidden="true" />
-                          {o.views.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
+                    )}
+                  </div>
 
-                    {/* Like and share without leaving the home page. Comments
-                        link into the article, since replying needs the piece
-                        in front of you. */}
-                    <div className="mt-1 flex items-center gap-1">
-                      <OpinionLike compact slug={o.slug} initial={o.likes || 0}
-                        initialLiked={known ? liked.has(o.slug) : undefined} />
-                      <a href={`/media/opinions/${o.slug}#comments`}
-                        aria-label={`${o.comments || 0} comments`} title="Comments"
-                        className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px]
-                          text-gray-500 hover:text-[#176B49] transition-colors">
-                        <MessageSquare size={11} strokeWidth={2.2} aria-hidden="true" />
-                        <span className="tabular-nums">{(o.comments || 0).toLocaleString()}</span>
-                      </a>
-                      <ShareButtons compact title={o.published_title}
-                        summary={o.published_summary}
-                        path={`/media/opinions/${o.slug}`} />
-                    </div>
+                  {/* Like and share without leaving the home page. Comments
+                      link into the article, since replying needs the piece
+                      in front of you. */}
+                  <div className="mt-1 flex items-center gap-1">
+                    <OpinionLike compact slug={o.slug} initial={o.likes || 0}
+                      initialLiked={known ? liked.has(o.slug) : undefined} />
+                    <a href={`/media/opinions/${o.slug}#comments`}
+                      aria-label={`${o.comments || 0} comments`} title="Comments"
+                      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px]
+                        text-gray-500 hover:text-[#176B49] transition-colors">
+                      <MessageSquare size={11} strokeWidth={2.2} aria-hidden="true" />
+                      <span className="tabular-nums">{(o.comments || 0).toLocaleString()}</span>
+                    </a>
+                    <ShareButtons compact title={o.published_title}
+                      summary={o.published_summary}
+                      path={`/media/opinions/${o.slug}`} />
                   </div>
                 </div>
               </div>
-            </article>
-          </RevealItem>
-        ))}
-      </RevealGroup>
+            </div>
+          </article>
+          )} />
+      </Reveal>
     </section>
   );
 }
