@@ -44,15 +44,16 @@ export default function BrandingTab({ toast }) {
 
       {/* ── Site header ─────────────────────────────────────────────────── */}
       <Card>
-        <h3 className="font-black text-tnr-cream mb-1">Top Bar</h3>
+        {/* This card used to be "Top Bar" and also held a Tagline. The dark
+            strip above the navigation was removed from the site, so the
+            tagline has nowhere to appear and its field is gone from this
+            form — a setting that changes nothing is worse than no setting.
+            The stored value is left untouched in case the bar ever returns.
+            The social links are still used, by the Follow Us section. */}
+        <h3 className="font-black text-tnr-cream mb-1">Social Links</h3>
         <p className="text-sm text-tnr-cream/60 mb-4">
-          The thin dark strip above the main navigation, on every page of the site.
+          Shown in the Follow Us section of the home page.
         </p>
-
-        <Field label="Tagline">
-          <input className="input" value={f.header_tagline || ''}
-            onChange={set('header_tagline')} maxLength={120} />
-        </Field>
 
         <div className="mt-2">
           <span className="label">Social links</span>

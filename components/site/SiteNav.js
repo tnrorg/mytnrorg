@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { NAV } from './navConfig';
-import { HEADER_DEFAULTS, SOCIALS, normaliseUrl } from '@/lib/siteHeader';
 import AccountMenu from './AccountMenu';
 import SearchOverlay from '@/components/search/SearchOverlay';
 
@@ -132,50 +131,19 @@ export default function SiteNav() {
     return () => { document.body.style.overflow = ''; };
   }, [mobile]);
 
-  // Utility-bar content. Starts from the defaults so the bar renders complete
-  // on first paint and never flashes empty while the request is in flight.
-  const [header, setHeader] = useState(HEADER_DEFAULTS);
-  useEffect(() => {
-    let off = false;
-    fetch('/api/public/site-header', { cache: 'no-store' })
-      .then(r => r.json())
-      .then(j => { if (!off && j?.ok && j.header) setHeader(j.header); })
-      .catch(() => {});
-    return () => { off = true; };
-  }, []);
-
   return (
     <>
-    {/* Utility bar — tagline and social links come from Admin → Branding.
-        The links used to be hardcoded to bare domains (facebook.com etc), so
-        every icon led to a generic homepage rather than TNR's own page.
+    {/* There is no bar above the capsule any more.
 
-        It deliberately does NOT stick. The capsule below it is what follows
-        the visitor down the page; a second dark strip pinned above it would
-        merge with the capsule and the floating effect would be lost. */}
-    <div className="hidden sm:block text-white text-[12px]" style={{ background: '#052A1E' }}>
-      <div className="max-w-[1400px] mx-auto px-4 py-1.5 flex items-center gap-4">
-        <span className="text-white/70">{header.header_tagline}</span>
-        <div className="ml-auto flex items-center gap-4">
-          <a href="/help" className="text-white/70 hover:text-white transition">Help Center</a>
-          <a href="/contact" className="text-white/70 hover:text-white transition">Contact Us</a>
-          <div className="flex items-center gap-2">
-            {SOCIALS.map(([key, label, name]) => {
-              const href = normaliseUrl(header[key]);
-              // No account configured — render nothing rather than a dead icon.
-              if (!href) return null;
-              return (
-                <a key={key} href={href} target="_blank" rel="noopener noreferrer"
-                  aria-label={name} title={name}
-                  className="w-5 h-5 rounded grid place-items-center bg-white/10 hover:bg-[#D4A72C] hover:text-[#063D2B] transition text-[10px] font-bold">
-                  {label}
-                </a>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
+        The dark strip that used to sit here — tagline, "Help Center", "Contact
+        Us" and the social icons — was removed at the owner's request. Nothing
+        it linked to is unreachable: Contact is in the capsule's own menu and
+        "Help Center" pointed at /help, a page that never existed. The social
+        icons now appear only in the Follow Us section of the home page — if
+        they are wanted on every page, the footer is the place for them.
+
+        The request it made on every page load (/api/public/site-header) went
+        with it. Follow Us still makes that request, on the home page only. */}
 
     {/* The sticky band is transparent and has no backdrop of its own, which is
         what makes the capsule read as floating: the page scrolls past in the

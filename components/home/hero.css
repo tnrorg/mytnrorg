@@ -30,7 +30,6 @@
   --hero-media-h: clamp(236px, 36vh, 330px);
   --hero-green: #062D21;
   --hero-gold: #D7AE4A;
-  --hero-dur: 7000ms;
 
   position: relative;
   isolation: isolate;
@@ -114,8 +113,9 @@
 }
 .tnr-hero-layer[data-layout='full'] .tnr-hero-scrim {
   height: auto; bottom: 0;
-  /* Only enough to seat the controls. */
-  background: linear-gradient(0deg, rgba(4,31,23,.72) 0%, rgba(4,31,23,0) 30%);
+  /* A light shade at the foot only, so the gold hairline has something to
+     sit on. Nothing is drawn over a wordless slide any more. */
+  background: linear-gradient(0deg, rgba(4,31,23,.45) 0%, rgba(4,31,23,0) 18%);
 }
 
 /* First paint only: the picture arrives out of the green instead of simply
@@ -152,7 +152,9 @@
   position: relative; z-index: 2;
   display: flex; flex-direction: column;
   width: 100%; max-width: 1440px; margin: 0 auto;
-  padding: calc(var(--hero-media-h) - 26px) 20px 0;
+  /* The bottom padding used to come from the row of controls. With that row
+     removed the copy needs its own room above the hairline. */
+  padding: calc(var(--hero-media-h) - 26px) 20px 34px;
 }
 
 /* EVERY slide's copy is in the page, stacked in one grid cell; only the active
@@ -291,68 +293,6 @@
 .tnr-hero-menu a:last-child { border-bottom: 0; }
 .tnr-hero-menu a:hover, .tnr-hero-menu a:focus { background: rgba(23,107,73,.08); outline: none; }
 
-/* ── Controls ──────────────────────────────────────────────────────────── */
-.tnr-hero-controls {
-  display: flex; align-items: center; gap: 14px;
-  padding: 22px 0 24px;
-}
-.tnr-hero-count {
-  font-size: 12.5px; font-weight: 800; letter-spacing: .1em;
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.tnr-hero-count span { opacity: .5; }
-
-.tnr-hero-segs { display: flex; gap: 6px; flex: 1; max-width: 300px; }
-/* The line you see is 2px; the button you press is 28px tall. */
-.tnr-hero-seg {
-  flex: 1; height: 28px; padding: 0; border: 0; background: none; cursor: pointer;
-  display: flex; align-items: center;
-  transition: flex-grow .5s cubic-bezier(.16, 1, .3, 1);
-}
-.tnr-hero-seg[aria-current='true'] { flex-grow: 2.4; }
-.tnr-hero-seg > i {
-  position: relative; display: block; width: 100%; height: 2px; overflow: hidden;
-  border-radius: 2px; background: rgba(255, 255, 255, .28);
-  transition: background-color .2s ease;
-}
-.tnr-hero-seg:hover > i { background: rgba(255, 255, 255, .55); }
-.tnr-hero-seg:focus-visible { outline: 2px solid #E4C25B; outline-offset: 2px; border-radius: 4px; }
-.tnr-hero-seg b {
-  position: absolute; inset: 0; background: var(--hero-gold);
-  transform-origin: left center;
-}
-/* Fills over exactly the time the slide stays. Paused, it holds where it is —
-   and the timer behind it holds too, so the two never disagree. */
-.tnr-hero-seg b[data-run] {
-  animation: tnr-hero-progress var(--hero-dur) linear both;
-}
-@keyframes tnr-hero-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-
-/* Beside the progress lines, NOT pushed to the far right: the site's floating
-   "Ask TNR AI" button is fixed to the bottom-right corner of the window, and
-   arrows placed there sat directly underneath it. */
-.tnr-hero-nav { display: flex; gap: 8px; }
-/* On a phone the row runs the full width, so whatever comes last lands under
-   that same floating button. The pause control goes before the progress lines
-   there; the lines can run under the bubble harmlessly, a button cannot. */
-@media (max-width: 639px) { .tnr-hero-nav { order: 1; } .tnr-hero-segs { order: 2; } }
-.tnr-hero-ctl {
-  width: 44px; height: 44px; flex: none;
-  display: grid; place-items: center;
-  border-radius: 50%;
-  color: #fff; background: rgba(255, 255, 255, .05);
-  border: 1px solid rgba(255, 255, 255, .28);
-  cursor: pointer;
-  transition: transform .25s cubic-bezier(.16, 1, .3, 1), background-color .25s ease,
-              border-color .25s ease, color .25s ease;
-}
-.tnr-hero-ctl:hover { border-color: var(--hero-gold); background: rgba(215,174,74,.14); color: #E4C25B; }
-.tnr-hero-ctl:active { transform: scale(.94); }
-.tnr-hero-ctl:focus-visible { outline: 2px solid #E4C25B; outline-offset: 3px; }
-/* Previous / next are a swipe on a phone; the buttons would only crowd it. */
-.tnr-hero-ctl--step { display: none; }
-@media (min-width: 640px) { .tnr-hero-ctl--step { display: grid; } }
-
 /* ── Desktop: field left, artwork right ────────────────────────────────── */
 @media (min-width: 1024px) {
   .tnr-hero { min-height: clamp(600px, 84vh, 820px); }
@@ -397,7 +337,7 @@
   .tnr-hero-glow { left: 26%; top: -22%; width: 48%; height: 92%; }
   .tnr-hero-glow > i { background: radial-gradient(closest-side, rgba(215,174,74,.16), rgba(215,174,74,0)); }
 
-  .tnr-hero-inner { min-height: inherit; padding: 44px 32px 0; }
+  .tnr-hero-inner { min-height: inherit; padding: 44px 32px; }
   .tnr-hero-copies { align-items: center; }
   .tnr-hero-copy { max-width: min(36rem, 42vw); }
   .tnr-hero-copy[data-align='center'] { max-width: 50rem; margin: 0 auto; align-self: end; padding-bottom: 12px; }
@@ -415,8 +355,6 @@
   .tnr-hero-text { margin-top: 20px; font-size: var(--hero-text-d, 17px); line-height: 1.65; }
   .tnr-hero-actions { margin-top: 32px; }
   .tnr-hero-btn { min-height: 54px; }
-  .tnr-hero-controls { padding: 18px 0 26px; gap: 18px; }
-  .tnr-hero-segs { max-width: 280px; }
 }
 
 /* ── Reduced motion ────────────────────────────────────────────────────────
@@ -426,7 +364,6 @@
 @media (prefers-reduced-motion: reduce) {
   .tnr-hero-kb, .tnr-hero-glow > i { animation: none; transform: none; }
   .tnr-hero-veil { animation: none; opacity: 0; }
-  .tnr-hero-seg b[data-run] { animation: none; transform: none; }
-  .tnr-hero-btn:hover, .tnr-hero-ctl:active { transform: none; }
+  .tnr-hero-btn:hover { transform: none; }
   .tnr-hero-btn--primary::after { display: none; }
 }

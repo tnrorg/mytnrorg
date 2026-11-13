@@ -1,9 +1,6 @@
 'use client';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-// The 'ArrowRight' / 'ArrowLeft' strings further down are keyboard key names;
-// these are the icons.
-import { ArrowLeft, ArrowRight, Pause, Play } from 'lucide-react';
 import Image from 'next/image';
 import HeroCtaMenu from './HeroCtaMenu';
 import { FONT, MOTION } from '@/lib/design/tokens';
@@ -11,9 +8,7 @@ import { FALLBACK_SLIDES } from '@/lib/heroSlides';
 import { parseHeroTitle, plainHeroTitle } from '@/lib/heroTitle';
 import './hero.css';
 
-/** How long a slide stays. Must match --hero-dur in hero.css, which drives the
- *  progress line — it is set from here, on the section, so the two cannot
- *  drift apart. */
+/** How long a slide stays before the next one dissolves in. */
 const DURATION = 7000;
 
 /* Admin-managed hero carousel.
@@ -81,8 +76,6 @@ const washOf = (s) => {
     : `linear-gradient(95deg,rgba(6,45,33,${Math.min(0.96, o / 80)}) 0%,rgba(6,45,33,${o / 100}) 45%,rgba(6,45,33,${o / 260}) 100%)`;
 };
 
-const pad = (n) => String(n).padStart(2, '0');
-
 export default function HeroCarousel({ initialSlides = null }) {
   /* `initialSlides` comes from the server (app/page.js), so the first slide is
    * already in the HTML and the browser can start downloading the image while
@@ -146,13 +139,11 @@ export default function HeroCarousel({ initialSlides = null }) {
     return () => window.removeEventListener('load', done);
   }, []);
 
-  /* Four separate reasons to hold the slide, kept separate so that one ending
-   * cannot cancel another — the pointer leaving the hero must not restart a
-   * carousel the visitor paused with the button. */
+  /* Three separate reasons to hold the slide, kept separate so that one
+   * ending cannot cancel another. */
   const [hover, setHover] = useState(false);     // a mouse is over it
   const [focus, setFocus] = useState(false);     // keyboard focus is inside it
   const [away, setAway] = useState(false);       // the tab is in the background
-  const [held, setHeld] = useState(false);       // the pause button
 
   useEffect(() => {
     const onVis = () => setAway(document.hidden);
@@ -163,7 +154,7 @@ export default function HeroCarousel({ initialSlides = null }) {
   /* Reduced motion switches autoplay OFF, not just the animation: a page that
      changes its own content every few seconds is motion, whatever the
      transition between the two states looks like. */
-  const running = n > 1 && loaded && !reduce && !hover && !focus && !away && !held;
+  const running = n > 1 && loaded && !reduce && !hover && !focus && !away;
 
   /* The timer resumes where it stopped.
    *
@@ -253,7 +244,7 @@ export default function HeroCarousel({ initialSlides = null }) {
     <section
       ref={rootRef}
       className="tnr-hero"
-      style={{ ...FONT, '--hero-dur': `${DURATION}ms` }}
+      style={FONT}
       aria-roledescription="carousel"
       aria-label="TNR highlights"
       /* pointerenter, not mouseenter: a tap on a phone fires mouseenter and
@@ -351,62 +342,20 @@ export default function HeroCarousel({ initialSlides = null }) {
           ))}
         </motion.div>
 
-        {/* Only worth showing for more than one slide. */}
-        {n > 1 && (
-          <motion.div className="tnr-hero-controls tnr-reveal"
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: reduce ? 0 : 1.2, ease: EASE }}>
+        {/* NO ON-SCREEN CONTROLS — removed at the owner's request, in three
+            steps: first the "02 / 04" counter and the arrow buttons, then the
+            progress lines and the pause button. The hero is picture and words
+            only.
 
-            <span className="tnr-hero-count" aria-hidden="true">
-              {pad(idx + 1)} <span>/ {pad(n)}</span>
-            </span>
-
-            <div className="tnr-hero-segs" role="group" aria-label="Choose a slide">
-              {slides.map((sl, k) => {
-                const name = plainHeroTitle(sl.title);
-                return (
-                  <button key={sl.id} type="button" className="tnr-hero-seg"
-                    onClick={() => go(k)}
-                    aria-label={`Go to slide ${k + 1}${name ? `: ${name}` : ''}`}
-                    aria-current={k === idx ? 'true' : undefined}>
-                    <i>
-                      {k === idx && (
-                        /* With autoplay off there is no time to count down, so
-                           the line is simply full. */
-                        reduce
-                          ? <b />
-                          : <b key={`${sl.id}:${pos.turn}`} data-run=""
-                              style={{ animationPlayState: running ? 'running' : 'paused' }} />
-                      )}
-                    </i>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="tnr-hero-nav">
-              {/* A way to stop it that does not depend on keeping a pointer
-                  still over the hero. Hidden when autoplay is already off. */}
-              {!reduce && (
-                <button type="button" className="tnr-hero-ctl"
-                  onClick={() => setHeld(h => !h)}
-                  aria-label={held ? 'Play slideshow' : 'Pause slideshow'}>
-                  {held
-                    ? <Play size={16} strokeWidth={2.4} aria-hidden="true" />
-                    : <Pause size={16} strokeWidth={2.4} aria-hidden="true" />}
-                </button>
-              )}
-              <button type="button" className="tnr-hero-ctl tnr-hero-ctl--step"
-                onClick={() => go(idx - 1)} aria-label="Previous slide">
-                <ArrowLeft size={18} strokeWidth={2.2} aria-hidden="true" />
-              </button>
-              <button type="button" className="tnr-hero-ctl tnr-hero-ctl--step"
-                onClick={() => go(idx + 1)} aria-label="Next slide">
-                <ArrowRight size={18} strokeWidth={2.2} aria-hidden="true" />
-              </button>
-            </div>
-          </motion.div>
-        )}
+            The carousel still advances by itself every seven seconds, and a
+            visitor can still:
+              • swipe left or right on a touch screen;
+              • press the Left / Right arrow keys while focus is inside it;
+              • hold it on a slide by resting the mouse over it, or by tabbing
+                to one of its buttons.
+            What a mouse user can no longer do is JUMP to a particular slide.
+            If that is ever wanted back, the progress lines were the lightest
+            way to offer it. */}
       </div>
 
       {/* Announced to screen readers instead of the animation. */}
