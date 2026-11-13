@@ -168,8 +168,12 @@ export default function LeadershipCard({
        reveal finishes — which would overrule the card's own tilt for good.
        So the scroll reveal lives on this wrapper and the hover lives on the
        card inside it, and neither can reach the other's transform.
-       `flex` so the card stretches to the full height of its grid row. */
-    <Frame className="flex" {...revealProps}>
+       `flex` so the card stretches to the full height of its grid row.
+       `w-full min-w-0` so it also fills its width when the parent is NOT a
+       grid. The card inside is a size container, whose natural width is zero;
+       a grid stretches this wrapper regardless, but as a flex child (the home
+       page carousel) it would otherwise shrink to nothing. */
+    <Frame className="flex w-full min-w-0" {...revealProps}>
       <div className={shell}>
 
       {/* ── The outline, drawn on hover ──

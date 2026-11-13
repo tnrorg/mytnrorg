@@ -76,6 +76,15 @@
   min-width: 0;
 }
 .tnr-cc[data-loop='true'] .tnr-cc-item { will-change: transform; }
+/* THE CARD MUST BE TOLD TO FILL ITS SLOT. The slot is a flex row, and a flex
+   child takes the width of its content unless told otherwise. The leadership
+   card's content has no width of its own: it is a size container
+   (container-type: inline-size, for its cqw type scale), and a size
+   container reports its natural width as zero. Left alone, every card in the
+   row collapses to a 20px sliver of padding with a button poking out — which
+   is exactly what the first version of this carousel shipped with. In the
+   roster grids the grid stretches the card, so the problem only exists here. */
+.tnr-cc-item > * { flex: 1 1 auto; width: 100%; min-width: 0; }
 /* The whole card opens the profile (see openProfile in the component). */
 .tnr-cc-item { cursor: pointer; }
 /* Each moving card is its own layer, and layers stack in page order — so a
