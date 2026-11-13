@@ -31,8 +31,11 @@ import { initials } from '@/content/advisoryCouncil';
 const shell = 'group relative flex flex-col rounded-[28px] bg-white p-1.5 sm:p-2.5 '
   + '[container-type:inline-size] '
   + 'shadow-[0_1px_2px_rgba(23,33,28,.05)] '
-  + 'transition-[transform,box-shadow] duration-standard ease-out '
-  + 'hover:-translate-y-[5px] hover:shadow-[0_14px_34px_-12px_rgba(10,61,44,.30)]';
+  /* The hover — lift, tilt toward the cursor, glow, deeper shadow — is the
+     shared card behaviour, `tnr-pop` (app/globals.css). `--no-edge` because
+     this card already draws its own outline, the travelling stroke below; a
+     second edge fading in on top of it would be two borders. */
+  + 'tnr-pop tnr-pop--no-edge w-full min-w-0';
 
 /* Where the face sits in the frame.
  *
@@ -137,9 +140,16 @@ export default function LeadershipCard({
   const metaLine = meta.filter(Boolean).join(' · ');
 
   return (
-    <motion.article className={shell}
+    /* TWO ELEMENTS, and the split is the point. Framer owns the `transform`
+       of whatever it animates, and leaves an inline value behind when the
+       reveal finishes — which would overrule the card's own tilt for good.
+       So the scroll reveal lives on this wrapper and the hover lives on the
+       card inside it, and neither can reach the other's transform.
+       `flex` so the card stretches to the full height of its grid row. */
+    <motion.article className="flex"
       initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
       transition={{ duration: MOTION.reveal, delay: Math.min(index * 0.04, 0.3), ease: MOTION.ease }}>
+      <div className={shell}>
 
       {/* ── The outline, drawn on hover ──
           An SVG rectangle whose stroke is dashed to exactly its own length and
@@ -312,6 +322,7 @@ export default function LeadershipCard({
             </span>
           </a>
         </div>
+      </div>
       </div>
     </motion.article>
   );

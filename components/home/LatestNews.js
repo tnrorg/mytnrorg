@@ -58,9 +58,8 @@ export default function LatestNews() {
         {/* Lead */}
         <RevealItem>
           <a href={`/media/news/${lead.slug}`}
-            className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100
-              bg-white shadow-tnr-flat transition-all duration-standard
-              hover:-translate-y-[3px] hover:shadow-tnr-raise hover:border-[rgba(23,107,73,.22)]">
+            className="tnr-pop group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100
+              bg-white shadow-tnr-flat">
             <Cover p={lead} big />
             <div className="p-6 flex flex-1 flex-col">
               <Tag c={lead.category} />
@@ -79,12 +78,11 @@ export default function LatestNews() {
           {rest.map(p => (
             <RevealItem key={p.id}>
               <a href={`/media/news/${p.slug}`}
-                className="group flex h-full gap-4 overflow-hidden rounded-2xl border border-gray-100
-                  bg-white p-4 shadow-tnr-flat transition-all duration-standard
-                  hover:-translate-y-[3px] hover:shadow-tnr-raise hover:border-[rgba(23,107,73,.22)]">
+                className="tnr-pop group flex h-full gap-4 overflow-hidden rounded-2xl border border-gray-100
+                  bg-white p-4 shadow-tnr-flat">
                 <div className="relative w-28 sm:w-32 shrink-0 aspect-[4/3] overflow-hidden rounded-xl bg-gray-100">
                   {p.cover_url ? (
-                    <Image src={p.cover_url} alt="" fill sizes="128px" className="object-cover" />
+                    <Image src={p.cover_url} alt="" fill sizes="128px" className="tnr-pop-img object-cover" />
                   ) : (
                     <div className="absolute inset-0 grid place-items-center"
                       style={{ background: `linear-gradient(140deg, ${COLORS.green700}, ${COLORS.green950})` }}>
@@ -113,7 +111,7 @@ function Cover({ p, big }) {
   if (p.cover_url) return (
     <RevealImage className={`relative ${big ? 'aspect-[16/9]' : 'aspect-[4/3]'} bg-gray-100`}>
       <Image src={p.cover_url} alt="" fill
-        sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover" />
+        sizes="(max-width: 1024px) 100vw, 50vw" className="tnr-pop-img object-cover" />
     </RevealImage>
   );
   return (

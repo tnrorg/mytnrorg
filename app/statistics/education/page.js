@@ -294,8 +294,7 @@ function InstitutionGallery({ list, onOpen }) {
         const present = teachersPresent(i);
         return (
           <button key={i.id} onClick={() => onOpen(i.id)}
-            className="text-left rounded-tnr-lg overflow-hidden bg-white shadow-tnr-flat border transition
-              hover:shadow-tnr-raise hover:-translate-y-0.5"
+            className="tnr-pop text-left rounded-tnr-lg overflow-hidden bg-white shadow-tnr-flat border"
             style={{ borderColor: 'rgba(200,154,43,.35)' }}>
             <div className="relative h-44 bg-tnr-neutral">
               {photos[0]

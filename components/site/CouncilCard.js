@@ -70,9 +70,7 @@ export default function CouncilCard({ member }) {
        and down across the row — barely noticeable on a capped preview of
        eight, obvious now the homepage shows the whole council. */
     <article style={FONT}
-      className="rounded-tnr-lg bg-white border border-gray-100 p-4 flex h-full flex-col shadow-tnr-flat
-        transition-all duration-standard hover:-translate-y-[3px] hover:shadow-tnr-raise
-        hover:border-[rgba(23,107,73,.22)]">
+      className="tnr-pop rounded-tnr-lg bg-white border border-gray-100 p-4 flex h-full flex-col shadow-tnr-flat">
       <CouncilPhoto member={member} />
 
       <h3 className="mt-4 font-black text-[15px] leading-snug text-center" style={{ color: C.deep }}>{member.name}</h3>

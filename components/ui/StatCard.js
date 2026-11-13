@@ -9,8 +9,7 @@ export default function StatCard({
   const accent = { green: COLORS.green700, deep: COLORS.green900, gold: COLORS.gold500 }[tone] || COLORS.green700;
   const loading = value === null || value === undefined;
   return (
-    <div className={`rounded-tnr-lg bg-white border border-gray-100 p-5 shadow-tnr-flat
-      transition-transform duration-standard hover:-translate-y-[3px] hover:shadow-tnr-raise ${className}`} style={FONT}>
+    <div className={`tnr-pop rounded-tnr-lg bg-white border border-gray-100 p-5 shadow-tnr-flat ${className}`} style={FONT}>
       {icon && <div className="mb-2 text-xl" aria-hidden="true" style={{ color: accent }}>{icon}</div>}
       <div className="text-3xl font-extrabold leading-none" style={{ color: accent }}>
         {loading ? <span className="text-gray-200">—</span>

@@ -142,9 +142,8 @@ export default function VirtualHall() {
         <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {MEETING_TYPES.map(t => (
             <li key={t.key}
-              className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3.5
-                shadow-tnr-flat transition-all duration-standard
-                hover:-translate-y-[2px] hover:border-[rgba(23,107,73,.22)] hover:shadow-tnr-raise">
+              className="tnr-pop tnr-pop--flat flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3.5
+                shadow-tnr-flat">
               <span className="text-xl" aria-hidden="true">{t.icon}</span>
               <span className="text-[13.5px] font-bold" style={{ color: COLORS.green900 }}>
                 {t.label}

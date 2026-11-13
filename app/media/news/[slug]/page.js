@@ -149,12 +149,12 @@ export default function NewsArticle() {
             <div className="grid sm:grid-cols-3 gap-6">
               {more.map(n => (
                 <a key={n.id} href={`/media/news/${n.slug}`}
-                  className="group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white
-                    shadow-tnr-flat transition-all duration-standard hover:-translate-y-[3px] hover:shadow-tnr-raise">
-                  <div className="relative aspect-[16/9] bg-gray-100">
+                  className="tnr-pop group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white
+                    shadow-tnr-flat">
+                  <div className="relative aspect-[16/9] overflow-hidden bg-gray-100">
                     {n.cover_url ? (
                       <Image src={n.cover_url} alt="" fill sizes="(max-width: 640px) 100vw, 33vw"
-                        className="object-cover" />
+                        className="tnr-pop-img object-cover" />
                     ) : (
                       <div className="absolute inset-0 grid place-items-center"
                         style={{ background: `linear-gradient(140deg, ${COLORS.green700}, ${COLORS.green950})` }}>

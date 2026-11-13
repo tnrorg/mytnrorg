@@ -3,6 +3,7 @@ import { Mulish, Noto_Nastaliq_Urdu } from 'next/font/google';
 import BackToTop from '@/components/site/BackToTop';
 import VisitTracker from '@/components/site/VisitTracker';
 import SmoothScroll from '@/components/site/SmoothScroll';
+import CardFx from '@/components/site/CardFx';
 import MotionProvider from '@/components/site/MotionProvider';
 
 const mulish = Mulish({
@@ -125,6 +126,8 @@ export default function RootLayout({ children }) {
         <VisitTracker />
         {/* Eases mouse-wheel scrolling. Renders nothing; safe to delete. */}
         <SmoothScroll />
+        {/* Tells hovered cards where the cursor is — see the file. */}
+        <CardFx />
       </body>
     </html>
   );

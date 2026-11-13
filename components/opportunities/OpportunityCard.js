@@ -25,8 +25,8 @@ export default function OpportunityCard({ o, onView, ctaLabel = 'View Details', 
 
   return (
     <article className={`group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100
-      bg-white shadow-tnr-flat transition-all duration-standard
-      ${closed ? 'opacity-75' : 'hover:-translate-y-[3px] hover:shadow-tnr-raise hover:border-[rgba(23,107,73,.22)]'}`}>
+      bg-white shadow-tnr-flat
+      ${closed ? 'opacity-75' : 'tnr-pop'}`}>
 
       <div className="relative aspect-[16/9] bg-gray-100">
         {o.cover_url ? (

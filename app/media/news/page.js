@@ -105,9 +105,8 @@ export default function NewsIndex() {
         {/* ── Lead story ── */}
         {lead && (
           <a href={`/media/news/${lead.slug}`}
-            className="group block overflow-hidden rounded-3xl border border-gray-100 bg-white
-              shadow-tnr-flat transition-all duration-standard hover:shadow-tnr-raise
-              hover:border-[rgba(23,107,73,.22)]">
+            className="tnr-pop tnr-pop--flat group block overflow-hidden rounded-3xl border border-gray-100 bg-white
+              shadow-tnr-flat">
             <div className="grid md:grid-cols-2">
               <div className="relative aspect-[16/10] md:aspect-auto md:min-h-[340px] bg-gray-100">
                 {lead.cover_url ? (
@@ -153,14 +152,13 @@ export default function NewsIndex() {
           <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {rest.map(p => (
               <a key={p.id} href={`/media/news/${p.slug}`}
-                className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100
-                  bg-white shadow-tnr-flat transition-all duration-standard
-                  hover:-translate-y-[3px] hover:shadow-tnr-raise hover:border-[rgba(23,107,73,.22)]">
-                <div className="relative aspect-[16/9] bg-gray-100">
+                className="tnr-pop group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100
+                  bg-white shadow-tnr-flat">
+                <div className="relative aspect-[16/9] overflow-hidden bg-gray-100">
                   {p.cover_url ? (
                     <Image src={p.cover_url} alt="" fill
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                      className="object-cover" />
+                      className="tnr-pop-img object-cover" />
                   ) : (
                     <div className="absolute inset-0 grid place-items-center"
                       style={{ background: `linear-gradient(140deg, ${COLORS.green700}, ${COLORS.green950})` }}>

@@ -82,15 +82,14 @@ export default function OpinionsIndex() {
           <div className="grid sm:grid-cols-2 gap-6">
             {rows.map(o => (
               <article key={o.id}
-                className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100
-                  bg-white shadow-tnr-flat transition-all duration-standard
-                  hover:-translate-y-[3px] hover:shadow-tnr-raise hover:border-[rgba(23,107,73,.22)]">
+                className="tnr-pop group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100
+                  bg-white shadow-tnr-flat">
                 <a href={`/media/opinions/${o.slug}`} className="block">
                   {o.published_cover ? (
-                    <div className="relative aspect-[16/9] bg-gray-100">
+                    <div className="relative aspect-[16/9] overflow-hidden bg-gray-100">
                       <Image src={o.published_cover} alt="" fill
                         sizes="(max-width: 640px) 100vw, 50vw"
-                        className="object-cover" />
+                        className="tnr-pop-img object-cover" />
                     </div>
                   ) : (
                     <div className="aspect-[16/9] grid place-items-center"

@@ -37,11 +37,13 @@ export default function CoreAreas() {
                 have a hover state at all — every colour here has to be a class
                 for `group-hover` to reach it. */}
             <a href={href}
-              className="tnr-glass tnr-sheen tnr-lift
+              className="tnr-glass tnr-sheen tnr-pop
                 group h-full flex flex-col rounded-tnr-lg p-6
-                transition-colors duration-standard
                 hover:bg-[#0F5138] hover:border-[#0F5138]">
-              <span className="w-11 h-11 rounded-tnr grid place-items-center transition-colors duration-standard
+              {/* tnr-pop-icon: the tile grows and tips as the card is hovered.
+                  The card's own lift, tilt, glow and edge come from tnr-pop
+                  (app/globals.css), which also times the colour change. */}
+              <span className="tnr-pop-icon w-11 h-11 rounded-tnr grid place-items-center
                 bg-[rgba(23,107,73,.09)] text-[#176B49]
                 group-hover:bg-white/15 group-hover:text-[#F8FAF8]">
                 {/* lucide strokes with currentColor, so the icon follows the

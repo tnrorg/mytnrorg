@@ -37,8 +37,8 @@ function MemberCard({ m }) {
   // the baseline across a row — without it, cards with no organisation line
   // end with the button floating higher than its neighbours.
   return (
-    <div className="tnr-ring-gold tnr-lift group relative flex h-full flex-col rounded-2xl bg-white p-5 text-center
-      border border-[rgba(200,154,43,.35)] shadow-tnr-flat transition-colors duration-standard
+    <div className="tnr-ring-gold tnr-pop group relative flex h-full flex-col rounded-2xl bg-white p-5 text-center
+      border border-[rgba(200,154,43,.35)] shadow-tnr-flat
       hover:border-[rgba(200,154,43,.75)]">
       {/* Faint green wash behind the portrait — gives the circle something to
           sit on so it does not float on flat white. */}

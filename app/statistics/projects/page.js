@@ -303,8 +303,7 @@ function ProjectGallery({ projects, cur, onOpen }) {
         const tone = STATUS_TONE[p.status] || {};
         return (
           <button key={p.id} onClick={() => onOpen(p.id)}
-            className="text-left rounded-tnr-lg overflow-hidden bg-white shadow-tnr-flat border transition
-              hover:shadow-tnr-raise hover:-translate-y-0.5"
+            className="tnr-pop text-left rounded-tnr-lg overflow-hidden bg-white shadow-tnr-flat border"
             style={{ borderColor: 'rgba(200,154,43,.35)' }}>
             <div className="relative h-44 bg-tnr-neutral">
               {photos[0]
