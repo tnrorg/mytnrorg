@@ -50,6 +50,9 @@ const shell = 'group relative flex flex-col rounded-[28px] bg-white p-1.5 sm:p-2
  * say. The field is optional and nothing breaks when it is absent. */
 const FOCUS_DEFAULT = '50% 20%';
 
+/* The roster grids: two across up to md, three to xl, four above. */
+const GRID_SIZES = '(max-width: 767px) 50vw, (max-width: 1279px) 33vw, 25vw';
+
 /* ── The name plate ───────────────────────────────────────────────────────────
  *
  * Near-clear glass with a hairline, floating on the gradient. Centred: the
@@ -136,8 +139,28 @@ export default function LeadershipCard({
   photoUrl, photoPosition, monogram,
   meta = [], metaFlagCode = '',
   href, cta = 'View profile', verified = true,
+  /* Three switches for a caller that lays the cards out differently from the
+     roster grids — today, the home page's moving Advisory Council row.
+
+     `reveal`     false skips this card's own fade-in. A card that slides in
+                  from the edge of a carousel must arrive solid, not ghosting
+                  up from nothing as it crosses the line.
+     `imageSizes` the card's real width at each breakpoint. The default below
+                  describes the grids (2, 3 then 4 across); a carousel showing
+                  1¼ cards on a phone is much wider than half the screen, and
+                  the wrong hint fetches a portrait too small for it.
+     `eager`      load the portrait now rather than when it scrolls into view.
+                  Lazy loading waits until an image is nearly visible, and a
+                  card clipped just outside a carousel is not — so it would
+                  arrive on screen as an empty frame. */
+  reveal = true, imageSizes = GRID_SIZES, eager = false,
 }) {
   const metaLine = meta.filter(Boolean).join(' · ');
+  const Frame = reveal ? motion.article : 'article';
+  const revealProps = reveal ? {
+    initial: { opacity: 0, y: 14 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true },
+    transition: { duration: MOTION.reveal, delay: Math.min(index * 0.04, 0.3), ease: MOTION.ease },
+  } : {};
 
   return (
     /* TWO ELEMENTS, and the split is the point. Framer owns the `transform`
@@ -146,9 +169,7 @@ export default function LeadershipCard({
        So the scroll reveal lives on this wrapper and the hover lives on the
        card inside it, and neither can reach the other's transform.
        `flex` so the card stretches to the full height of its grid row. */
-    <motion.article className="flex"
-      initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-      transition={{ duration: MOTION.reveal, delay: Math.min(index * 0.04, 0.3), ease: MOTION.ease }}>
+    <Frame className="flex" {...revealProps}>
       <div className={shell}>
 
       {/* ── The outline, drawn on hover ──
@@ -172,9 +193,13 @@ export default function LeadershipCard({
         </defs>
         <rect x="0" y="0" width="100%" height="100%" rx="27" ry="27" fill="none"
           stroke={`url(#tnr-outline-${slug})`} strokeWidth="2" pathLength="100"
-          className="[stroke-dasharray:100] [stroke-dashoffset:100]
-            transition-[stroke-dashoffset] duration-[900ms] ease-out
-            group-hover:[stroke-dashoffset:0]" />
+          /* Invisible at rest as well as retracted. An offset of exactly one
+             lap should hide the whole stroke, but the lap is measured in
+             rounded pixels, and on some card widths a sliver of it was left
+             showing — a stray tick above the card's corner. */
+          className="opacity-0 [stroke-dasharray:100] [stroke-dashoffset:100]
+            transition-[stroke-dashoffset,opacity] duration-[900ms] ease-out
+            group-hover:opacity-100 group-hover:[stroke-dashoffset:0]" />
       </svg>
 
       {/* ── Portrait ──
@@ -190,7 +215,9 @@ export default function LeadershipCard({
                a 1440px portrait for a card that renders at 165px on a phone.
                A `sizes` that disagrees with the grid is worse than none — it
                confidently fetches the wrong file. */
-            sizes="(max-width: 767px) 50vw, (max-width: 1279px) 33vw, 25vw"
+            sizes={imageSizes}
+            loading={eager ? 'eager' : undefined}
+            draggable={false}
             /* 1.2s, not 250ms. A slow, long zoom is most of why the reference
                feels expensive — a quick snap reads as a hover state, a drift
                reads as the photograph being alive. */
@@ -324,6 +351,6 @@ export default function LeadershipCard({
         </div>
       </div>
       </div>
-    </motion.article>
+    </Frame>
   );
 }

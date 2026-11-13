@@ -16,7 +16,7 @@ import LeadershipCard from '@/components/leadership/LeadershipCard';
  * What stays in this file is what is particular to the council roster: the
  * search box, the three filters, and the mapping from a council record to the
  * card's props. */
-function Card({ m, i, bodyLabel }) {
+export function CouncilRosterCard({ m, i, bodyLabel = 'Advisory Council', showProfession = false, card }) {
   /* "Sartaj  Ahmed, PhD" is typed with two spaces in the record. Harmless in
      a two-line clamp, but on one truncated line it spends a character of a
      very tight budget on nothing. Collapsed for display only — the stored
@@ -31,16 +31,29 @@ function Card({ m, i, bodyLabel }) {
    * and when someone holds an office it is that one. */
   const role = m.designation || m.profession || academicTitle(m.qualification, m.field);
 
+  /* `showProfession` — when the member holds an office, the plate says
+     "Convener" and their profession would otherwise not appear on the card at
+     all. With this on, it leads the line under the portrait instead, so the
+     card carries both the role in TNR and the work they do. Nothing is added
+     when there is no office: the profession is already on the plate, and
+     printing it twice would crowd out the employer. */
+  const office = String(m.designation || '').trim();
+  const meta = showProfession && office && m.profession && m.profession !== office
+    ? [m.profession, m.organisation || m.affiliation]
+    : [m.organisation || m.affiliation, m.country];
+
   return (
     <LeadershipCard
       index={i} slug={m.slug} bodyLabel={bodyLabel}
       name={name} role={role}
       photoUrl={m.photo_url} photoPosition={m.photo_position}
-      meta={[m.organisation || m.affiliation, m.country]}
+      meta={meta}
       href={`/council/${m.slug}`}
+      {...card}
     />
   );
 }
+const Card = CouncilRosterCard;
 
 /** Council roster with search and filters. `limit` renders a homepage preview. */
 /**

@@ -1,6 +1,6 @@
 'use client';
 import { ArrowRight } from 'lucide-react';
-import CouncilDirectory from '@/components/council/CouncilDirectory';
+import CouncilCarousel from '@/components/council/CouncilCarousel';
 import { SectionHeading, Reveal } from '@/components/ui';
 import { COLORS, FONT } from '@/lib/design/tokens';
 
@@ -29,13 +29,13 @@ export default function CouncilSection() {
       {/* Slight delay so the heading settles before the cards arrive, rather
           than the whole block appearing at once. */}
       <Reveal className="mt-10" delay={0.08}>
-        {/* Every advisory member, not a preview.
-            This was capped at 8 — two desktop rows — which quietly hid anyone
-            beyond the eighth. On a page whose purpose is to show who guides
-            TNR, a member being invisible because of their sort order is the
-            wrong trade for a shorter page. The endpoint returns the advisory
-            body only, so there is no risk of other roles appearing here. */}
-        <CouncilDirectory showFilters={false} />
+        {/* Every advisory member, as one slowly moving row — not a preview and
+            not a grid. Nobody is left out by their sort order: the row loops,
+            so each member passes through the window in turn. The full roster
+            with search and filters is one click away on "View Full Council".
+            Same endpoint as that page, which returns the advisory body only,
+            so no other role can appear here. */}
+        <CouncilCarousel />
       </Reveal>
     </section>
   );

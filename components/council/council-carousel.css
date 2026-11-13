@@ -1,0 +1,119 @@
+/* ── Advisory Council carousel ───────────────────────────────────────────────
+ *
+ * Layout only. The movement is done in CouncilCarousel.js, which shifts each
+ * card with a transform; nothing here animates the row.
+ *
+ * HOW MANY CARDS ARE ON SCREEN is one number, --cc-per, changed per
+ * breakpoint. A card's width follows from it:
+ *
+ *     (row width − the gaps between the visible cards) ÷ cards visible
+ *
+ * A fractional count is what leaves part of the next card showing: 1.25 on a
+ * phone puts one whole card and a quarter of the next in view, which says
+ * "there is more, swipe" without an instruction.
+ */
+.tnr-cc {
+  --cc-per: 1.25;
+  --cc-gap: 12px;
+  --cc-fade: 20px;
+  /* Room for a hovered card to rise and for its shadow to fall. The window is
+     clipped (it has to be — the cards run off both sides), and without this
+     the lifted card would be cut flat along the top and its shadow along the
+     bottom. The matching negative margins give the space back, so the section
+     is no taller for it. */
+  --cc-rise: 18px;
+  --cc-drop: 46px;
+  position: relative;
+}
+@media (min-width: 640px)  { .tnr-cc { --cc-per: 2.3; --cc-gap: 20px; --cc-fade: 40px; } }
+@media (min-width: 768px)  { .tnr-cc { --cc-per: 3; } }
+@media (min-width: 1280px) { .tnr-cc { --cc-per: 4; --cc-fade: 56px; } }
+
+.tnr-cc-view {
+  overflow: hidden;
+  padding: var(--cc-rise) 0 var(--cc-drop);
+  margin: calc(var(--cc-rise) * -1) 0 calc(var(--cc-drop) * -1);
+  /* Vertical movement stays the browser's: a thumb scrolling the page across
+     the cards scrolls the page. Only sideways movement is ours. */
+  touch-action: pan-y;
+}
+/* On a phone the row runs to both edges of the screen rather than stopping at
+   the page margin, so the card peeking in is cut by the screen, not by an
+   invisible line 16px short of it. */
+@media (max-width: 639px) {
+  .tnr-cc-view { margin-left: -1rem; margin-right: -1rem; }
+}
+
+/* Cards dissolve at the two edges instead of being sliced. Only when the row
+   is actually moving — a short, still row has nothing leaving the edges, and
+   a fade there would just dim the first and last card. */
+.tnr-cc[data-loop='true'] .tnr-cc-view {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--cc-fade),
+    #000 calc(100% - var(--cc-fade)), transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0, #000 var(--cc-fade),
+    #000 calc(100% - var(--cc-fade)), transparent 100%);
+}
+
+.tnr-cc-track {
+  display: flex;
+  gap: var(--cc-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tnr-cc[data-loop='true'] .tnr-cc-track { cursor: grab; }
+.tnr-cc[data-dragging='true'] .tnr-cc-view { cursor: grabbing; }
+/* While a drag is in progress nothing underneath should react to it: no text
+   selection, and no card lighting up as it is pulled past the pointer. */
+.tnr-cc[data-dragging='true'] .tnr-cc-track,
+.tnr-cc[data-dragging='true'] .tnr-cc-track * { user-select: none; -webkit-user-select: none; }
+.tnr-cc[data-dragging='true'] .tnr-cc-item { pointer-events: none; }
+
+.tnr-cc-item {
+  position: relative;
+  display: flex;
+  flex: 0 0 calc((100% - (var(--cc-per) - 1) * var(--cc-gap)) / var(--cc-per));
+  min-width: 0;
+}
+.tnr-cc[data-loop='true'] .tnr-cc-item { will-change: transform; }
+/* The whole card opens the profile (see openProfile in the component). */
+.tnr-cc-item { cursor: pointer; }
+/* Each moving card is its own layer, and layers stack in page order — so a
+   hovered card's enlarged edge would slide UNDER its right-hand neighbour.
+   Raising the hovered one keeps it on top of both. */
+.tnr-cc-item:hover,
+.tnr-cc-item:focus-within { z-index: 2; }
+
+/* A short row that does not need to move sits centred. */
+.tnr-cc[data-loop='false'] .tnr-cc-track { justify-content: center; }
+
+/* ── The line under the row ──
+   `position` + `z-index` are load-bearing. The window above reaches down over
+   this line (its bottom padding is the room for card shadows), and because
+   it is masked it paints above ordinary content. */
+.tnr-cc-hint {
+  position: relative;
+  z-index: 1;
+  margin-top: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #647169;
+}
+
+/* Placeholder cards, the same proportions as the real ones, so the page does
+   not jump when the roster arrives. */
+.tnr-cc-ghost {
+  width: 100%;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid #f1f3f2;
+  padding: 10px;
+}
+.tnr-cc-ghost i { display: block; border-radius: 22px; background: #eef2f0; }
+.tnr-cc-ghost i:first-child { aspect-ratio: 4 / 5; }
+.tnr-cc-ghost i:last-child { height: 34px; margin-top: 34px; border-radius: 999px; }
+@media (prefers-reduced-motion: no-preference) {
+  .tnr-cc-ghost { animation: tnr-cc-pulse 1.6s ease-in-out infinite; }
+}
+@keyframes tnr-cc-pulse { 50% { opacity: 0.55; } }
