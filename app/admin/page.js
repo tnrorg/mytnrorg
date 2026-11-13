@@ -12,6 +12,7 @@ import ProfileRequestsTab from '@/components/admin/ProfileRequestsTab';
 import MembersDirectoryTab from '@/components/admin/MembersDirectoryTab';
 import DuplicatesTab from '@/components/admin/DuplicatesTab';
 import UniversityAmbassadorsTab from '@/components/admin/UniversityAmbassadorsTab';
+import SearchAnalyticsTab from '@/components/admin/SearchAnalyticsTab';
 import CandidatesTab from '@/components/admin/CandidatesTab';
 import ElectionsTab from '@/components/admin/ElectionsTab';
 import RecordsTab from '@/components/admin/RecordsTab';
@@ -71,6 +72,7 @@ const TOP_TABS = [
   ['opportunities', 'Opportunities', '💼', 'opportunities'],
   ['meetings', 'TNR Meetings', '🎥', 'meetings'],
   ['analytics', 'Progress Analytics', '📈', 'analytics'],
+  ['search-analytics', 'Search Analytics', '🔎', 'analytics'],
   ['news', 'News & Announcements', '📰', 'content'],
   ['announcements', 'Ticker Notices', '📢', 'content'],
   ['branding', 'Branding', '✉️', 'content'],
@@ -329,6 +331,7 @@ export default function Admin() {
       {view === 'mmembers' && <MembersDirectoryTab toast={toast} />}
       {view === 'mduplicates' && <DuplicatesTab toast={toast} />}
       {view === 'muniamb' && <UniversityAmbassadorsTab toast={toast} />}
+      {view === 'search-analytics' && <SearchAnalyticsTab />}
       {view === 'mcard' && <CardTemplateTab toast={toast} />}
       {view === 'mcert' && <CertificateTemplateTab toast={toast} />}
       {view === 'mareas' && <AreasTab toast={toast} />}

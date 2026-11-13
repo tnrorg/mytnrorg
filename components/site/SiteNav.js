@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { NAV } from './navConfig';
 import { HEADER_DEFAULTS, SOCIALS, normaliseUrl } from '@/lib/siteHeader';
 import AccountMenu from './AccountMenu';
+import SearchOverlay from '@/components/search/SearchOverlay';
 
 /* ── TNR header ───────────────────────────────────────────────────────────────
  *
@@ -93,7 +94,15 @@ export default function SiteNav() {
     const close = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(null);
     };
-    const onKey = (e) => { if (e.key === 'Escape') { setOpen(null); setMobile(false); } };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { setOpen(null); setMobile(false); setSearch(false); }
+      /* Ctrl+K / Cmd+K opens search from anywhere on the page. preventDefault
+         because browsers bind the same keys to their own address-bar search. */
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setOpen(null); setMobile(false); setSearch(true);
+      }
+    };
     document.addEventListener('click', close);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -249,10 +258,11 @@ export default function SiteNav() {
 
         {/* Right side */}
         <div className="ml-auto flex items-center gap-1.5">
-          <button onClick={() => setSearch(s => !s)} aria-label="Search TNR"
-            aria-expanded={search}
-            className="hidden h-9 w-9 place-items-center rounded-full text-white/70
-              transition-colors duration-micro hover:bg-white/10 hover:text-white xl:grid">
+          <button type="button" onClick={() => { setMobile(false); setSearch(true); }}
+            aria-label="Search TNR" aria-haspopup="dialog" aria-expanded={search}
+            title="Search (Ctrl+K)"
+            className="grid h-10 w-10 place-items-center rounded-full text-white/80
+              transition-colors duration-micro hover:bg-white/10 hover:text-white xl:h-9 xl:w-9">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
               <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
@@ -273,18 +283,11 @@ export default function SiteNav() {
         </div>
       </header>
 
-      {/* Search, as its own floating panel under the capsule so the capsule
-          keeps its shape instead of growing a square tail. */}
-      {search && (
-        <div className="pointer-events-auto mx-auto mt-2 max-w-[1400px] rounded-2xl border border-gray-100
-          bg-white p-3 shadow-2xl">
-          <input autoFocus placeholder="Search TNR — members, scholarships, jobs, news…"
-            aria-label="Search TNR"
-            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none
-              focus:border-[#0B6B4F]" />
-        </div>
-      )}
     </div>
+
+    {/* Global search. Portalled to <body> by the component itself, so it is
+        not trapped inside the sticky capsule's stacking context. */}
+    <SearchOverlay open={search} onClose={() => setSearch(false)} />
 
     {/* Mobile menu.
         Covers the whole viewport and carries its own header row. It used to be
