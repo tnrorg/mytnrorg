@@ -208,17 +208,20 @@ export default function DuplicatesTab({ toast }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  /* aGet/aPost/aPatch never throw — they resolve to { ok: false, message } on
+     failure. Every call below checks `ok`; without that, a failed save showed
+     "Review saved." and a missing migration showed an empty queue. */
   const load = useCallback(async () => {
     setLoading(true); setErr('');
-    try {
-      const r = await aGet(`/api/admin/duplicates?status=${tab}`);
+    const r = await aGet(`/api/admin/duplicates?status=${tab}`);
+    if (r?.ok) {
       setFlags(r.flags || []);
       setCounts(r.counts || {});
-    } catch (e) {
-      setErr(e?.message || 'Could not load the queue.');
-    } finally {
-      setLoading(false);
+    } else {
+      setFlags([]);
+      setErr([r?.message || 'Could not load the queue.', r?.hint].filter(Boolean).join(' '));
     }
+    setLoading(false);
   }, [tab]);
 
   useEffect(() => { load(); }, [load]);
@@ -229,28 +232,20 @@ export default function DuplicatesTab({ toast }) {
       return;
     }
     setBusy(true);
-    try {
-      await aPatch('/api/admin/duplicates', { id, review_status, note });
-      toast?.('Review saved.');
-      await load();
-    } catch (e) {
-      toast?.(e?.message || 'Could not save the review.', 'error');
-    } finally {
-      setBusy(false);
-    }
+    const r = await aPatch('/api/admin/duplicates', { id, review_status, note });
+    setBusy(false);
+    if (!r?.ok) { toast?.(r?.message || 'Could not save the review.', 'error'); return; }
+    toast?.('Review saved.');
+    await load();
   }
 
   async function rescan() {
     setBusy(true);
-    try {
-      const r = await aPost('/api/admin/duplicates', { rescan: true });
-      toast?.(`Checked ${r.scanned} application${r.scanned === 1 ? '' : 's'}, ${r.flagged} flagged.`);
-      await load();
-    } catch (e) {
-      toast?.(e?.message || 'Rescan failed.', 'error');
-    } finally {
-      setBusy(false);
-    }
+    const r = await aPost('/api/admin/duplicates', { rescan: true });
+    setBusy(false);
+    if (!r?.ok) { toast?.(r?.message || 'Rescan failed.', 'error'); return; }
+    toast?.(`Checked ${r.scanned} application${r.scanned === 1 ? '' : 's'}, ${r.flagged} flagged.`);
+    await load();
   }
 
   return (

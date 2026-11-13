@@ -21,12 +21,26 @@ async function req(method, url, body) {
     return { ok: false, error: 'NETWORK', message: 'Could not reach the server. Check your connection and try again.' };
   }
 
-  if (res.status === 401 || res.status === 403) {
+  const data = await res.json().catch(() => null);
+
+  /* Sign the member out only when the SESSION is the problem.
+   *
+   * This used to fire on every 401 and every 403. But 403 also means "you are
+   * signed in, and this particular thing is not yours" — Executive
+   * Applications for a non-reviewer, an interview panel you are not on, a
+   * University Ambassador page before you are assigned. Each of those threw the
+   * member out to the login page, with their own perfectly valid session
+   * destroyed, instead of showing them the message the server had written.
+   *
+   * requireMember answers 401 for a missing, invalid or expired session, and
+   * 403 ACCOUNT_BLOCKED for a suspended membership. Those two end the session.
+   * Every other 403 is a permission answer and is returned to the page. */
+  const sessionDead = res.status === 401
+    || (res.status === 403 && data?.error === 'ACCOUNT_BLOCKED');
+  if (sessionDead) {
     clearToken();
     if (typeof window !== 'undefined' && !url.includes('/login')) window.location.href = '/member/login';
   }
-
-  const data = await res.json().catch(() => null);
 
   /* A non-JSON body means the request never reached our code — the platform
    * rejected it first. This used to return `{}`, which has no `ok` and no

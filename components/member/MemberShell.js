@@ -71,6 +71,12 @@ export const ROLE_NAV = {
   uc_team: [
     ['My UC Team', '/member/uc-team', '📍'],
   ],
+  /* The link is shown by role; what the page shows is decided by assignment.
+   * An ambassador not yet assigned to a university sees a message saying so
+   * rather than an empty list — the server checks both, every request. */
+  university_ambassador: [
+    ['My University', '/member/university', '🏛️'],
+  ],
 };
 
 /* Takes the whole member, not just the role.
